@@ -7,6 +7,7 @@ import numpy as np
 import skfmm
 
 def run(data, params, mask=None):
+
     debug = True
     vmin = params['win_level'] - params['win_width'] / 2
     vmax = params['win_level'] + params['win_width'] / 2
@@ -15,15 +16,14 @@ def run(data, params, mask=None):
         mask = np.ones(data.shape, dtype=np.bool)
 
     mode = tools.get_hist_mode(data, mask)
+    print 'histogram mode = %i' % mode
 
     hypo_init = initial_region_hypo(data, mask, mode)
     hyper_init = initial_region_hyper(data, mask, mode)
     speed_hypo = speed_function_hypo(data, mask, mode, params['fat_int'], params['hypo_int'], params['alpha'], params['speed_hypo_denom'])
-    speed_hyper = speed_function_hypo(data, mask, mode, params['min_speed'], params['high_int_const'], params['alpha'], params['speed_hypo_denom'])
+    speed_hyper = speed_function_hyper(data, mask, mode, params['min_speed'], params['high_int_const'], params['alpha'], params['speed_hypo_denom'])
 
     slice_idx = 14
-
-
 
     plt.figure()
     plt.subplot(231), plt.imshow(data[slice_idx,:,:], 'gray', vmin=vmin, vmax=vmax)
@@ -36,7 +36,7 @@ def run(data, params, mask=None):
 
 def speed_function_hyper(data, mask, mode, min_speed, high_int_const, alpha, denom):
     speed_lower = np.where(data <= mode, 1, 0)
-    speed_higher = np.where(data > mode, 1 - alpha * (data - mode) / denom)
+    speed_higher = np.where(data > mode, 1 - alpha * (data - mode) / denom, 0)
     speed_signif_higher = np.where(data > mode + high_int_const, 0.2, 0)
 
     speed = speed_lower + speed_higher + speed_signif_higher
@@ -67,9 +67,9 @@ def initial_region_hyper(data, mask, mode):
 
 
 def initial_region_hypo(data, mask, mode, slice_axis=0):
-    selem_size = 5
+    selem_size = 3
     region = np.where(data >= mode, True, False)
-    border = tools.eroding3D(data, selem_size=selem_size)
+    border = mask - tools.eroding3D(mask, selem_size=selem_size)
     # if len(data.shape) == 3:
     #     border = tools.eroding3D(data, selem_size=selem_size)
     # else:

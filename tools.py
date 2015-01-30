@@ -676,7 +676,7 @@ def get_hist_mode(im, mask=None, debug=False):
     hist, bins = skiexp.histogram(data)
     max_peak_idx = hist.argmax()
 
-    mode = hist[max_peak_idx]
+    mode = bins[max_peak_idx]
 
     if debug:
         plt.figure()
@@ -684,7 +684,7 @@ def get_hist_mode(im, mask=None, debug=False):
         plt.hold(True)
 
         plt.plot(bins[max_peak_idx], hist[max_peak_idx], 'ro')
-        plt.title('Histogram of input data with marked mode.')
+        plt.title('Histogram of input data with marked mode = %i' % mode)
         plt.show()
 
     return mode
