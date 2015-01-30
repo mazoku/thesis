@@ -25,13 +25,13 @@ def run(data, params, mask=None):
 
 
 
-    # plt.figure()
-    # plt.subplot(231), plt.imshow(data[slice_idx,:,:], 'gray', vmin=vmin, vmax=vmax)
-    # plt.subplot(232), plt.imshow(hypo_init[slice_idx,:,:], 'gray'), plt.title('hypo initial')
-    # plt.subplot(235), plt.imshow(hyper_init[slice_idx,:,:], 'gray'), plt.title('hyper initial')
-    # plt.subplot(233), plt.imshow(speed_hypo[slice_idx,:,:], 'gray'), plt.title('speed hypo')
-    # plt.subplot(236), plt.imshow(speed_hyper[slice_idx,:,:], 'gray'), plt.title('speed hyper')
-    # plt.show()
+    plt.figure()
+    plt.subplot(231), plt.imshow(data[slice_idx,:,:], 'gray', vmin=vmin, vmax=vmax)
+    plt.subplot(232), plt.imshow(hypo_init[slice_idx,:,:], 'gray'), plt.title('hypo initial')
+    plt.subplot(235), plt.imshow(hyper_init[slice_idx,:,:], 'gray'), plt.title('hyper initial')
+    plt.subplot(233), plt.imshow(speed_hypo[slice_idx,:,:], 'gray'), plt.title('speed hypo')#, plt.colorbar()
+    plt.subplot(236), plt.imshow(speed_hyper[slice_idx,:,:], 'gray'), plt.title('speed hyper')#, plt.colorbar()
+    plt.show()
 
 
 def speed_function_hyper(data, mask, mode, min_speed, high_int_const, alpha, denom):
