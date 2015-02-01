@@ -5,8 +5,11 @@ import tools
 import matplotlib.pyplot as plt
 import numpy as np
 import skfmm
+import skimage.restoration as skires
+import skimage.filter as skifil
+import skimage.exposure as skiexp
 
-def run(data, params, mask=None):
+def run(data, params, mask=None, weight=0.0001):
 
     debug = True
     vmin = params['win_level'] - params['win_width'] / 2
@@ -14,6 +17,31 @@ def run(data, params, mask=None):
 
     if mask is None:
         mask = np.ones(data.shape, dtype=np.bool)
+
+    # print 'min = %i, max = %i' % (data.min(), data.max())
+    # weight = 0.001
+    # sigma_range = 0.05
+    # sigma_spatial = 15
+    # win_size = 10
+    # x = data[14,:,:]
+    # x_min = x.min()
+    # x_max = x.max()
+    # y = skires.denoise_tv_chambolle(x, weight=weight, multichannel=False)
+    # y = skiexp.rescale_intensity(y, (y.min(), y.max()), (x_min, x_max)).astype(x.dtype)
+    # # y = skires.denoise_bilateral(x, win_size=win_size, sigma_range=sigma_range, sigma_spatial=sigma_spatial)
+    # # y = skifil.gaussian_filter(x, sigma=0.1)
+    # print 'min = %.2f, max = %.2f' % (y.min(), y.max())
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(x, 'gray', interpolation='nearest')
+    # plt.subplot(122), plt.imshow(y, 'gray', interpolation='nearest')
+    # plt.show()
+    #
+    # data_s = np.zeros(data)
+    # for idx in range(data.shape[0]):
+    #         data_s[idx, :, :] = skires.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=False)
+    # print 'min = %i, max = %i' % (data_s.min(), data_s.max())
+
+    # data = tools.smoothing_float_tv(data, weight=weight, sliceId=0)
 
     mode = tools.get_hist_mode(data, mask)
     print 'histogram mode = %i' % mode

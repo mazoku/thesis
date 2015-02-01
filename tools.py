@@ -14,6 +14,7 @@ import skimage.transform as skitra
 import skimage.filter as skifil
 # import skimage.restoration as skires
 import skimage.filter as skifil
+import skimage.restoration as skires
 import skimage.segmentation as skiseg
 import scipy.stats as scista
 import scipy.ndimage.morphology as scindimor
@@ -260,17 +261,17 @@ def smoothing_tv(data, weight=0.1, pseudo_3D=True, multichannel=False, sliceId=2
     if data.ndim == 3 and pseudo_3D:
         if sliceId == 2:
             for idx in range(data.shape[2]):
-                temp = skifil.denoise_tv_chambolle(data[:, :, idx], weight=weight, multichannel=multichannel)
-                # temp = skires.denoise_tv_chambolle(data[:, :, idx], weight=weight, multichannel=multichannel)
+                # temp = skifil.denoise_tv_chambolle(data[:, :, idx], weight=weight, multichannel=multichannel)
+                temp = skires.denoise_tv_chambolle(data[:, :, idx], weight=weight, multichannel=multichannel)
                 data[:, :, idx] = (255 * temp).astype(np.uint8)
         elif sliceId == 0:
             for idx in range(data.shape[0]):
-                temp = skifil.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=multichannel)
-                # temp = skires.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=multichannel)
+                # temp = skifil.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=multichannel)
+                temp = skires.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=multichannel)
                 data[idx, :, :] = (255 * temp).astype(np.uint8)
     else:
-        data = skifil.denoise_tv_chambolle(data, weight=weight, multichannel=False)
-        # data = skires.denoise_tv_chambolle(data, weight=weight, multichannel=False)
+        # data = skifil.denoise_tv_chambolle(data, weight=weight, multichannel=False)
+        data = skires.denoise_tv_chambolle(data, weight=weight, multichannel=False)
         data = (255 * data).astype(np.uint8)
     return data
 
@@ -668,6 +669,7 @@ def load_pickle_data(fname, win_level=50, win_width=350, slice_idx=-1):
 
     return data, mask, voxel_size
 
+
 def get_hist_mode(im, mask=None, debug=False):
     if mask is None:
         mask = np.ones(im.shape, dtype=np.bool)
@@ -688,3 +690,27 @@ def get_hist_mode(im, mask=None, debug=False):
         plt.show()
 
     return mode
+
+
+def smoothing_float_tv(data, weight=0.01, pseudo_3D=True, multichannel=False, sliceId=2):
+    if data.ndim == 3 and pseudo_3D:
+        if sliceId == 2:
+            for idx in range(data.shape[2]):
+                in_min = data[:, :, idx].min()
+                in_max = data[:, :, idx].max()
+                temp = skires.denoise_tv_chambolle(data[:, :, idx], weight=weight, multichannel=multichannel)
+                temp = skiexp.rescale_intensity(temp, (temp.min(), temp.max()), (in_min, in_max)).astype(data.dtype)
+                data[:, :, idx] = temp
+        elif sliceId == 0:
+            for idx in range(data.shape[0]):
+                in_min = data[idx, :, :].min()
+                in_max = data[idx, :, :].max()
+                temp = skires.denoise_tv_chambolle(data[idx, :, :], weight=weight, multichannel=multichannel)
+                temp = skiexp.rescale_intensity(temp, (temp.min(), temp.max()), (in_min, in_max)).astype(data.dtype)
+                data[idx, :, :] = temp
+    else:
+        in_min = data.min()
+        in_max = data.max()
+        temp = skires.denoise_tv_chambolle(data, weight=weight, multichannel=False)
+        data = skiexp.rescale_intensity(temp, (temp.min(), temp.max()), (in_min, in_max)).astype(data.dtype)
+    return data
