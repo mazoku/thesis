@@ -3,6 +3,7 @@ __author__ = 'tomas'
 
 import numpy as np
 
+
 def run(data, params, mask=None):
 
     debug = True
