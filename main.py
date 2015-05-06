@@ -15,13 +15,15 @@ import ConfigParser
 import Viewer_3D
 
 import fast_marching as fm
+import snakes
 
 
 def run(data_fname, params_fname):
     data, mask, voxel_size = load_pickle_data(data_fname)
     params = load_parameters(params_fname)
 
-    fm.run(data, params, mask)
+    # fm.run(data, params, mask)
+    snakes.run(data, params)
 
     # # data visualization
     # app = QtGui.QApplication(sys.argv)

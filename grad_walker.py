@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def run(data, params, mask=None):
+def run(data, params, n_steps=100, mask=None):
 
     debug = True
     # vmin = params['win_level'] - params['win_width'] / 2
@@ -18,11 +18,28 @@ def run(data, params, mask=None):
 
     t_probs = trans_probs(data, nghb_idxs, nghb_ints)
 
-    visits = walk(t_probs, nghb_idxs, 10, 4)
+    # visits = walk(t_probs, nghb_idxs, n_steps, start)
+    vis_1 = walk(t_probs, nghb_idxs, n_steps, 0).reshape(data.shape)
+    vis_2 = walk(t_probs, nghb_idxs, n_steps, data.shape[1]-1).reshape(data.shape)
+    vis_3 = walk(t_probs, nghb_idxs, n_steps, (data.shape[0])*(data.shape[1]-1)).reshape(data.shape)
+    vis_4 = walk(t_probs, nghb_idxs, n_steps, np.prod(data.shape)-1).reshape(data.shape)
+
+    visits = (vis_1 + vis_2 + vis_3 + vis_4) / 4.
 
     plt.figure()
-    plt.imshow(visits.reshape(data.shape), interpolation='nearest')
-    plt.colorbar()
+    plt.subplot(221), plt.imshow(vis_1, 'gray', interpolation='nearest')
+    plt.subplot(222), plt.imshow(vis_2, 'gray', interpolation='nearest')
+    plt.subplot(223), plt.imshow(vis_3, 'gray', interpolation='nearest')
+    plt.subplot(224), plt.imshow(vis_4, 'gray', interpolation='nearest')
+
+    plt.figure()
+    plt.subplot(121)
+    plt.imshow(data, 'gray', interpolation='nearest')
+    plt.title('input')
+    plt.subplot(122)
+    plt.imshow(visits.reshape(data.shape), 'gray', interpolation='nearest')
+    plt.title('visits')
+    #plt.colorbar()
     plt.show()
 
     # print 'data:'
@@ -36,11 +53,11 @@ def run(data, params, mask=None):
 
 
 
-def walk(t_probs, nghb_idxs, steps, start):
+def walk(t_probs, nghb_idxs, n_steps, start):
     visits = np.zeros(t_probs.shape[1], dtype=np.uint16)
     curr_pt = start
 
-    for i in range(steps):
+    for i in range(n_steps):
         dir = get_direction(t_probs[:,curr_pt])
         curr_pt = nghb_idxs[dir, curr_pt]
         visits[curr_pt] += 1
@@ -114,5 +131,17 @@ if __name__ == '__main__':
     params = dict()
     params['win_level'] = 50
     params['win_width'] = 350
-    data = np.array([[2, 14, 8], [32, 40, 12], [19, 22, 6]])
-    run(data, params)
+    # data = np.array([[2, 14, 8], [32, 40, 12], [19, 22, 6]])
+    data = np.array([[  5,   8,  12,   4,   8,   6,   9,   0,   5,   8],
+                     [  1,  10,  16,   5,   2,   0,   2,   8,   7,   5],
+                     [  9,   2,   6,   8,   2,  10,   7,   1,   9,  11],
+                     [  7,   6,  10,  15,  58,  90,  12,   9,  15,   6],
+                     [ 12,   8,  11, 130, 200, 110,  96,  12,  18,   1],
+                     [  8,   9,  26,  99, 120,  80,  78,  20,   5,  11],
+                     [ 20,  12,  14, 150, 160,  90, 100,  16,  11,  15],
+                     [ 10,  13,   9,  12, 136, 120, 110,  20,   8,   8],
+                     [ 11,  13,  11,  10,  76,  60,   9,   0,  10,  36],
+                     [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1]])
+
+    n_steps = 10000
+    run(data, params, n_steps)
