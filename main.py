@@ -23,7 +23,7 @@ def run(data_fname, params_fname):
     params = load_parameters(params_fname)
 
     # fm.run(data, params, mask)
-    snakes.run(data, params)
+    snakes.run(data, params, mask=mask)
 
     # # data visualization
     # app = QtGui.QApplication(sys.argv)
