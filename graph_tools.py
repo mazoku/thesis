@@ -115,7 +115,7 @@ def create_graph( im, nghood=4, wtype=1, talk_to_me=True ):
                 w = 1. / np.exp(- (imv[n] - imv[nghb])**2 / (2 * sigma**2)) #w2
             else:
                 w = np.absolute(imv[n] - imv[nghb]) #w3
-            G.add_edge( n, nghb, {'weight':w} )
+            G.add_edge(n, int(nghb), {'weight':w})
     if talk_to_me:
         print 'ok'
         print '...done.'
