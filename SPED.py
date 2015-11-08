@@ -9,7 +9,6 @@ import networkx as nx
 from PyQt4.QtGui import QApplication
 
 import graph_tools as gt
-from simple_viewer import SimpleViewer
 
 
 def cost_of_path(G, path):
@@ -109,6 +108,7 @@ def run(data, p0, pts, show=False):
 
     # SPED value
     speds = np.array(dists) / np.array(costs)
+    # speds = 1 / (np.array(dists) * np.array(costs))
     # speds = np.exp(np.absolute(ints - int0)) * np.array(dists) / np.array(costs)
 
     for i in range(n_pts):
