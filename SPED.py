@@ -25,7 +25,7 @@ def single_source(data):
     plt.close('all')
 
     if len(pt0) != 1:
-        print 'Need exactly one points.'
+        print 'Need exactly one point.'
         return
 
     pt0 = (int(round(pt0[0][0])), int(round(pt0[0][1]))) #[(int(round(x[0])), int(round(x[1]))) for x in pts]
@@ -93,27 +93,27 @@ def run(data, p0, pts, show=False):
 
     # calculating shortest paths and their costs
     paths = list()
-    costs = list()
+    sp_costs = list()
     for i in range(n_pts):
         path = nx.shortest_path(G, p0_lin, pts_lin[i], 'weight')
         paths.append(path)
         cost = cost_of_path(G, path)
-        costs.append(cost)
+        sp_costs.append(cost)
 
     # cityblock distance
-    dists = list()
+    cb_dists = list()
     for i in range(n_pts):
         dist = np.abs(np.array(p0) - np.array(pts[i])).sum()
-        dists.append(dist)
+        cb_dists.append(dist)
 
     # SPED value
-    speds = np.array(dists) / np.array(costs)
+    speds = np.array(cb_dists) / np.array(sp_costs)
     # speds = 1 / (np.array(dists) * np.array(costs))
     # speds = np.exp(np.absolute(ints - int0)) * np.array(dists) / np.array(costs)
 
     for i in range(n_pts):
-        print 's: ', p0, ', t: ', pts[i], ', path: ', paths[i], ', cost: ', costs[i]
-        print '\tdist: %.2f, sp: %.2f, sped = %.2f' % (dists[i], costs[i], speds[i])
+        print 's: ', p0, ', t: ', pts[i], ', path: ', paths[i], ', cost: ', sp_costs[i]
+        print '\tdist: %.2f, sp: %.2f, sped = %.2f' % (cb_dists[i], sp_costs[i], speds[i])
 
     if show:
         for i in range(n_pts):

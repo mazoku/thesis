@@ -89,6 +89,6 @@ def experimental_potential(img, mask, params):
     probs = rv.pdf(img_g) * mask
 
     plt.figure()
-    plt.subplot(121), plt.imshow(img_g, 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(probs, 'gray', interpolation='nearest')
+    plt.subplot(121), plt.imshow(img_g, 'gray', interpolation='nearest'), plt.title('input')
+    plt.subplot(122), plt.imshow(probs, 'gray', interpolation='nearest'), plt.title('rv from hist')
     # plt.show()
