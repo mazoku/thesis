@@ -35,9 +35,11 @@ def single_source(data):
     speds = run(data, pt0, pts)
     speds_im = speds.reshape(data.shape)
 
-    plt.figure()
-    plt.imshow(speds_im, 'gray', interpolation='nearest')
-    plt.show()
+    # plt.figure()
+    # plt.imshow(speds_im, 'gray', interpolation='nearest')
+    # plt.show()
+
+    return speds_im, pt0
 
 def interactive(data):
     # app = QApplication(sys.argv)
@@ -94,9 +96,11 @@ def run(data, p0, pts, show=False):
     # calculating shortest paths and their costs
     paths = list()
     sp_costs = list()
+    sp_lengths = list()
     for i in range(n_pts):
         path = nx.shortest_path(G, p0_lin, pts_lin[i], 'weight')
         paths.append(path)
+        sp_lengths.append(len(path))
         cost = cost_of_path(G, path)
         sp_costs.append(cost)
 
@@ -106,14 +110,16 @@ def run(data, p0, pts, show=False):
         dist = np.abs(np.array(p0) - np.array(pts[i])).sum()
         cb_dists.append(dist)
 
+    print sp_lengths
     # SPED value
-    speds = np.array(cb_dists) / np.array(sp_costs)
-    # speds = 1 / (np.array(dists) * np.array(costs))
+    cb_spc = np.array(cb_dists) / np.array(sp_costs)
+    spc_spl = np.array(sp_costs) / np.array(sp_lengths)
+     # = 1 / (np.array(dists) * np.array(costs))
     # speds = np.exp(np.absolute(ints - int0)) * np.array(dists) / np.array(costs)
 
-    for i in range(n_pts):
-        print 's: ', p0, ', t: ', pts[i], ', path: ', paths[i], ', cost: ', sp_costs[i]
-        print '\tdist: %.2f, sp: %.2f, sped = %.2f' % (cb_dists[i], sp_costs[i], speds[i])
+    # for i in range(n_pts):
+    #     print 's: ', p0, ', t: ', pts[i], ', path: ', paths[i], ', cost: ', sp_costs[i]
+    #     print '\tdist: %.2f, sp: %.2f, sped = %.2f' % (cb_dists[i], sp_costs[i], speds[i])
 
     if show:
         for i in range(n_pts):
@@ -160,8 +166,11 @@ if __name__ == '__main__':
 
     # run(data, p0, pts, show)
     # interactive(data)
-    single_source(data)
+    speds, source = single_source(data)
 
-    # plt.figure()
-    # plt.imshow(data, 'gray', interpolation='nearest')
-    # plt.show()
+    plt.figure()
+    plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
+    plt.hold(True), plt.plot(source[0], source[1], 'ro'), plt.axis('image')
+    plt.subplot(122), plt.imshow(speds, 'gray', interpolation='nearest'), plt.title('speds')
+    plt.hold(True), plt.plot(source[0], source[1], 'ro'), plt.axis('image')
+    plt.show()

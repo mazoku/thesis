@@ -11,9 +11,8 @@ import cv2
 import skimage.measure as skimea
 import skimage.morphology as skimor
 import skimage.transform as skitra
-import skimage.filter as skifil
 # import skimage.restoration as skires
-import skimage.filter as skifil
+import skimage.filters as skifil
 import skimage.restoration as skires
 import skimage.segmentation as skiseg
 import scipy.stats as scista
@@ -134,10 +133,17 @@ def intensity_range2superpixels(im, superpixels, intMinT=0.95, intMaxT=1.05, deb
     return superseeds
 
 
-def show_slice(data, segmentation=None, lesions=None, show='True'):
+def show_slice(data, segmentation=None, lesions=None, win_l=50, win_w=350, windowing=False, show='True'):
+    if windowing:
+        vmin = win_l - win_w / 2
+        vmax = win_l + win_w / 2
+    else:
+        vmin = data.min()
+        vmax = data.max()
+
     plt.figure()
     plt.gray()
-    plt.imshow(data)
+    plt.imshow(data, interpolation='nearest', vmin=vmin, vmax=vmax)
 
     if segmentation is not None:
         plt.hold(True)
