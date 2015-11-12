@@ -92,7 +92,7 @@ def run(data, rad=3, pt=None, windowing=False, show=False):
             plt.plot(pts[1][i], pts[0][i], 'ro')
         plt.show()
 
-    return ad, ssd, var
+    return ad.mean(), ssd, var
 
 ################################################################################
 if __name__ == '__main__':
@@ -117,4 +117,5 @@ if __name__ == '__main__':
                      [ 11,  13,  11,  10,  76,  60,   9,   0,  10,  36],
                      [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1]])
 
-    run(data, rad=rad, windowing=False)
+    # run(data, rad=rad, windowing=False)
+    lip_im(data, rad=rad)
