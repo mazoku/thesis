@@ -42,20 +42,57 @@ def get_pt_interactively(data, windowing=False, win_l=50, win_w=350):
     return pt
 
 
-def run(data, rad=3, pt=None, windowing=False):
+def lip_im(data, rad=3):
+    x_coords, y_coords = np.indices(data.shape)
+    x_coords = x_coords.flatten()
+    y_coords = y_coords.flatten()
+    n_pts = len(x_coords)
+
+    ad_im = np.zeros(data.shape)
+    ssd_im = np.zeros(data.shape)
+    var_im = np.zeros(data.shape)
+    for i in range(n_pts):
+        ad, ssd, var = run(data, rad=rad, pt=(y_coords[i], x_coords[i]))
+        ad_im[y_coords[i], x_coords[i]] = ad
+        ssd_im[y_coords[i], x_coords[i]] = ssd
+        var_im[y_coords[i], x_coords[i]] = var
+
+    plt.figure()
+    plt.imshow(ad_im, 'gray', interpolation='nearest')
+    plt.title('abs diff')
+
+    plt.figure()
+    plt.imshow(ssd_im, 'gray', interpolation='nearest')
+    plt.title('sum of squared diff')
+
+    plt.figure()
+    plt.imshow(var_im, 'gray', interpolation='nearest')
+    plt.title('var')
+
+    plt.show()
+
+
+def run(data, rad=3, pt=None, windowing=False, show=False):
     if pt is None:
         pt = get_pt_interactively(data, windowing=windowing)
     ints, pts, mask = get_circle(data, pt, rad)
 
-    print 'int0 = ', data[pt[1], pt[0]], ', ints: ', ints
+    int0 = data[pt[1], pt[0]]
 
-    tools.show_slice(data, windowing=windowing, show=False)
-    plt.hold(True)
-    for i in range(len(pts[0])):
-        plt.plot(pts[1][i], pts[0][i], 'ro')
+    # print 'int0 =', int0, ', ints =', ints
+    ad = np.abs(ints - int0)
+    ssd = np.dot(ad, ad)
+    var = np.var(ad)
+    # print 'ssd =', ssd, ', absd =', ad
 
-    plt.show()
+    if show:
+        tools.show_slice(data, windowing=windowing, show=False)
+        plt.hold(True)
+        for i in range(len(pts[0])):
+            plt.plot(pts[1][i], pts[0][i], 'ro')
+        plt.show()
 
+    return ad, ssd, var
 
 ################################################################################
 if __name__ == '__main__':
