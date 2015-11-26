@@ -83,8 +83,8 @@ if __name__ == '__main__':
     out = graph.draw_rag(labels, g, np.zeros_like(img), thresh=50, node_color='yellow', colormap='jet')
 
     plt.figure()
-    plt.imshow(out)
-    plt.colorbar()
+    plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(out)#, plt.colorbar()
     plt.show()
 
     # io.imshow(out)

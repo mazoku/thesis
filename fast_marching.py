@@ -9,9 +9,8 @@ import skimage.restoration as skires
 import skimage.filter as skifil
 import skimage.exposure as skiexp
 
-def run(data, params, mask=None, weight=0.0001):
+def run(data, params, slice_idx=0, mask=None, weight=0.0001, show=False):
 
-    debug = True
     vmin = params['win_level'] - params['win_width'] / 2
     vmax = params['win_level'] + params['win_width'] / 2
 
@@ -51,15 +50,17 @@ def run(data, params, mask=None, weight=0.0001):
     speed_hypo = speed_function_hypo(data, mask, mode, params['fat_int'], params['hypo_int'], params['alpha'], params['speed_hypo_denom'])
     speed_hyper = speed_function_hyper(data, mask, mode, params['min_speed'], params['high_int_const'], params['alpha'], params['speed_hypo_denom'])
 
-    slice_idx = 14
+    if show:
+        # slice_idx = 14
+        plt.figure()
+        plt.subplot(231), plt.imshow(data[slice_idx,:,:], 'gray', vmin=vmin, vmax=vmax)
+        plt.subplot(232), plt.imshow(hypo_init[slice_idx,:,:], 'gray'), plt.title('hypo initial')
+        plt.subplot(235), plt.imshow(hyper_init[slice_idx,:,:], 'gray'), plt.title('hyper initial')
+        plt.subplot(233), plt.imshow(speed_hypo[slice_idx,:,:], 'gray'), plt.title('speed hypo')#, plt.colorbar()
+        plt.subplot(236), plt.imshow(speed_hyper[slice_idx,:,:], 'gray'), plt.title('speed hyper')#, plt.colorbar()
+        plt.show()
 
-    plt.figure()
-    plt.subplot(231), plt.imshow(data[slice_idx,:,:], 'gray', vmin=vmin, vmax=vmax)
-    plt.subplot(232), plt.imshow(hypo_init[slice_idx,:,:], 'gray'), plt.title('hypo initial')
-    plt.subplot(235), plt.imshow(hyper_init[slice_idx,:,:], 'gray'), plt.title('hyper initial')
-    plt.subplot(233), plt.imshow(speed_hypo[slice_idx,:,:], 'gray'), plt.title('speed hypo')#, plt.colorbar()
-    plt.subplot(236), plt.imshow(speed_hyper[slice_idx,:,:], 'gray'), plt.title('speed hyper')#, plt.colorbar()
-    plt.show()
+    return hypo_init, hyper_init, speed_hypo, speed_hyper
 
 
 def speed_function_hyper(data, mask, mode, min_speed, high_int_const, alpha, denom):

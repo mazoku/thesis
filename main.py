@@ -18,21 +18,6 @@ import fast_marching as fm
 import snakes
 
 
-def run(data_fname, params_fname):
-    data, mask, voxel_size = load_pickle_data(data_fname)
-    params = load_parameters(params_fname)
-
-    # fm.run(data, params, mask)
-    snakes.run(data, params, mask=mask)
-
-    # # data visualization
-    # app = QtGui.QApplication(sys.argv)
-    # viewer = Viewer_3D.Viewer_3D(data, range=False)
-    # viewer.show()
-    # sys.exit(app.exec_())
-
-
-################################################################################
 def load_parameters(config_path='config.ini'):
     config = ConfigParser.ConfigParser()
     config.read('config.ini')
@@ -82,6 +67,38 @@ def load_pickle_data(fname, slice_idx=-1):
     else:
         msg = 'Wrong data type, supported extensions: ', ', '.join(ext_list)
         raise IOError(msg)
+
+def comparing(data, methods, params, mask=None, slice_idx=None):
+    """
+    A function for comparing different methods.
+    :param data: Input data to be analysed, 2D or 3D array.
+    :param methods: List of method names/identifiers.
+    :param params: Dictionary with parameters.
+    :param slice_idx: In case of 3D data input, provide index of a slice for 2D visualisation.
+    :return:
+    """
+
+    if 'fm' in methods:
+        fm_hypo_init, fm_hyper_init, fm_speed_hypo, fm_speed_hyper = fm.run(data, params, mask)
+
+    if 'snakes' in methods:
+        snakes.run(data, params, mask=mask)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+def run(data_fname, params_fname):
+    data, mask, voxel_size = load_pickle_data(data_fname)
+    params = load_parameters(params_fname)
+
+    slice_idx = 14
+    methods = ['fm', 'snakes']
+    comparing(data, methods, params, mask, slice_idx=slice_idx)
+
+    # # data visualization
+    # app = QtGui.QApplication(sys.argv)
+    # viewer = Viewer_3D.Viewer_3D(data, range=False)
+    # viewer.show()
+    # sys.exit(app.exec_())
 
 
 ################################################################################
