@@ -1,22 +1,33 @@
 from __future__ import division
 
 import skimage.morphology as skimor
+import skimage.filters as skifil
+import skimage.restoration as skires
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.ndimage as scindi
 
 import io3d
 import tools
 
 
 def get_circle(im, pt, rad=3):
-    mask = skimor.disk(rad) - skimor.binary_erosion(skimor.disk(rad))
+    max_x = im.shape[1] - 1
+    max_y = im.shape[0] - 1
+    mask = skimor.disk(rad)# - skimor.binary_erosion(skimor.disk(rad))
     pts = np.nonzero(mask)
     # pts[0] += pt[1]
     # pts[1] += pt[0]
-    pts_shifted = [pts[0] + pt[1] - rad, pts[1] + pt[0] - rad]
-    ints = im[pts_shifted]
+    pts_shifted = np.array([pts[0] + pt[1] - rad, pts[1] + pt[0] - rad])
+    # idx_trimmed = [i.all() for i in pts_shifted.transpose() < np.array([max_x, max_y])]
+    pts_trimmed = np.array([x for x in pts_shifted.transpose() if 0 <= x[0] <= max_x and 0 <= x[1] <= max_y]).transpose()
+    pts_trimmed = [x for x in pts_trimmed]
+    # pts_trimmed = [pt for pt in pts_shifted.transpose() if 0 <= pt[0] <= max_x and 0 <= pt[1] <= max_y]
+    # x_trimed = [x for x in pts_shifted[0] if 0 <= x <= max_x]
+    # y_trimed = [x for x in pts_shifted[1] if 0 <= x <= max_y]
+    ints = im[pts_trimmed]
 
-    return ints, pts_shifted, mask
+    return ints, pts_trimmed, mask
 
 
 def get_pt_interactively(data, windowing=False, win_l=50, win_w=350):
@@ -57,17 +68,22 @@ def lip_im(data, rad=3):
         ssd_im[y_coords[i], x_coords[i]] = ssd
         var_im[y_coords[i], x_coords[i]] = var
 
-    plt.figure()
-    plt.imshow(ad_im, 'gray', interpolation='nearest')
-    plt.title('abs diff')
+    kernel = skimor.disk(rad)
+    ad_im_m = scindi.filters.convolve(ad_im, kernel)
+    ssd_im_m = scindi.filters.convolve(ssd_im, kernel)
+    var_im_m = scindi.filters.convolve(var_im, kernel)
 
     plt.figure()
-    plt.imshow(ssd_im, 'gray', interpolation='nearest')
-    plt.title('sum of squared diff')
+    plt.subplot(121), plt.imshow(ad_im, 'gray', interpolation='nearest'), plt.title('abs diff')
+    plt.subplot(122), plt.imshow(ad_im_m, 'gray', interpolation='nearest'), plt.title('mean of abs diff')
 
     plt.figure()
-    plt.imshow(var_im, 'gray', interpolation='nearest')
-    plt.title('var')
+    plt.subplot(121), plt.imshow(ssd_im, 'gray', interpolation='nearest'), plt.title('sum of squared diff')
+    plt.subplot(122), plt.imshow(ssd_im_m, 'gray', interpolation='nearest'), plt.title('mean of sum of squared diff')
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(var_im, 'gray', interpolation='nearest'), plt.title('var')
+    plt.subplot(122), plt.imshow(var_im_m, 'gray', interpolation='nearest'), plt.title('mean of var')
 
     plt.show()
 
@@ -81,7 +97,10 @@ def run(data, rad=3, pt=None, windowing=False, show=False):
 
     # print 'int0 =', int0, ', ints =', ints
     ad = np.abs(ints - int0)
-    ssd = np.dot(ad, ad)
+    try:
+        ssd = np.dot(ad, ad)
+    except:
+        pass
     var = np.var(ad)
     # print 'ssd =', ssd, ', absd =', ad
 
@@ -115,7 +134,15 @@ if __name__ == '__main__':
                      [ 20,  12,  14, 150, 160,  90, 100,  16,  11,  15],
                      [ 10,  13,   9,  12, 136, 120, 110,  20,   8,   8],
                      [ 11,  13,  11,  10,  76,  60,   9,   0,  10,  36],
-                     [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1]])
+                     [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1]], dtype=np.float)
+
+    # data_s = skifil.gaussian_filter(data, sigma=0.5)
+    data_s = skires.denoise_tv_chambolle(data)
+
+    plt.figure()
+    plt.gray()
+    plt.subplot(121), plt.imshow(data, interpolation='nearest'), plt.title('input')
+    plt.subplot(122), plt.imshow(data_s, interpolation='nearest'), plt.title('gaussian filter')
 
     # run(data, rad=rad, windowing=False)
-    lip_im(data, rad=rad)
+    lip_im(data_s, rad=rad)
