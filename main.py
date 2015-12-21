@@ -8,6 +8,8 @@ logging.basicConfig()
 
 from PyQt4 import QtGui
 import numpy as np
+import cv2
+import tools
 
 import pickle
 import ConfigParser
@@ -68,6 +70,27 @@ def load_pickle_data(fname, slice_idx=-1):
         msg = 'Wrong data type, supported extensions: ', ', '.join(ext_list)
         raise IOError(msg)
 
+
+def morph_hat_test(im):
+    im = tools.windowing(im)
+    im = tools.smoothing(im)
+
+    min_size = 11
+    max_size = 31
+    strels = []
+    for i in range(min_size, max_size + 1, 6):
+        strels.append(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (i, i)))
+    tophats = tools.morph_hat(im, strels, show=True, show_now=False)
+
+    min_size = 41
+    max_size = 61
+    strels = []
+    for i in range(min_size, max_size + 1, 6):
+        strels.append(cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (i, i)))
+
+    blackhats = tools.morph_hat(im, strels, type='blackhat', show=True, show_now=True)
+
+
 def comparing(data, methods, params, mask=None, slice_idx=None):
     """
     A function for comparing different methods.
@@ -92,7 +115,9 @@ def run(data_fname, params_fname):
 
     slice_idx = 14
     methods = ['fm', 'snakes']
-    comparing(data, methods, params, mask, slice_idx=slice_idx)
+    # comparing(data, methods, params, mask, slice_idx=slice_idx)
+
+    morph_hat_test(data[ slice_idx, :, :])
 
     # # data visualization
     # app = QtGui.QApplication(sys.argv)
