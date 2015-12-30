@@ -521,6 +521,7 @@ def crop_to_bbox(im, mask):
         # mask = mask[bbox[0]-1:bbox[2] + 1, bbox[1]-1:bbox[3] + 1]
         im = im[bbox[0]:bbox[2], bbox[1]:bbox[3]]
         mask = mask[bbox[0]:bbox[2], bbox[1]:bbox[3]]
+
     elif im.ndim == 3:
         coords = np.nonzero(mask)
         s_min = max(0, min(coords[0]) - 1)
@@ -720,3 +721,16 @@ def smoothing_float_tv(data, weight=0.01, pseudo_3D=True, multichannel=False, sl
         temp = skires.denoise_tv_chambolle(data, weight=weight, multichannel=False)
         data = skiexp.rescale_intensity(temp, (temp.min(), temp.max()), (in_min, in_max)).astype(data.dtype)
     return data
+
+
+def auto_canny(image, sigma=0.33):
+    # compute the median of the single channel pixel intensities
+    v = np.median(image)
+
+    # apply automatic Canny edge detection using the computed median
+    lower = int(max(0, (1.0 - sigma) * v))
+    upper = int(min(255, (1.0 + sigma) * v))
+    edged = cv2.Canny(image, lower, upper)
+
+    # return the edged image
+    return edged

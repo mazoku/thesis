@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skfmm
 import skimage.restoration as skires
-import skimage.filter as skifil
+import skimage.filters as skifil
 import skimage.exposure as skiexp
 
 def run(data, params, mask=None, weight=0.0001):
