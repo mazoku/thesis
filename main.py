@@ -83,7 +83,11 @@ def load_pickle_data(fname, slice_idx=-1):
         raise IOError(msg)
 
 
-def my_pipeline(img, mask):
+def my_pipeline(img, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=True):
+    n_rows, n_cols = [1, len(proc) + 1]
+
+    img, mask = tools.crop_to_bbox(img, mask)
+
     # write mean value outside the mask
     mean_val = np.mean(img[np.nonzero(mask)])
     img = np.where(mask, img, mean_val)
@@ -91,58 +95,62 @@ def my_pipeline(img, mask):
     # rescale to UINT8
     img = skiexp.rescale_intensity(img, out_range=np.uint8).astype(np.uint8)
 
+    vis = []
+    img_pipe = img.copy()
+
+    # saving input
+    vis.append(('input', img))
+
     # smoothing
-    img_s = tools.smoothing(img)
+    if 'smo' in proc or 'smoothing' in proc:
+        img_s = tools.smoothing(img)
+        img_pipe = img_s.copy()
+        vis.append(('smoothing', img_s))
 
     # Equalization
-    img_eq = skiexp.equalize_hist(img_s)
+    if 'equ' in proc or 'equalization' in proc:
+        img_h = skiexp.equalize_hist(img_pipe)
+        img_pipe = img_h.copy()
+        vis.append(('equalization', img_h))
 
     # canny edge detector
     # canny = tools.auto_canny(skiexp.rescale_intensity(img_eq, out_range=np.uint8).astype(np.uint8), sigma=0.1)
-    p = (10, 40)
-    pmin, pmax = np.percentile(img_s, p)
-    img_rescale = skiexp.rescale_intensity(img_s, in_range=(pmin, pmax))
+
+    # contrast stretch
+    if 'str' in proc or 'stretch' in proc:
+        p = (20, 40)
+        pmin, pmax = np.percentile(img_pipe, p)
+        img_rescale = skiexp.rescale_intensity(img_pipe, in_range=(pmin, pmax))
+        img_pipe = img_rescale.copy()
+        vis.append(('stretch {}'.format(p), img_rescale))
 
     # morphology
-    img_eq_morph = skimor.closing(img_eq, selem=skimor.disk(7))
+    if 'clo' in proc or 'closing' in proc:
+        r = 7
+        img_morph = skimor.closing(img_pipe, selem=skimor.disk(r))
+        img_pipe = img_morph.copy()
+        vis.append(('closing r=%i'%r, img_morph))
 
     # contours
-    contours = skimea.find_contours(img_eq_morph, 0.2)
-    n_rows, n_cols = [1, 6]
-    im_vis = (img, img_s, img_rescale, img_eq, img_eq_morph, img)
-    titles = ['input', 'smoothing', 'stretching', 'equalization', 'equa-closing', 'contours']
+    if 'con' in proc or 'contours' in proc:
+        contours = skimea.find_contours(img_pipe, 0.2)
+        vis.append(('contours', img))
 
     plt.figure()
-    for i, (im, title) in enumerate(zip(im_vis, titles)):
+    for i, (title, im) in enumerate(vis):
         plt.subplot(n_rows, n_cols, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title(title)
 
-    try:
-        ind = titles.index('contours')
-        plt.subplot(n_rows, n_cols, ind + 1)
+    if 'con' in proc or 'contours' in proc:
         for n, contour in enumerate(contours):
             plt.plot(contour[:, 1], contour[:, 0], linewidth=2)
         plt.axis('image')
-    except:
-        pass
 
-
-    # plt.figure()
-    # plt.subplot(171), plt.imshow(img, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(172), plt.imshow(img_s, 'gray', interpolation='nearest'), plt.title('smoothing')
-    # plt.subplot(173), plt.imshow(img_eq, 'gray', interpolation='nearest'), plt.title('equalization')
-    # plt.subplot(174), plt.imshow(img_eq_morph, 'gray', interpolation='nearest'), plt.title('equa-closing')
-    # plt.subplot(175), plt.imshow(img_rescale, 'gray', interpolation='nearest'), plt.title('stretching')
-    # plt.subplot(177), plt.imshow(img_eq_morph, 'gray', interpolation='nearest'), plt.title('contours')
-    # for n, contour in enumerate(contours):
-    #     plt.plot(contour[:, 1], contour[:, 0], linewidth=2)
-    # plt.axis('image')
-    plt.show()
+    if show:
+        plt.show()
 
 
 def contour_test(img, mask):
     img, mask = tools.crop_to_bbox(img, mask)
-
-    my_pipeline(img, mask)
 
     img_o = img.copy()
 
@@ -270,7 +278,9 @@ def run(data_fname, params_fname):
     # fm.run(data, params, mask)
     # snakes.run(data, params, mask=mask)
     slice_id = 17
-    contour_test(data[slice_id, :, :], mask[slice_id, :, :])
+    my_pipeline(data[slice_id, :, :], mask[slice_id, :, :], proc=['smo', 'equ', 'clo', 'con'], show=False)
+    my_pipeline(data[slice_id, :, :], mask[slice_id, :, :], proc=['smo', 'str', 'clo', 'con'], show=True)
+    # contour_test(data[slice_id, :, :], mask[slice_id, :, :])
 
     # data visualization
     # slice_idx = 14
