@@ -7,6 +7,8 @@ import skimage.exposure as skiexp
 import skimage.restoration as skires
 import scipy.stats as scista
 
+import hist_rv as hrv
+
 # - - - - - - - - - - - - - - - - - - - - - - - -
 def run(img, params, mask=None):
     slice_idx = 14
@@ -63,11 +65,12 @@ def calc_potential(img, params):
     return img_g
 
 
-def experimental_potential(img, mask, params):
-    img_g = skires.denoise_tv_chambolle(img, weight=params['tv_weight'])
+def experimental_potential(img, mask, params, show=False):
+    # img_g = skires.denoise_tv_chambolle(img, weight=params['tv_weight'])
+    # img_g = skiexp.rescale_intensity(img_g, out_range=(img.min(), img.max()))
 
-    hist, bins = skiexp.histogram(img_g[np.nonzero(mask)])
-    peak_idx = hist.argmax()
+    # hist, bins = skiexp.histogram(img_g[np.nonzero(mask)])
+    # peak_idx = hist.argmax()
 
     # plt.figure()
     # plt.plot(bins, hist)
@@ -83,12 +86,18 @@ def experimental_potential(img, mask, params):
     # plt.figure()
     # plt.imshow(img_t, 'gray', interpolation='nearest')
 
-    sigma = 0.0005
-    rv = scista.norm(bins[peak_idx], sigma)
+    # sigma = (img_g.max() - img_g.min()) / 100
+    # rv = scista.norm(bins[peak_idx], sigma)
+    #
+    # probs = rv.pdf(img_g) * mask
 
-    probs = rv.pdf(img_g) * mask
+    rv, probs = hrv.run(img, mask, params)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(img_g, 'gray', interpolation='nearest'), plt.title('input')
-    plt.subplot(122), plt.imshow(probs, 'gray', interpolation='nearest'), plt.title('rv from hist')
-    # plt.show()
+    vmin = params['win_level'] - params['win_width'] / 2
+    vmax = params['win_level'] + params['win_width'] / 2
+
+    if show:
+        plt.figure()
+        plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest', vmin=vmin, vmax=vmax), plt.title('input')
+        plt.subplot(122), plt.imshow(probs, 'gray', interpolation='nearest'), plt.title('peak probs')
+        plt.show()

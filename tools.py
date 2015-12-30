@@ -207,14 +207,14 @@ def read_data(dcmdir, indices=None, wildcard='*.dcm', type=np.int16):
     return data3d
 
 
-def windowing(data, level=50, width=300, sub1024=False, sliceId=2):
+def windowing(data, level=50, width=350, sub1024=False, sliceId=2):
     #srovnani na standardni skalu = odecteni 1024HU
     if sub1024:
         data -= 1024
 
     #zjisteni minimalni a maximalni density
-    minHU = level - width
-    maxHU = level + width
+    minHU = level - width / 2
+    maxHU = level + width / 2
 
     if data.ndim == 3:
         if sliceId == 2:
@@ -734,3 +734,38 @@ def auto_canny(image, sigma=0.33):
 
     # return the edged image
     return edged
+
+
+def morph_hat(img, strels, type='tophat', show=False, show_now=True):
+    if not isinstance(strels, list):
+        strels = [strels]
+    n_strels = len(strels)
+
+    if type in ['tophat', 'whitehat']:
+        op = cv2.MORPH_TOPHAT
+    elif type == 'blackhat':
+        op = cv2.MORPH_BLACKHAT
+    else:
+        raise ValueError('Wrong operation type. Only \'tophat\' and \'blackhat\' are allowed.')
+
+    resps = []
+    for i in strels:
+        resp = cv2.morphologyEx(img, op, i)
+        resps.append(resp)
+
+    if show:
+        plt.figure()
+        plt.imshow(img, 'gray', interpolation='nearest')
+        plt.title('input')
+
+        max_resp = np.array(resps).max()
+        for i in range(n_strels):
+            plt.figure()
+            plt.imshow(resps[i], 'gray', interpolation='nearest', vmax=max_resp)
+            # plt.imshow(resps[i], 'gray', interpolation='nearest'), plt.colorbar()
+            plt.title('{}, strel = {}'.format(type, strels[i].shape))
+
+        if show_now:
+            plt.show()
+
+    return resps
