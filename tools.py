@@ -512,10 +512,14 @@ def crop_to_bbox(im, mask):
 
         bbox = np.array(bbox)
         # okrajove podminky
-        bbox[0] = max(0, bbox[0]-1)
-        bbox[1] = max(0, bbox[1]-1)
-        bbox[2] = min(im.shape[0], bbox[2]+1)
-        bbox[3] = min(im.shape[1], bbox[3]+1)
+        # bbox[0] = max(0, bbox[0]-1)
+        # bbox[1] = max(0, bbox[1]-1)
+        # bbox[2] = min(im.shape[0], bbox[2]+1)
+        # bbox[3] = min(im.shape[1], bbox[3]+1)
+        bbox[0] = max(0, bbox[0])
+        bbox[1] = max(0, bbox[1])
+        bbox[2] = min(im.shape[0], bbox[2])
+        bbox[3] = min(im.shape[1], bbox[3])
 
         # im = im[bbox[0]-1:bbox[2] + 1, bbox[1]-1:bbox[3] + 1]
         # mask = mask[bbox[0]-1:bbox[2] + 1, bbox[1]-1:bbox[3] + 1]
@@ -524,17 +528,17 @@ def crop_to_bbox(im, mask):
 
     elif im.ndim == 3:
         coords = np.nonzero(mask)
-        s_min = max(0, min(coords[0]) - 1)
-        s_max = min(im.shape[0], max(coords[0]) + 2)
-        r_min = max(0, min(coords[1]) - 1)
-        r_max = min(im.shape[1], max(coords[1]) + 2)
-        c_min = max(0, min(coords[2]) - 1)
-        c_max = min(im.shape[2], max(coords[2]) + 2)
+        s_min = max(0, min(coords[0]))
+        s_max = min(im.shape[0], max(coords[0]))
+        r_min = max(0, min(coords[1]))
+        r_max = min(im.shape[1], max(coords[1]))
+        c_min = max(0, min(coords[2]))
+        c_max = min(im.shape[2], max(coords[2]))
 
         # im = im[r_min-1:r_max+1, c_min-1:c_max+1, s_min-1:s_max+1]
         # mask = mask[r_min-1:r_max+1, c_min-1:c_max+1, s_min-1:s_min+1]
-        im = im[s_min:s_max, r_min:r_max, c_min:c_max]
-        mask = mask[s_min:s_max, r_min:r_max, c_min:c_max]
+        im = im[s_min:s_max + 1, r_min:r_max + 1, c_min:c_max + 1]
+        mask = mask[s_min:s_max + 1, r_min:r_max + 1, c_min:c_max + 1]
 
     return im, mask
 
@@ -769,3 +773,15 @@ def morph_hat(img, strels, type='tophat', show=False, show_now=True):
             plt.show()
 
     return resps
+
+
+def get_status_text(text, iter, max_iter):
+    if iter == -1:
+        done = '#' * max_iter
+        line = '\r' + text + ': [%s]' % done
+    else:
+        done = '#' * iter
+        remain = '-' * (max_iter - iter - 1)
+        line = '\r' + text + ': [%s~%s]' % (done, remain)
+
+    return line
