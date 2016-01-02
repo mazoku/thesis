@@ -53,40 +53,6 @@ def load_parameters(config_path='config.ini'):
     return params
 
 
-def load_pickle_data(fname, slice_idx=-1):
-    ext_list = ('pklz', 'pickle')
-    if fname.split('.')[-1] in ext_list:
-
-        try:
-            import gzip
-            f = gzip.open(fname, 'rb')
-            fcontent = f.read()
-            f.close()
-        except Exception as e:
-            logger.warning("Input gzip exception: " + str(e))
-            f = open(fname, 'rb')
-            fcontent = f.read()
-            f.close()
-        data_dict = pickle.loads(fcontent)
-
-        # data = tools.windowing(data_dict['data3d'], level=params['win_level'], width=params['win_width'])
-        data = data_dict['data3d']
-
-        mask = data_dict['segmentation']
-
-        voxel_size = data_dict['voxelsize_mm']
-
-        if slice_idx != -1:
-            data = data[slice_idx, :, :]
-            mask = mask[slice_idx, :, :]
-
-        return data, mask, voxel_size
-
-    else:
-        msg = 'Wrong data type, supported extensions: ', ', '.join(ext_list)
-        raise IOError(msg)
-
-
 def my_pipeline(img, mask, proc=['smoo', 'equa', 'clos', 'cont'], disp=True, show=True):
     n_rows, n_cols = [1, len(proc) + 1]
 
@@ -291,7 +257,7 @@ def comparing(data, methods, params, mask=None, slice_idx=None):
 
 # ---------------------------------------------------------------------------------------------------------------------
 def run(data_fname, params_fname):
-    data, mask, voxel_size = load_pickle_data(data_fname)
+    data, mask, voxel_size = tools.load_pickle_data(data_fname)
     params = load_parameters(params_fname)
 
     dirs = data_fname.split('/')
@@ -393,9 +359,11 @@ if __name__ == '__main__':
     data_fnames = [os.path.join(dir_name, x) for x in files if '_5.0_' in x]
 
     for i, data_fname in enumerate(data_fnames):
-        print 'Processing file #%i/%i -- %s' % (i + 1, len(data_fnames), data_fname.split('/')[-1])
+        # print 'Processing file #%i/%i -- %s' % (i + 1, len(data_fnames), data_fname.split('/')[-1])
+        print 'Processing file #%i/%i -- %s' % (i + 1, len(data_fnames), data_fname[data_fname.rfind('/') + 1:])
         run(data_fname, config_fname)
 
 
-        pyed = QTSeedEditor(self.data3d, mode='seed',
-                            voxelSize=self.voxelsize_mm)
+        # pyed = QTSeedEditor(self.data3d, mode='seed', voxelSize=self.voxelsize_mm)
+
+#TODO: Upravit seed_editor GUI pro zadani seedu. Pridat moznost zadani cropujicicho rectu.

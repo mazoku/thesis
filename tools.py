@@ -785,3 +785,57 @@ def get_status_text(text, iter, max_iter):
         line = '\r' + text + ': [%s~%s]' % (done, remain)
 
     return line
+
+
+def load_pickle_data(fname, slice_idx=-1):
+    ext_list = ('pklz', 'pickle')
+    if fname.split('.')[-1] in ext_list:
+
+        try:
+            import gzip
+            f = gzip.open(fname, 'rb')
+            fcontent = f.read()
+            f.close()
+        except Exception as e:
+            f = open(fname, 'rb')
+            fcontent = f.read()
+            f.close()
+        data_dict = pickle.loads(fcontent)
+
+        # data = tools.windowing(data_dict['data3d'], level=params['win_level'], width=params['win_width'])
+        data = data_dict['data3d']
+
+        mask = data_dict['segmentation']
+
+        voxel_size = data_dict['voxelsize_mm']
+
+        if slice_idx != -1:
+            data = data[slice_idx, :, :]
+            mask = mask[slice_idx, :, :]
+
+        return data, mask, voxel_size
+
+    else:
+        msg = 'Wrong data type, supported extensions: ', ', '.join(ext_list)
+        raise IOError(msg)
+
+def get_bbox(im):
+    '''
+    Returns bounding box in slicing-friendly format (i-min, i-xmax, j-min, j-max, k-min, k-max).
+    The fourth and fifth items are returned only if input image is 3D.
+    Parameters
+    ----------
+    im - input binary image
+
+    Returns
+    -------
+    indices - (i-min, i-xmax, j-min, j-max, k-min, k-max) in 3D case, (i-min, i-xmax, j-min, j-max) in 2D case.
+    '''
+    coords = np.nonzero(im)
+    inds = []
+    for i in coords:
+        i_min = i.min()
+        i_max = i.max()
+        inds.append(i_min, i_max)
+
+    return inds

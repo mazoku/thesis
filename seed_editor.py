@@ -13,6 +13,9 @@ from optparse import OptionParser
 from scipy.io import loadmat
 import numpy as np
 import sys
+import io3d
+
+import tools
 
 from PyQt4.QtCore import Qt, QSize, QString, SIGNAL
 from PyQt4.QtGui import QImage, QDialog,\
@@ -23,7 +26,7 @@ from PyQt4.QtGui import QImage, QDialog,\
     QSizePolicy, QRadioButton,\
     QGroupBox, QPalette, QColor, QButtonGroup
 
-import dcmreaddata
+# import dcmreaddata
 from skimage.segmentation import random_walker
 import cv2
 import skimage.exposure as skexp
@@ -549,10 +552,10 @@ class QTSeedEditor(QDialog):
         self.voxel_label = QLabel('Voxel size [mm]:\n  %.2f x %.2f x %.2f'\
                                       % tuple(self.voxel_size[np.array(self.act_transposition)]))
 
-        combo_view_options = VIEW_TABLE.keys()
-        combo_view = QComboBox(self)
-        combo_view.activated[str].connect(self.setView)
-        combo_view.addItems(combo_view_options)
+        # combo_view_options = VIEW_TABLE.keys()
+        # combo_view = QComboBox(self)
+        # combo_view.activated[str].connect(self.setView)
+        # combo_view.addItems(combo_view_options)
 
         #radio button group for choosing seed class ------------------------
         self.current_class = 1
@@ -611,59 +614,41 @@ class QTSeedEditor(QDialog):
         vopts = []
         vmenu = []
         appmenu = []
-        if mode == 'seed':
-            btn_recalc = QPushButton("Recalculate", self)
-            btn_recalc.clicked.connect(self.recalculate)
-            appmenu.append(QLabel('<b>Segmentation mode</b><br><br><br>' +
-                                  'Select the region of interest<br>' +
-                                  'using the mouse buttons.<br><br>'))
-            appmenu.append(btn_recalc)
-            appmenu.append(QLabel())
-            self.volume_label = QLabel('Volume [mm3]:\n  unknown')
-            appmenu.append(self.volume_label)
 
-        if mode == 'seed' or mode == 'crop':
-            btn_del = QPushButton("Delete Seeds", self)
-            btn_del.clicked.connect(self.deleteSliceSeeds)
-            vmenu.append(None)
-            vmenu.append(btn_del)
+        # btn_recalc = QPushButton("Recalculate", self)
+        # btn_recalc.clicked.connect(self.recalculate)
+        # appmenu.append(QLabel('<b>Segmentation mode</b><br><br><br>' +
+        #                       'Select the region of interest<br>' +
+        #                       'using the mouse buttons.<br><br>'))
+        # appmenu.append(btn_recalc)
+        # appmenu.append(QLabel())
+        # self.volume_label = QLabel('Volume [mm3]:\n  unknown')
+        # appmenu.append(self.volume_label)
 
-            combo_contour_options = ['fill', 'contours', 'off']
-            combo_contour = QComboBox(self)
-            combo_contour.activated[str].connect(self.changeContourMode)
-            combo_contour.addItems(combo_contour_options)
-            self.changeContourMode(combo_contour_options[combo_contour.currentIndex()])
-            vopts.append(QLabel('Selection mode:'))
-            vopts.append(combo_contour)
+        # btn_crop = QPushButton("Crop", self)
+        # btn_crop.clicked.connect(self.crop)
+        # appmenu.append(btn_crop)
 
-        if mode == 'crop':
-            btn_crop = QPushButton("Crop", self)
-            btn_crop.clicked.connect(self.crop)
-            appmenu.append(QLabel('<b>Crop mode</b><br><br><br>' +
-                                  'Select the crop region<br>' +
-                                  'using the left mouse button<br><br>'))
-            appmenu.append(btn_crop)
+        btn_save = QPushButton("Save Seeds", self)
+        btn_save.clicked.connect(self.saveSeeds)
+        appmenu.append(btn_save)
 
-        # if mode == 'draw':
-        #     appmenu.append(QLabel('<b>Manual segmentation<br> mode</b><br><br><br>' +
-        #                           'Mark the region of interest<br>' +
-        #                           'using the mouse buttons:<br><br>' +
-        #                           '&nbsp;&nbsp;<i>left</i> - draw<br>' +
-        #                           '&nbsp;&nbsp;<i>right</i> - erase<br>' +
-        #                           '&nbsp;&nbsp;<i>middle</i> - vol. erase<br><br>'))
-        #
-        #     btn_reset = QPushButton("Reset", self)
-        #     btn_reset.clicked.connect(self.resetSliceDraw)
-        #     vmenu.append(None)
-        #     vmenu.append(btn_reset)
-        #
-        #     combo_erase_options = ['inside', 'outside']
-        #     combo_erase = QComboBox(self)
-        #     combo_erase.activated[str].connect(self.changeEraseMode)
-        #     combo_erase.addItems(combo_erase_options)
-        #     self.changeEraseMode(combo_erase_options[combo_erase.currentIndex()])
-        #     vopts.append(QLabel('Volume erase mode:'))
-        #     vopts.append(combo_erase)
+        btn_del = QPushButton("Delete Seeds", self)
+        btn_del.clicked.connect(self.deleteSliceSeeds)
+        appmenu.append(btn_del)
+
+        # combo_contour_options = ['fill', 'contours', 'off']
+        # combo_contour = QComboBox(self)
+        # combo_contour.activated[str].connect(self.changeContourMode)
+        # combo_contour.addItems(combo_contour_options)
+        # self.changeContourMode(combo_contour_options[combo_contour.currentIndex()])
+        # vopts.append(QLabel('Selection mode:'))
+        # vopts.append(combo_contour)
+
+        # btn_reset = QPushButton("Reset Seeds", self)
+        # btn_reset.clicked.connect(self.resetSliceDraw)
+        # # appmenu.append(None)
+        # appmenu.append(btn_reset)
 
         hbox = QHBoxLayout()
         vbox = QVBoxLayout()
@@ -675,9 +660,9 @@ class QTSeedEditor(QDialog):
         vbox_left.addWidget(self.slider.label)
         vbox_left.addWidget(self.view_label)
         vbox_left.addWidget(self.voxel_label)
-        vbox_left.addWidget(QLabel())
-        vbox_left.addWidget(QLabel('View plane:'))
-        vbox_left.addWidget(combo_view)
+        # vbox_left.addWidget(QLabel())
+        # vbox_left.addWidget(QLabel('View plane:'))
+        # vbox_left.addWidget(combo_view)
         vbox_left.addWidget(self.get_line())
         vbox_left.addWidget(self.slider_cw['c'].label)
         vbox_left.addWidget(self.slider_cw['c'])
@@ -720,10 +705,10 @@ class QTSeedEditor(QDialog):
         vbox.addWidget(self.status_bar)
         self.setLayout(vbox)
 
-        self.setWindowTitle('Segmentation Editor')
+        self.setWindowTitle('Seed Editor')
         self.show()
 
-    def __init__(self, img, actualSlice=0,
+    def __init__(self, img, seeds_fname='seeds.npy', actualSlice=0,
                  seeds=None, contours=None,
                  mode='seed', modeFun=None,
                  voxelSize=[1,1,1]):
@@ -755,6 +740,7 @@ class QTSeedEditor(QDialog):
 
         self.mode = mode
         self.mode_fun = modeFun
+        self.seeds_fname = seeds_fname
         # self.datapath = datapath
 
         self.actual_view = 'axial'
@@ -845,6 +831,12 @@ class QTSeedEditor(QDialog):
 
         else:
             self.seeds_modified = False
+
+    def saveSeeds(self):
+        print 'Saving seeds array ... ',
+        aux = np.swapaxes(np.swapaxes(self.seeds_aview, 1, 2), 0, 1)
+        np.save(self.seeds_fname, aux)
+        print 'done'
 
     def updateCropBounds(self):
         crp = self.getCropBounds()
@@ -1235,8 +1227,8 @@ def windowing(data, level=50, width=350, sub1024=False):
         data -= 1024
 
     #zjisteni minimalni a maximalni density
-    minHU = level - width
-    maxHU = level + width
+    minHU = level - width / 2.
+    maxHU = level + width / 2.
 
     if data.ndim == 3:
         for idx in range(data.shape[0]):
@@ -1247,51 +1239,52 @@ def windowing(data, level=50, width=350, sub1024=False):
 
     return data.astype(np.uint8)
 
-def main(filename=''):
-    parser = OptionParser(description='Segmentation editor')
-    parser.add_option('-f','--filename', action='store',
-                      dest='in_filename', default=None,
-                      help=help['in_file'])
-    # parser.add_option('-d', '--debug', action='store_true',
-    #                   dest='debug', help=help['debug'])
-    parser.add_option('-m', '--mode', action='store',
-                      dest='mode', default='seed', help=help['mode'])
-    parser.add_option('-t', '--tests', action='store_true',
-                      dest='unit_test', help=help['test'])
-    parser.add_option('-g', '--gener_data', action='store_true',
-                      dest='gen_test', help=help['gen_test'])
+
+def main(data3d, seeds_fname):
+    # parser = OptionParser(description='Segmentation editor')
+    # parser.add_option('-f','--filename', action='store',
+    #                   dest='in_filename', default=None,
+    #                   help=help['in_file'])
+    # # parser.add_option('-d', '--debug', action='store_true',
+    # #                   dest='debug', help=help['debug'])
+    # parser.add_option('-m', '--mode', action='store',
+    #                   dest='mode', default='seed', help=help['mode'])
+    # parser.add_option('-t', '--tests', action='store_true',
+    #                   dest='unit_test', help=help['test'])
+    # parser.add_option('-g', '--gener_data', action='store_true',
+    #                   dest='gen_test', help=help['gen_test'])
 
     # parser.add_option('-o', '--outputfile', action='store',
     #                   dest='out_filename', default='output.mat',
     #                   help=help['out_file'])
-    (options, args) = parser.parse_args()
+    # (options, args) = parser.parse_args()
 
-    if options.gen_test:
-        dataraw = gen_test()
-
-    else:
-        if options.in_filename is None:
-            try:
-                options.in_filename = filename
-                print 'loading data...'
-                dcr = dcmreaddata.DicomReader(filename)
-                data3d = dcr.get_3Ddata()
-            except:
-                raise IOError('No input data!')
-        else:
-            print 'loading data...'
-            dcr = dcmreaddata.DicomReader(options.in_filenam)
-            data3d = dcr.get_3Ddata()
+    # if options.gen_test:
+    #     dataraw = gen_test()
+    #
+    # else:
+    #     if options.in_filename is None:
+    #         try:
+    #             options.in_filename = filename
+    #             print 'loading data...'
+    #             dcr = dcmreaddata.DicomReader(filename)
+    #             data3d = dcr.get_3Ddata()
+    #         except:
+    #             raise IOError('No input data!')
+    #     else:
+    #         print 'loading data...'
+    #         dcr = dcmreaddata.DicomReader(options.in_filenam)
+    #         data3d = dcr.get_3Ddata()
 
     #downscaling the data
-    scale = 0.25
-    data3d = rescale_data(data3d, scale)
+    # scale = 0.25
+    # data3d = rescale_data(data3d, scale)
 
     #windowing
     data3d = windowing(data3d)
 
     app = QApplication(sys.argv)
-    pyed = QTSeedEditor(data3d, filename, mode='seed')
+    pyed = QTSeedEditor(data3d, mode='seed', seeds_fname=seeds_fname)
     # pyed = QTSeedEditor(data3d,
     #                     seeds=dataraw['segdata'],
     #                     mode=options.mode,
@@ -1304,6 +1297,21 @@ def main(filename=''):
     # pyed.exec_()
 
 if __name__ == "__main__":
-    # filename = r'c:\Data\kky\53596059\Export0000\SR0000'
-    filename = r'c:\Data\kky\38289898\export1'
-    main(filename)
+    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
+    data, mask, voxel_size = tools.load_pickle_data(data_fname)
+
+    dirs = data_fname.split('/')
+    base_name = os.sep.join(dirs[:-1])# os.path.join(*dirs[:-1])
+    patient_id = dirs[-1][8:11]
+    if 'venous' in dirs[-1] or 'ven' in dirs[-1]:
+        phase = 'venous'
+    elif 'arterial' in dirs[-1] or 'art' in dirs[-1]:
+        phase = 'arterial'
+    else:
+        phase = 'phase_unknown'
+
+    if not os.path.exists(os.path.join(base_name, 'seeds')):
+        os.mkdir(os.path.join(base_name, 'seeds'))
+    seeds_fname = os.path.join((base_name, 'seeds', 'seeds_%i_%s.npy'%(patient_id, phase)))
+
+    main(data, seeds_fname)
