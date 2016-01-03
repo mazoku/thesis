@@ -66,4 +66,6 @@ def run(data, seeds, mask=None, separe=True, bg_lbl=1, slicewise=True):
 
             # data visualization
             # tools.show_3d((im_cr, seg))
-            tools.show_3d((data, segs))
+            # tools.show_3d((data, segs))
+
+    return segs

@@ -271,8 +271,11 @@ def run(data_fname, params_fname):
 
     # fm.run(data, params, mask)
     # snakes.run(data, params, mask=mask)
-    seeds_fname = tools.get_seeds_fname(data_fname)
-    rw.run(data, seeds_fname)
+    seeds_fname = tools.get_subdir_fname(data_fname, 'seeds')
+    segs = rw.run(data, seeds_fname)
+    segs_fname = tools.get_subdir_fname(data_fname, 'seg_rw', create=True)
+    seg_str = {'data3d': data, 'segmentation': segs, 'slab': None, 'voxelsize_mm': None}
+    pickle.dump(seg_str, open(segs_fname, 'wb'))
     return
 
     # batch pipeline ---------------------------------------------------------------------------

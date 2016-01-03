@@ -847,7 +847,8 @@ def get_bbox(im):
     return inds
 
 
-def get_seeds_fname(data_fname):
+# def get_seeds_fname(data_fname):
+def get_subdir_fname(data_fname, subdir, create=False):
     dirs = data_fname.split('/')
     dir = dirs[-1]
     patient_id = dir[8:11]
@@ -858,9 +859,16 @@ def get_seeds_fname(data_fname):
     else:
         phase = 'phase_unknown'
 
-    seeds_fname = os.path.join(os.sep.join(dirs[:-1]), 'seeds', 'seeds_%s_%s.npy'%(patient_id, phase))
+    dirname = os.path.join(os.sep.join(dirs[:-1]), subdir)
+    if create:
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
 
-    return seeds_fname
+    # seeds_fname = os.path.join(os.sep.join(dirs[:-1]), 'seeds', 'seeds_%s_%s.npy' % (patient_id, phase))
+    subdir_fname = os.path.join(dirname, '%s_%s_%s.npy' % (subdir, patient_id, phase))
+
+    # return seeds_fname
+    return subdir_fname
 
 
 def show_3d(data, range=True):
