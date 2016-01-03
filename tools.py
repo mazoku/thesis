@@ -1,13 +1,14 @@
 __author__ = 'Ryba'
 import numpy as np
 import matplotlib.pyplot as plt
-import skimage.exposure as skiexp
-from skimage.segmentation import mark_boundaries
 import os
+import sys
 import glob
 import dicom
 import cv2
+
 # from skimage import measure
+import skimage.exposure as skiexp
 import skimage.measure as skimea
 import skimage.morphology as skimor
 import skimage.transform as skitra
@@ -15,6 +16,8 @@ import skimage.transform as skitra
 import skimage.filters as skifil
 import skimage.restoration as skires
 import skimage.segmentation as skiseg
+from skimage.segmentation import mark_boundaries
+
 import scipy.stats as scista
 import scipy.ndimage.morphology as scindimor
 import scipy.ndimage.measurements as scindimea
@@ -22,6 +25,8 @@ import scipy.ndimage.interpolation as scindiint
 
 import pickle
 
+from PyQt4 import QtGui
+import Viewer_3D
 # import py3DSeedEditor
 
 #----------------------------------------------------------------------------------------------------------------------
@@ -819,6 +824,7 @@ def load_pickle_data(fname, slice_idx=-1):
         msg = 'Wrong data type, supported extensions: ', ', '.join(ext_list)
         raise IOError(msg)
 
+
 def get_bbox(im):
     '''
     Returns bounding box in slicing-friendly format (i-min, i-xmax, j-min, j-max, k-min, k-max).
@@ -836,6 +842,49 @@ def get_bbox(im):
     for i in coords:
         i_min = i.min()
         i_max = i.max()
-        inds.append(i_min, i_max)
+        inds.extend((i_min, i_max))
 
     return inds
+
+
+def get_seeds_fname(data_fname):
+    dirs = data_fname.split('/')
+    dir = dirs[-1]
+    patient_id = dir[8:11]
+    if 'venous' in dir or 'ven' in dir:
+        phase = 'venous'
+    elif 'arterial' in dir or 'art' in dir:
+        phase = 'arterial'
+    else:
+        phase = 'phase_unknown'
+
+    seeds_fname = os.path.join(os.sep.join(dirs[:-1]), 'seeds', 'seeds_%s_%s.npy'%(patient_id, phase))
+
+    return seeds_fname
+
+
+def show_3d(data, range=True):
+    if isinstance(data, tuple):
+        # n_data = len(data)
+        n_slices = data[0].shape[0]
+        n_rows = data[0].shape[1]
+        n_cols = sum([x.shape[2] for x in data])
+        data_vis = np.zeros((n_slices, n_rows, n_cols))
+
+        # data_vis = []
+        # for i in data:
+        #     data_vis.append(skiexp.rescale_intensity(i, out_range=np.uint8))
+        for i in xrange(n_slices):
+            slice = []
+            for j in data:
+                slice.append(skiexp.rescale_intensity((j[i, :, :]).astype(np.uint8), out_range=np.uint8))
+            # data_vis[i, :, :] = np.hstack(slice)
+            data_vis[i, :, :] = np.hstack(slice)
+        # data_vis = np.hstack(data_vis)
+    else:
+        data_vis = data
+
+    app = QtGui.QApplication(sys.argv)
+    viewer = Viewer_3D.Viewer_3D(data_vis, range=True)
+    viewer.show()
+    sys.exit(app.exec_())

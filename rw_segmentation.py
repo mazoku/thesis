@@ -37,11 +37,14 @@ def rw_segmentation(im, seeds, slicewise):
 #             props = skimea.regionprops(bg)
 
 
-def run(data, seeds, mask=None, separe=False, bg_lbl=1, slicewise=True):
+def run(data, seeds, mask=None, separe=True, bg_lbl=1, slicewise=True):
+    if isinstance(seeds, str):
+        seeds = np.load(seeds)
+
     if separe:
         bg = data == bg_lbl
 
-        bg_lbls, n_bgs = scindimea.label(data, structure=np.ones((3,3,3)))
+        bg_lbls, n_bgs = scindimea.label(seeds==1, structure=np.ones((3, 3, 3)))
 
         # deriving bboxes
         bboxes = []
@@ -52,16 +55,15 @@ def run(data, seeds, mask=None, separe=False, bg_lbl=1, slicewise=True):
             bboxes.append(bbox)
 
         # segmentation
+        segs = np.zeros_like(data)
         for bbox in bboxes:
             im_cr = data[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1]
             seeds_cr = seeds[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1]
 
-            seg = rw_segmentation(im_cr, seeds_cr, slicewise)
+            seg = rw_segmentation(im_cr, seeds_cr, slicewise) - 1
+            print np.unique(seg)
+            segs[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1] += seg
 
             # data visualization
-            app = QtGui.QApplication(sys.argv)
-            viewer = Viewer_3D.Viewer_3D(seg, range=False)
-            viewer.show()
-            sys.exit(app.exec_())
-
-            #TODO: overit vysledek segmentace (myslim, ze jsem mel vizualizaci dat i s konturami)
+            # tools.show_3d((im_cr, seg))
+            tools.show_3d((data, segs))

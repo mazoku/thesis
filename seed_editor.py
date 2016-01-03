@@ -834,7 +834,8 @@ class QTSeedEditor(QDialog):
 
     def saveSeeds(self):
         print 'Saving seeds array ... ',
-        aux = np.swapaxes(np.swapaxes(self.seeds_aview, 1, 2), 0, 1)
+        # aux = np.swapaxes(np.swapaxes(self.seeds_aview, 1, 2), 0, 1)
+        aux = np.swapaxes(self.seeds_aview, 0, 2)
         np.save(self.seeds_fname, aux)
         print 'done'
 
@@ -1300,18 +1301,22 @@ if __name__ == "__main__":
     data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
-    dirs = data_fname.split('/')
-    base_name = os.sep.join(dirs[:-1])# os.path.join(*dirs[:-1])
-    patient_id = dirs[-1][8:11]
-    if 'venous' in dirs[-1] or 'ven' in dirs[-1]:
-        phase = 'venous'
-    elif 'arterial' in dirs[-1] or 'art' in dirs[-1]:
-        phase = 'arterial'
-    else:
-        phase = 'phase_unknown'
+    seeds_fname = tools.get_seeds_fname(data_fname)
+    # dirs = data_fname.split('/')
+    # base_name = os.sep.join(dirs[:-1])# os.path.join(*dirs[:-1])
+    # patient_id = dirs[-1][8:11]
+    # if 'venous' in dirs[-1] or 'ven' in dirs[-1]:
+    #     phase = 'venous'
+    # elif 'arterial' in dirs[-1] or 'art' in dirs[-1]:
+    #     phase = 'arterial'
+    # else:
+    #     phase = 'phase_unknown'
 
-    if not os.path.exists(os.path.join(base_name, 'seeds')):
-        os.mkdir(os.path.join(base_name, 'seeds'))
-    seeds_fname = os.path.join((base_name, 'seeds', 'seeds_%i_%s.npy'%(patient_id, phase)))
+    # if not os.path.exists(os.path.join(base_name, 'seeds')):
+    #     os.mkdir(os.path.join(base_name, 'seeds'))
+    # seeds_fname = os.path.join((base_name, 'seeds', 'seeds_%i_%s.npy'%(patient_id, phase)))
+    dir_name = seeds_fname[:seeds_fname.rfind(os.sep)]
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
 
     main(data, seeds_fname)

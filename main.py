@@ -13,7 +13,6 @@ import numpy as np
 import matplotlib.patches as matpat
 import matplotlib.pyplot as plt
 import cv2
-import tools
 
 import pickle
 import ConfigParser
@@ -29,7 +28,7 @@ import Viewer_3D
 
 import fast_marching as fm
 import snakes
-import cv2
+import rw_segmentation as rw
 
 import tools
 
@@ -272,10 +271,14 @@ def run(data_fname, params_fname):
 
     # fm.run(data, params, mask)
     # snakes.run(data, params, mask=mask)
+    seeds_fname = tools.get_seeds_fname(data_fname)
+    rw.run(data, seeds_fname)
+    return
 
-    # batch pipeline -----------------------------------------------------------------------------------
+    # batch pipeline ---------------------------------------------------------------------------
     data, mask = tools.crop_to_bbox(data, mask)
     res = []
+    # Pipeline processing ---------------------------------------------------------------------
     for i in range(data.shape[0]):
         # print 'Processing slice #%i/%i' % (i + 1, data.shape[0]),
         print tools.get_status_text('\tProcessing slices', iter=i, max_iter=data.shape[0]),
@@ -284,13 +287,12 @@ def run(data_fname, params_fname):
         # print 'done'
     print tools.get_status_text('\tProcessing slice', iter=-1, max_iter=data.shape[0])
 
+    # Checking / creating figure dir ----------------------------------------------------------
     fig_dir = os.path.join(os.path.curdir, 'figs_%s_%s' % (patient_id, phase))
     if not os.path.exists(fig_dir):
         os.mkdir(fig_dir)
 
-    # coords = np.nonzero(mask)
-    # r_max = min(mask.shape[1], max(coords[1]) + 1)
-    # c_max = min(mask.shape[2], max(coords[2]) + 1)
+    # Saving figures --------------------------------------------------------------------------
     fig = plt.figure(figsize=(20, 5))
     for s in range(len(res)):
         # print 'Saving figure #%i/%i ...' % (s + 1, len(res)),
@@ -318,8 +320,6 @@ def run(data_fname, params_fname):
                 else:
                     plt.imshow(im, 'gray', interpolation='nearest'), plt.title(title)
 
-                # plt.imshow(im, 'gray', interpolation='nearest'), plt.title(title)
-        # plt.show()
         fig.savefig(os.path.join(fig_dir, 'slice_%i.png'%s))
         fig.clf()
         # print 'done'
@@ -349,14 +349,15 @@ def run(data_fname, params_fname):
 ################################################################################
 if __name__ == '__main__':
 
-    # data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
+    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     # data_fname = '/home/tomas/Data/liver_segmentation//org-exp_183_46324212_arterial_5.0_B30f-.pklz'
-    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_180_49509315_venous_5.0_B30f-.pklz'
+    # data_fname = '/home/tomas/Data/liver_segmentation/org-exp_180_49509315_venous_5.0_B30f-.pklz'
     config_fname = 'config.ini'
+    data_fnames = [data_fname,]
 
     dir_name = '/home/tomas/Data/liver_segmentation/'
     files = os.listdir(dir_name)
-    data_fnames = [os.path.join(dir_name, x) for x in files if '_5.0_' in x]
+    # data_fnames = [os.path.join(dir_name, x) for x in files if '_5.0_' in x]
 
     for i, data_fname in enumerate(data_fnames):
         # print 'Processing file #%i/%i -- %s' % (i + 1, len(data_fnames), data_fname.split('/')[-1])
