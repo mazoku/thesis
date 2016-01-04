@@ -1,6 +1,7 @@
 __author__ = 'Ryba'
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as matpat
 import os
 import sys
 import glob
@@ -23,7 +24,8 @@ import scipy.ndimage.morphology as scindimor
 import scipy.ndimage.measurements as scindimea
 import scipy.ndimage.interpolation as scindiint
 
-import pickle
+import cPickle as pickle
+import gzip
 
 from PyQt4 import QtGui
 import Viewer_3D
@@ -659,33 +661,6 @@ def label_3D(data, class_labels, background=-1):
     return labels
 
 
-def load_pickle_data(fname, win_level=50, win_width=350, slice_idx=-1):
-    fcontent = None
-    try:
-        import gzip
-        f = gzip.open(fname, 'rb')
-        fcontent = f.read()
-        f.close()
-    except Exception as e:
-        f = open(fname, 'rb')
-        fcontent = f.read()
-        f.close()
-    data_dict = pickle.loads(fcontent)
-
-    data = windowing(data_dict['data3d'], level=win_level, width=win_width)
-
-    mask = data_dict['segmentation']
-
-    voxel_size = data_dict['voxelsize_mm']
-
-
-    if slice_idx != -1:
-        data = data[slice_idx, :, :]
-        mask = mask[slice_idx, :, :]
-
-    return data, mask, voxel_size
-
-
 def get_hist_mode(im, mask=None, debug=False):
     if mask is None:
         mask = np.ones(im.shape, dtype=np.bool)
@@ -814,6 +789,7 @@ def load_pickle_data(fname, slice_idx=-1):
 
         voxel_size = data_dict['voxelsize_mm']
 
+        # TODO: predelat na 3D data
         if slice_idx != -1:
             data = data[slice_idx, :, :]
             mask = mask[slice_idx, :, :]
@@ -847,8 +823,7 @@ def get_bbox(im):
     return inds
 
 
-# def get_seeds_fname(data_fname):
-def get_subdir_fname(data_fname, subdir, create=False):
+def get_subdir_fname(data_fname, subdir, ext='npy', create=False):
     dirs = data_fname.split('/')
     dir = dirs[-1]
     patient_id = dir[8:11]
@@ -865,7 +840,7 @@ def get_subdir_fname(data_fname, subdir, create=False):
             os.mkdir(dirname)
 
     # seeds_fname = os.path.join(os.sep.join(dirs[:-1]), 'seeds', 'seeds_%s_%s.npy' % (patient_id, phase))
-    subdir_fname = os.path.join(dirname, '%s_%s_%s.npy' % (subdir, patient_id, phase))
+    subdir_fname = os.path.join(dirname, '%s_%s_%s.%s' % (subdir, patient_id, phase, ext))
 
     # return seeds_fname
     return subdir_fname
@@ -882,10 +857,12 @@ def show_3d(data, range=True):
         # data_vis = []
         # for i in data:
         #     data_vis.append(skiexp.rescale_intensity(i, out_range=np.uint8))
+        data = [skiexp.rescale_intensity(x, out_range=np.uint8) for x in data]
         for i in xrange(n_slices):
             slice = []
             for j in data:
-                slice.append(skiexp.rescale_intensity((j[i, :, :]).astype(np.uint8), out_range=np.uint8))
+                # slice.append(skiexp.rescale_intensity((j[i, :, :]).astype(np.uint8), out_range=np.uint8))
+                slice.append(j[i, :, :])
             # data_vis[i, :, :] = np.hstack(slice)
             data_vis[i, :, :] = np.hstack(slice)
         # data_vis = np.hstack(data_vis)
@@ -896,3 +873,81 @@ def show_3d(data, range=True):
     viewer = Viewer_3D.Viewer_3D(data_vis, range=True)
     viewer.show()
     sys.exit(app.exec_())
+
+
+def put_bbox_back(im_o, im_b, bbox=None, mask=None):
+    im_o = im_o.copy()
+    if bbox is None and mask is None:
+        raise ValueError('Bbox or mask must be defined.')
+
+    if mask is not None:
+        bbox = get_bbox(mask)
+
+    if len(bbox) == 6:
+        im_o[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1] = im_b
+    else:
+        im_o[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1] = im_b
+
+    return im_o
+
+
+def save_pickle(data_fname, subdir, data, mask, segs, voxel_size, slab=None):
+    segs_fname = get_subdir_fname(data_fname, subdir, ext='pklz', create=True)
+    datap = {'data3d': data, 'mask': mask, 'segmentation': segs, 'voxelsize_mm': voxel_size, 'slab': slab}
+
+    f = gzip.open(segs_fname, 'wb', compresslevel=1)
+    pickle.dump(datap, f)
+    f.close()
+
+
+def save_figs(data_fname, subdir, data, mask, imgs, ranges=None, cmaps=None):
+    dirs = data_fname.split('/')
+    dir = dirs[-1]
+    patient_id = dir[8:11]
+    if 'venous' in dir or 'ven' in dir:
+        phase = 'venous'
+    elif 'arterial' in dir or 'art' in dir:
+        phase = 'arterial'
+    else:
+        phase = 'phase_unknown'
+
+    # checking directories
+    fig_dir = os.path.join(os.sep.join(dirs[:-1]), subdir)
+    if not os.path.exists(fig_dir):
+        os.mkdir(fig_dir)
+    fig_patient_dir = os.path.join(fig_dir, 'figs_%s_%s' % (patient_id, phase))
+    if not os.path.exists(fig_patient_dir):
+        os.mkdir(fig_patient_dir)
+
+    # saving figures
+    if isinstance(imgs, np.ndarray):
+        imgs = [imgs]
+
+    fig = plt.figure(figsize=(20, 5))
+    for s in range(len(imgs)):
+        print get_status_text('\tSaving figures', iter=s, max_iter=len(imgs)),
+        # print 'Saving figure #%i/%i ...' % (s + 1, len(res)),
+        for i, (title, im) in enumerate(imgs[s]):
+            plt.subplot(1, len(imgs[s]), i + 1)
+            if 'contours' in title:
+                plt.imshow(im[0], 'gray', interpolation='nearest'), plt.title(title)
+                plt.hold(True)
+                for n, contour in enumerate(im[1]):
+                    plt.plot(contour[:, 1], contour[:, 0], linewidth=2)
+                plt.axis('image')
+            elif title == 'input':
+                plt.imshow(data[s,:,:], 'gray', interpolation='nearest'), plt.title(title)
+            else:
+                if cmaps is not None:
+                    cmap = cmaps[i]
+                else:
+                    cmap = 'gray'
+                if ranges is not None:
+                    plt.imshow(im, cmap=cmap, vmin=ranges[i][0], vmax=ranges[i][1], interpolation='nearest'), plt.title(title)
+                else:
+                    plt.imshow(im, cmap=cmap, interpolation='nearest'), plt.title(title)
+
+        fig.savefig(os.path.join(fig_patient_dir, 'slice_%i.png' % s))
+        fig.clf()
+        # print 'done'
+    print get_status_text('\tSaving figures', iter=-1, max_iter=len(imgs))

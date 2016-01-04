@@ -1301,7 +1301,7 @@ if __name__ == "__main__":
     data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
-    seeds_fname = tools.get_seeds_fname(data_fname)
+    seeds_fname = tools.get_subdir_fname(data_fname, 'seeds ')
     # dirs = data_fname.split('/')
     # base_name = os.sep.join(dirs[:-1])# os.path.join(*dirs[:-1])
     # patient_id = dirs[-1][8:11]

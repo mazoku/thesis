@@ -38,6 +38,8 @@ def rw_segmentation(im, seeds, slicewise):
 
 
 def run(data, seeds, mask=None, separe=True, bg_lbl=1, slicewise=True):
+    segs = None
+
     if isinstance(seeds, str):
         seeds = np.load(seeds)
 
@@ -61,7 +63,6 @@ def run(data, seeds, mask=None, separe=True, bg_lbl=1, slicewise=True):
             seeds_cr = seeds[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1]
 
             seg = rw_segmentation(im_cr, seeds_cr, slicewise) - 1
-            print np.unique(seg)
             segs[bbox[0]:bbox[1] + 1, bbox[2]:bbox[3] + 1, bbox[4]:bbox[5] + 1] += seg
 
             # data visualization
