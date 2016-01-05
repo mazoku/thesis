@@ -201,11 +201,11 @@ def run(data_fname, params_fname):
     # -- SLIC --
     return_vis = True
     out = slics.run(data, mask, voxel_size, return_vis=return_vis)
-    if return_vis:
-        segs, vis, ranges, cmaps = out
-        tools.save_figs(data_fname, 'figs_seg_slic', data, mask, vis, ranges=ranges, cmaps=cmaps)
-    else:
-        segs = out
+    # if return_vis:
+    #     segs, vis, ranges, cmaps = out
+    #     tools.save_figs(data_fname, 'figs_seg_slic', data, mask, vis, ranges=ranges, cmaps=cmaps)
+    # else:
+    #     segs = out
     # tools.save_pickle(data_fname, 'seg_slic', data, mask, segs, voxel_size)
 
     # -- VISUALIZATION --

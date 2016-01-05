@@ -29,6 +29,9 @@ import gzip
 
 from PyQt4 import QtGui
 import Viewer_3D
+
+sys.path.append('../seg_viewer/')
+from seg_viewer import SegViewer
 # import py3DSeedEditor
 
 #----------------------------------------------------------------------------------------------------------------------
@@ -951,3 +954,10 @@ def save_figs(data_fname, subdir, data, mask, imgs, ranges=None, cmaps=None):
         fig.clf()
         # print 'done'
     print get_status_text('\tSaving figures', iter=-1, max_iter=len(imgs))
+
+
+def view_segmentation(datap_1, datap_2=None):
+    app = QtGui.QApplication(sys.argv)
+    le = SegViewer(datap1=datap_1, datap2=datap_2)
+    le.show()
+    sys.exit(app.exec_())
