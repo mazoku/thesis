@@ -30,8 +30,9 @@ import gzip
 from PyQt4 import QtGui
 import Viewer_3D
 
-sys.path.append('../seg_viewer/')
-from seg_viewer import SegViewer
+sys.path.append('../data_viewers/')
+from dataviewers.seg_viewer import SegViewer
+# from seg_viewer import SegViewer
 # import py3DSeedEditor
 
 #----------------------------------------------------------------------------------------------------------------------
