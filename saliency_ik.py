@@ -277,10 +277,14 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
     cv2.imwrite(base_name + '_saliency_mark_max.png', saliency_mark_max)
 
 
-def run(im, save_fig=False, show=False):
+def run(im, save_fig=False, smoothing=False, show=False, show_now=True):
 
     im_orig = im.copy()
     orig_shape = im_orig.shape[:-1]
+
+    if smoothing:
+        im = tools.smoothing(im)
+
     intensty = intensityConspicuity(im)
     gabor = gaborConspicuity(im, 4)
 
@@ -313,7 +317,8 @@ def run(im, save_fig=False, show=False):
         plt.subplot(246), plt.imshow(cout, 'gray', interpolation='nearest'), plt.title('cout')
         plt.subplot(247), plt.imshow(saliency, 'gray', interpolation='nearest'), plt.title('saliency')
         plt.subplot(248), plt.imshow(saliency_mark_max, 'gray', interpolation='nearest'), plt.title('saliency_mark_max')
-        plt.show()
+        if show_now:
+            plt.show()
 
     return intensty, gabor, rg, by, cout, saliency, saliency_mark_max
 
@@ -335,4 +340,5 @@ if __name__ == "__main__":
     # data_s *= mask_s
     im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
 
-    run(im, save_fig=False, show=True)
+    run(im, save_fig=False, show=True, show_now=False)
+    run(im, smoothing=True, save_fig=False, show=True)

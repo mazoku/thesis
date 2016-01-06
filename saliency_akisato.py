@@ -1,17 +1,13 @@
 from __future__ import division
 
-import sys
-
 import numpy as np
-import tools
 import cv2
-
-sys.path.append('../sight-spot/')
-import SightSpotUtil
-
 import matplotlib.pyplot as plt
+import tools
 
-import time
+import sys
+sys.path.append('../pySaliencyMap/')
+import pySaliencyMap
 
 
 def run(image, mask=None, smoothing=False, show=False, show_now=True):
@@ -27,23 +23,14 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
     if smoothing:
         image = tools.smoothing(image)
 
-    rgb_image = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2RGB).astype(np.float32)
-
-    print 'Calculate saliency map for test image:'
-    orgb_image = SightSpotUtil.eval_orgb_image(rgb_image)
-
-    start = time.clock()
-    saliency_map = SightSpotUtil.eval_saliency_map(orgb_image, 3.0, 60.0, 'auto')
-    print 'Saliency map extracted in', time.clock() - start, 'sec.'
-
-    # start = time.clock()
-    # heatmap_image = SightSpotUtil.eval_heatmap(saliency_map)
-    # heatmap_image = np.asarray(heatmap_image)
-    # heatmap_image.setflags(write=True)
-    # print 'Heatmap extracted in', time.clock() - start, 'sec.'
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2BGR).astype(np.float32)
+    imgsize = rgb_image.shape
+    img_width  = imgsize[1]
+    img_height = imgsize[0]
+    sm = pySaliencyMap.pySaliencyMap(img_width, img_height)
+    saliency_map = sm.SMGetSM(rgb_image)
 
     saliency_map *= mask
-    # heatmap_image *= np.dstack((mask, mask, mask))
     im_orig *= mask
 
     if show:
