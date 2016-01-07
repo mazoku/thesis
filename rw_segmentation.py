@@ -8,12 +8,17 @@ import skimage.measure as skimea
 
 import scipy.ndimage.measurements as scindimea
 
-import tools
+# import tools
+import os
+import sys
+if os.path.exists('../imtools/'):
+    sys.path.append('../imtools/')
+    from imtools import tools
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 import sys
-from PyQt4 import QtGui
-import Viewer_3D
-
 
 def rw_segmentation(im, seeds, slicewise):
     if slicewise:

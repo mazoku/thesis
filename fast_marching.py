@@ -1,6 +1,14 @@
 __author__ = 'tomas'
 
-import tools
+# import tools
+import os
+import sys
+if os.path.exists('../imtools/'):
+    sys.path.append('../imtools/')
+    from imtools import tools
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 import matplotlib.pyplot as plt
 import numpy as np

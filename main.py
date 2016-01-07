@@ -25,7 +25,7 @@ import skimage.draw as skidra
 import skimage.morphology as skimor
 import skimage.segmentation as skiseg
 
-import Viewer_3D
+# import Viewer_3D
 
 import fast_marching as fm
 import snakes
@@ -33,7 +33,13 @@ import rw_segmentation as rw
 import he_pipeline as heep
 import slics
 
-import tools
+if os.path.exists('../imtools/'):
+    sys.path.append('../imtools/')
+    from imtools import tools
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
+    # import tools
 
 from sys import stdout
 
@@ -201,28 +207,25 @@ def run(data_fname, params_fname):
     # -- SLIC --
     return_vis = True
     out = slics.run(data, mask, voxel_size, return_vis=return_vis)
-    # if return_vis:
-    #     segs, vis, ranges, cmaps = out
-    #     tools.save_figs(data_fname, 'figs_seg_slic', data, mask, vis, ranges=ranges, cmaps=cmaps)
-    # else:
-    #     segs = out
+    if return_vis:
+        segs, vis, ranges, cmaps = out
+        # tools.save_figs(data_fname, 'figs_seg_slic', data, mask, vis, ranges=ranges, cmaps=cmaps)
+    else:
+        segs = out
     # tools.save_pickle(data_fname, 'seg_slic', data, mask, segs, voxel_size)
 
     # -- VISUALIZATION --
-    # tools.show_3d(segs)
+    tools.show_3d(segs)
+    # datap_1 = tools.load_pickle_data('/home/tomas/Data/liver_segmentation/seg_rw/seg_rw_183_venous.pklz', return_datap=True)
+    # datap_2 = tools.load_pickle_data('/home/tomas/Data/liver_segmentation/seg_he_pipeline/seg_he_pipeline_183_venous.pklz', return_datap=True)
+    # tools.view_segmentation(datap_1, datap_2)
 
-    # # data visualization
+    # # -- COMPARING --
     # slice_idx = 14
     # methods = ['fm', 'snakes']
     # comparing(data, methods, params, mask, slice_idx=slice_idx)
 
     # morph_hat_test(data[ slice_idx, :, :])
-
-    # data visualization
-    # app = QtGui.QApplication(sys.argv)
-    # viewer = Viewer_3D.Viewer_3D(segs, range=False)
-    # viewer.show()
-    # sys.exit(app.exec_())
 
 
 ################################################################################

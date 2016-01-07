@@ -6,8 +6,15 @@ import skimage.segmentation as skiseg
 import skimage.morphology as skimor
 import cv2
 
-import tools
-
+# import tools
+import os
+import sys
+if os.path.exists('../imtools/'):
+    sys.path.append('../imtools/')
+    from imtools import tools
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 def run(data, mask, voxel_size, return_vis=False):
     data_w = tools.windowing(data).astype(np.uint8)
