@@ -37,7 +37,9 @@ import numpy as np
 import os.path
 import sys
 
-import tools
+import sys
+sys.path.append('../imtools/')
+from imtools import tools
 
 if sys.version_info[0] != 2:
     raise Exception("This script was written for Python version 2.  You're running Python %s." % sys.version)
@@ -129,7 +131,8 @@ def intensityConspicuity(image):
     """
         Creates the conspicuity map for the channel `intensity'.
     """
-    fs = features(image = im, channel = intensity)
+    # fs = features(image = im, channel = intensity)
+    fs = features(image = image, channel = intensity)
     return sumNormalizedFeatures(fs)
 
 
@@ -141,7 +144,8 @@ def gaborConspicuity(image, steps):
     for step in range(steps):
         theta = step * (math.pi/steps)
         gaborFilter = makeGaborFilter(dims=(10,10), lambd=2.5, theta=theta, psi=math.pi/2, sigma=2.5, gamma=.5)
-        gaborFeatures = features(image = intensity(im), channel = gaborFilter)
+        # gaborFeatures = features(image = intensity(im), channel = gaborFilter)
+        gaborFeatures = features(image = intensity(image), channel = gaborFilter)
         summedFeatures = sumNormalizedFeatures(gaborFeatures)
         gaborConspicuity += N(summedFeatures)
     return gaborConspicuity
@@ -277,7 +281,19 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
     cv2.imwrite(base_name + '_saliency_mark_max.png', saliency_mark_max)
 
 
-def run(im, save_fig=False, smoothing=False, show=False, show_now=True):
+def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
+
+    if mask is None:
+        mask = np.ones_like(im)
+        im_orig = im.copy()
+    else:
+        im, mask = tools.crop_to_bbox(im, mask)
+        im_orig = im.copy()
+        mean_v = int(im[np.nonzero(mask)].mean())
+        im = np.where(mask, im, mean_v)
+
+    if im.ndim == 2:
+        im = cv2.cvtColor(im, cv2.COLOR_BAYER_GR2RGB)
 
     im_orig = im.copy()
     orig_shape = im_orig.shape[:-1]
@@ -320,7 +336,10 @@ def run(im, save_fig=False, smoothing=False, show=False, show_now=True):
         if show_now:
             plt.show()
 
-    return intensty, gabor, rg, by, cout, saliency, saliency_mark_max
+    if return_all:
+        return intensty, gabor, rg, by, cout, saliency, saliency_mark_max
+    else:
+        return saliency
 
 
 #---------------------------------------------------------------------------------------------
@@ -340,5 +359,5 @@ if __name__ == "__main__":
     # data_s *= mask_s
     im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
 
-    run(im, save_fig=False, show=True, show_now=False)
+    # run(im, save_fig=False, show=True, show_now=False)
     run(im, smoothing=True, save_fig=False, show=True)

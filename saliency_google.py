@@ -3,7 +3,10 @@ from __future__ import division
 import sys
 
 import numpy as np
-import tools
+
+import sys
+sys.path.append('../imtools/')
+from imtools import tools
 import cv2
 
 sys.path.append('../sight-spot/')

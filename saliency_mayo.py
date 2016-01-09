@@ -3,7 +3,10 @@ from __future__ import division
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-import tools
+
+import sys
+sys.path.append('../imtools/')
+from imtools import tools
 
 import sys
 sys.path.append('../saliency-map/src/')
