@@ -47,21 +47,22 @@ if sys.version_info[0] != 2:
 logger = logging.getLogger(__name__)
 
 
+
 def features(image, channel, levels=9, start_size=(640,480), ):
     """
-		Extracts features by down-scaling the image levels times,
-		transforms the image by applying the function channel to
-		each scaled version and computing the difference between
-		the scaled, transformed	versions.
-			image : 		the image
-			channel : 		a function which transforms the image into
-							another image of the same size
-			levels : 		number of scaling levels
-			start_size : 	tuple.  The size of the biggest image in
-							the scaling	pyramid.  The image is first
-							scaled to that size and then scaled by half
-							levels times.  Therefore, both entries in
-							start_size must be divisible by 2^levels.
+    Extracts features by down-scaling the image levels times,
+    transforms the image by applying the function channel to
+    each scaled version and computing the difference between
+    the scaled, transformed	versions.
+        image : 		the image
+        channel : 		a function which transforms the image into
+                        another image of the same size
+        levels : 		number of scaling levels
+        start_size : 	tuple.  The size of the biggest image in
+                        the scaling	pyramid.  The image is first
+                        scaled to that size and then scaled by half
+                        levels times.  Therefore, both entries in
+                        start_size must be divisible by 2^levels.
 	"""
     image = channel(image)
     if image.shape != start_size:
@@ -312,12 +313,12 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     saliency_mark_max = markMaxima(saliency)
     cout = .25 * c
 
-    intensty = cv2.resize(intensty, dsize=orig_shape[::-1])
-    gabor = cv2.resize(gabor, dsize=orig_shape[::-1])
-    rg = cv2.resize(rg, dsize=orig_shape[::-1])
-    by = cv2.resize(by, dsize=orig_shape[::-1])
-    cout = cv2.resize(cout, dsize=orig_shape[::-1])
-    saliency = cv2.resize(saliency, dsize=orig_shape[::-1])
+    intensty = cv2.resize(intensty, dsize=orig_shape[::-1]) * mask
+    gabor = cv2.resize(gabor, dsize=orig_shape[::-1]) * mask
+    rg = cv2.resize(rg, dsize=orig_shape[::-1]) * mask
+    by = cv2.resize(by, dsize=orig_shape[::-1]) * mask
+    cout = cv2.resize(cout, dsize=orig_shape[::-1]) * mask
+    saliency = cv2.resize(saliency, dsize=orig_shape[::-1]) * mask
     saliency_mark_max = cv2.resize(saliency_mark_max, dsize=orig_shape[::-1])
 
     if save_fig:
@@ -339,7 +340,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if return_all:
         return intensty, gabor, rg, by, cout, saliency, saliency_mark_max
     else:
-        return saliency
+        return im_orig, mask, saliency
 
 
 #---------------------------------------------------------------------------------------------

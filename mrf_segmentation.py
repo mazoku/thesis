@@ -17,6 +17,7 @@ import saliency_akisato as salaki
 import saliency_google as salgoo
 import saliency_ik as salik
 import saliency_mayo as salmay
+import copy
 
 
 def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
@@ -26,25 +27,49 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
 
     im_orig, image, salaki_map = salaki.run(im, mask)
     im_orig, image, salgoo_map = salgoo.run(im, mask=mask)
-    salik_map = salik.run(im, mask=mask, smoothing=True)
+    im_orig, _, salik_map = salik.run(im, mask=mask, smoothing=True)
     im_orig, image, salmay_map = salmay.run(im, mask=mask, smoothing=True)
 
-    imgs = [salaki_map, salgoo_map, salik_map, salmay_map]
+    # inverting intensity so that the tumor has high saliency
+    salgoo_map = np.where(salgoo_map, 1 - salgoo_map, 0)
+    # salik_map = skiexp.rescale_intensity(salik_map, out_range=(0, 1))
+
+    saliencies = [salaki_map, salgoo_map, salik_map, salmay_map]
     tits = ['akisato', 'google', 'ik', 'mayo']
-    # imgs = [salaki_map, salgoo_map, salmay_map]
+    # saliencies = [salaki_map, salgoo_map, salmay_map]
     # tits = ['akisato', 'google', 'mayo']
-    plt.figure()
-    for i, (im, tit) in enumerate(zip(imgs, tits)):
-        plt.subplot(2, 2, i+1), plt.imshow(im, 'gray', interpolation='nearest')
-        plt.title(tit)
-    plt.show()
+
+    # plt.figure()
+    # for i, (im, tit) in enumerate(zip(saliencies, tits)):
+    #     # plt.subplot(2, 2, i+1), plt.imshow(skiexp.rescale_intensity(im, out_range=(0, )), 'gray', interpolation='nearest')
+    #     plt.subplot(2, 2, i+1), plt.imshow(im, 'gray', interpolation='nearest')
+    #     plt.colorbar()
+    #     plt.title(tit)
+    # plt.show()
 
 
-    mrf = MarkovRandomField(im, mask=mask, alpha=alpha, beta=beta, scale=scale)
+    mrf = MarkovRandomField(im, models_estim='hydohy', mask=mask, alpha=alpha, beta=beta, scale=scale)
+    unary_domin = mrf.get_unaries()[:, :, 1]
+    max_prob = unary_domin.max()
+
+    # rescaling intensities
+    # max_int = 0.5
+    max_int = max_prob
+    for i, im in enumerate(saliencies):
+        saliencies[i] = skiexp.rescale_intensity(im, out_range=(0, max_int))
+
+    unaries_domin_sal = [np.dstack((unary_domin, x.reshape(-1, 1))) for x in saliencies]
+
+    results = []
+    for unary in unaries_domin_sal:
+        mrf.set_unaries(unary)
+        res = mrf.run().copy()
+        results.append(res)
+
     # mrf.set_unaries(unaries)
     # unaries =
-    mrf.run()
-    return mrf.labels_orig
+    # mrf.run()
+    # return mrf.labels_orig
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
