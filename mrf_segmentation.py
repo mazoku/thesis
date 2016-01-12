@@ -21,9 +21,9 @@ import copy
 
 
 def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
-    scale = 0.5  # scaling parameter for resizing the image
-    alpha = 1  # parameter for weighting the smoothness term (pairwise potentials)
-    beta = 1  # parameter for weighting the data term (unary potentials)
+    # scale = 0.5  # scaling parameter for resizing the image
+    # alpha = 1  # parameter for weighting the smoothness term (pairwise potentials)
+    # beta = 1  # parameter for weighting the data term (unary potentials)
 
     im_orig, image, salaki_map = salaki.run(im, mask)
     im_orig, image, salgoo_map = salgoo.run(im, mask=mask)
@@ -47,10 +47,17 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
     #     plt.title(tit)
     # plt.show()
 
+    im_bb, mask_bb = tools.crop_to_bbox(im, mask)
 
-    mrf = MarkovRandomField(im, models_estim='hydohy', mask=mask, alpha=alpha, beta=beta, scale=scale)
+    mrf = MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale)
+    unaries = mrf.get_unaries()
     unary_domin = mrf.get_unaries()[:, :, 1]
     max_prob = unary_domin.max()
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(im_bb, 'gray')
+    plt.subplot(122), plt.imshow(unary_domin.reshape(im_bb.shape), 'gray', interpolation='nearest')
+    plt.show()
 
     # rescaling intensities
     # max_int = 0.5
@@ -58,18 +65,31 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
     for i, im in enumerate(saliencies):
         saliencies[i] = skiexp.rescale_intensity(im, out_range=(0, max_int))
 
+    # if scale != 0:
+    #     for i, im in enumerate(saliencies):
+    #         saliencies[i] = tools.resize3D(im, scale, sliceId=0)
+
     unaries_domin_sal = [np.dstack((unary_domin, x.reshape(-1, 1))) for x in saliencies]
 
     results = []
     for unary in unaries_domin_sal:
-        mrf.set_unaries(unary)
-        res = mrf.run().copy()
-        results.append(res)
+        # mrf.set_unaries(unary.astype(np.int32))
+        mrf.set_unaries(unaries)
+        res = mrf.run(resize=False)
+        results.append(res.copy())
 
     # mrf.set_unaries(unaries)
     # unaries =
     # mrf.run()
     # return mrf.labels_orig
+
+    plt.figure()
+    plt.subplot(241)
+    plt.imshow(im_orig, 'gray', interpolation='nearest')
+    for i, r in enumerate(results):
+        plt.subplot(2, 4, i + 1 + 4)
+        plt.imshow(results[i][0, :, :], interpolation='nearest')
+    plt.show()
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
