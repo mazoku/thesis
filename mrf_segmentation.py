@@ -50,14 +50,25 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
     im_bb, mask_bb = tools.crop_to_bbox(im, mask)
 
     mrf = MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale)
-    unaries = mrf.get_unaries()
-    unary_domin = mrf.get_unaries()[:, :, 1]
-    max_prob = unary_domin.max()
+    mrf.params['unaries_as_cdf'] = 1
+
+    # mrf.set_unaries(mrf.get_unaries())
+    res = mrf.run(resize=False)
 
     plt.figure()
     plt.subplot(121), plt.imshow(im_bb, 'gray')
-    plt.subplot(122), plt.imshow(unary_domin.reshape(im_bb.shape), 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(res[0, :, :], 'jet', interpolation='nearest')
+    plt.colorbar(ticks=range(mrf.n_objects))
+    # mrf.plot_models(show_now=False)
     plt.show()
+
+    unary_domin = mrf.get_unaries()[:, :, 1]
+    max_prob = unary_domin.max()
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im_bb, 'gray')
+    # plt.subplot(122), plt.imshow(unary_domin.reshape(im_bb.shape), 'gray', interpolation='nearest')
+    # plt.show()
 
     # rescaling intensities
     # max_int = 0.5
@@ -74,7 +85,7 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
     results = []
     for unary in unaries_domin_sal:
         # mrf.set_unaries(unary.astype(np.int32))
-        mrf.set_unaries(unaries)
+        mrf.set_unaries(unary)
         res = mrf.run(resize=False)
         results.append(res.copy())
 
