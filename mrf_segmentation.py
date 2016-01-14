@@ -49,14 +49,21 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
 
     im_bb, mask_bb = tools.crop_to_bbox(im, mask)
 
+    im_bb = tools.smoothing(im_bb, sliceId=0)
+
     mrf = MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale)
     mrf.params['unaries_as_cdf'] = 1
 
     # mrf.set_unaries(mrf.get_unaries())
+    unaries = mrf.get_unaries()
+    unaries_l = [unaries[:, :, x].reshape(im_bb.shape) * mask_bb for x in range(unaries.shape[-1])]
+
+    tools.arange_figs(unaries_l, max_r=1, colorbar=True, same_range=False, show_now=False)
+
     res = mrf.run(resize=False)
 
     plt.figure()
-    plt.subplot(121), plt.imshow(im_bb, 'gray')
+    plt.subplot(121), plt.imshow(im_bb, 'gray'), plt.colorbar()
     plt.subplot(122), plt.imshow(res[0, :, :], 'jet', interpolation='nearest')
     plt.colorbar(ticks=range(mrf.n_objects))
     # mrf.plot_models(show_now=False)
