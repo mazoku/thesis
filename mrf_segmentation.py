@@ -53,12 +53,15 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
 
     mrf = MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale)
     mrf.params['unaries_as_cdf'] = 1
+    mrf.params['perc'] = 30
 
     # mrf.set_unaries(mrf.get_unaries())
-    unaries = mrf.get_unaries()
-    unaries_l = [unaries[:, :, x].reshape(im_bb.shape) * mask_bb for x in range(unaries.shape[-1])]
+    unaries, probs = mrf.get_unaries()
+    # unaries_l = [unaries[:, :, x].reshape(im_bb.shape) * mask_bb for x in range(unaries.shape[-1])]
+    probs_l = [probs[:, :, x].reshape(im_bb.shape) * mask_bb for x in range(probs.shape[-1])]
 
-    tools.arange_figs(unaries_l, max_r=1, colorbar=True, same_range=False, show_now=False)
+    # tools.arange_figs(unaries_l, max_r=1, colorbar=True, same_range=False, show_now=False)
+    tools.arange_figs(probs_l, max_r=1, colorbar=True, same_range=False, show_now=True)
 
     res = mrf.run(resize=False)
 
