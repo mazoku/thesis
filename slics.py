@@ -24,9 +24,12 @@ def run(data, mask, voxel_size, return_vis=False):
         data_rgb[:, :, :, i] = cv2.cvtColor(s, cv2.COLOR_BAYER_GR2RGB)
     data_rgb = np.swapaxes(data_rgb, 2, 3)
 
-    slics = skiseg.slic(data_rgb, spacing=np.roll(voxel_size, 2),
-                        multichannel=True, n_segments=10)
+    slics = skiseg.slic(data_rgb, spacing=np.roll(voxel_size, 2), multichannel=True, n_segments=10)
+    # slics = skiseg.slic(data_rgb, spacing=np.roll(voxel_size, 2), multichannel=True, n_segments=100,
+    #                     slic_zero=True, enforce_connectivity=True)
     slics = np.swapaxes(np.swapaxes(slics, 1, 2), 0, 1) * (mask > 0)
+
+    tools.show_3d(slics)
 
     slics_big = np.zeros_like(slics)
 

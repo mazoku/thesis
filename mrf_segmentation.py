@@ -55,6 +55,7 @@ def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True):
     mrf.params['unaries_as_cdf'] = 1
     mrf.params['perc'] = 30
     mrf.params['domin_simple_estim'] = 0
+    mrf.params['prob_w'] = 0.1
 
     # mrf.set_unaries(mrf.get_unaries())
     unaries, probs = mrf.get_unaries(ret_prob=True)
