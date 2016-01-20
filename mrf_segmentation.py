@@ -125,7 +125,7 @@ if __name__ == '__main__':
     data_s = tools.windowing(data_s)
     mask_s = mask[slice_ind, :, :]
 
-    run(data_s, mask_s)
+    run(data_s, mask_s, alpha=50)
 
     # im_o, img, saliency = run(data_s, mask_s, show=False)
     # im_o_s, img_s, saliency_s = run(data_s, mask_s, smoothing=True, show=False)
