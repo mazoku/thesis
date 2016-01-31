@@ -42,8 +42,51 @@ def calc_survival_fcn(imgs, masks, show=False, show_now=True):
     return surv_im# * mask
 
 
+def create_masks(shapes, border_width=1, show=False, show_now=True):
+    masks = []
+    for sh in shapes:
+        masks_sh = []
+        axes_x, axes_y = (int(sh[0] / 2), int(sh[1] / 2))
+        c_x = int(sh[0] / 2) + border_width
+        c_y = int(sh[1] / 2) + border_width
+        n_rows = sh[0] + 2 * border_width
+        n_cols = sh[1] + 2 * border_width
+        mask = np.zeros([x + 2 * border_width for x in sh], dtype="uint8")
+
+        ellip_m = mask.copy()
+        cv2.ellipse(ellip_m, (c_x, c_y), (axes_x, axes_y), 0, 0, 360, 1, -1)
+
+        masks_sh.append(ellip_m)
+
+        corners = [(c_x, n_rows, 0, c_y), (c_x, n_rows, c_y, n_cols), (0, c_x, c_y, n_cols), (0, c_x, 0, c_y)]
+        for (startX, endX, startY, endY) in corners:
+            # construct a mask for each corner of the image, subtracting the elliptical center from it
+            corner_m = mask.copy()
+            cv2.rectangle(corner_m, (startX, startY), (endX, endY), 1, -1)
+            corner_m = cv2.subtract(corner_m, ellip_m)
+            masks_sh.append(corner_m)
+
+        masks.append(masks_sh)
+
+    if show:
+        for masks_sh in masks:
+            mask = np.zeros(masks_sh[0].shape, dtype=np.byte)
+            for i, m in enumerate(masks_sh):
+                mask += (i + 1) * m
+            plt.figure()
+            plt.subplot(231)
+            plt.imshow(mask, interpolation='nearest'), plt.colorbar()
+            for i, m in enumerate(masks_sh):
+                plt.subplot(2, 3, i + 2)
+                plt.imshow(m, 'gray', interpolation='nearest')
+            if show_now:
+                plt.show()
+
+
 def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
     image = tools.smoothing(image)
+
+    masks = create_masks([(5, 5)], show=True)
 
     pyr_imgs = []
     outs = []
@@ -73,23 +116,26 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
         win_size = (win_w, win_h)
         step_size = 4
         for (x, y, win_mask, win) in tools.sliding_window(im_pyr, window_size=win_size, step_size=step_size):
-            win_mean = win.mean()
+            #TODO: iterovat pres masky a pocitat odezvy
+            resps = []
 
-            # suptitle = 'abs of diff'
-            # out_val = abs(liver_peak - win_mean)
-
-            # suptitle = 'entropy'
-            # out_val = skifil.rank.entropy(win, skimor.disk(3)).mean()
-
-            # suptitle = 'procent. zastoupeni hypo'
-            # out_val = (win < liver_peak).sum() / (win_w * win_h)
-
-            suptitle = 'procent. zastoupeni hypo + bin. open'
-            m = win < liver_peak
-            m = skimor.binary_opening(m, skimor.disk(3))
-            out_val = m.sum() / (win_w * win_h)
-
-            out[np.nonzero(win_mask)] = out_val
+            # win_mean = win.mean()
+            #
+            # # suptitle = 'abs of diff'
+            # # out_val = abs(liver_peak - win_mean)
+            #
+            # # suptitle = 'entropy'
+            # # out_val = skifil.rank.entropy(win, skimor.disk(3)).mean()
+            #
+            # # suptitle = 'procent. zastoupeni hypo'
+            # # out_val = (win < liver_peak).sum() / (win_w * win_h)
+            #
+            # suptitle = 'procent. zastoupeni hypo + bin. open'
+            # m = win < liver_peak
+            # m = skimor.binary_opening(m, skimor.disk(3))
+            # out_val = m.sum() / (win_w * win_h)
+            #
+            # out[np.nonzero(win_mask)] = out_val
 
         out *= mask_pyr
         outs.append(out)
