@@ -15,6 +15,7 @@ import scipy.stats as scista
 import skimage.transform as skitra
 import skimage.filters as skifil
 import skimage.morphology as skimor
+import skimage.measure as skimea
 
 import cv2
 
@@ -78,7 +79,7 @@ def save_figure(image, mask, blobs, fname, blob_name, param_name, param_vals, sh
         plt.close(fig)
 
 
-def create_masks(shapes, border_width=1, show=False, show_now=True):
+def create_masks(shapes, border_width=1, show=False, show_masks=False, show_now=True):
     """
 
     :param shapes: shapes of ellipses in the form [(width, height), (width, hwight), ...]
@@ -89,17 +90,39 @@ def create_masks(shapes, border_width=1, show=False, show_now=True):
     """
     masks = []
     elipses = []
+    if show_masks:
+        plt.figure()  # to visualize mask
+    i = 1
     for sh in shapes:
         masks_sh = []
         axes_x, axes_y = (int(sh[0] / 2), int(sh[1] / 2))
-        c_x = int(sh[0] / 2) + border_width
-        c_y = int(sh[1] / 2) + border_width
-        n_rows = sh[1] + 2 * border_width
-        n_cols = sh[0] + 2 * border_width
-        mask = np.zeros([x + 2 * border_width for x in sh[::-1]], dtype="uint8")
+        # c_x = int(sh[0] / 2) + border_width
+        # c_y = int(sh[1] / 2) + border_width
+        # n_rows = sh[1] + 2 * border_width
+        # n_cols = sh[0] + 2 * border_width
+        # mask = np.zeros([x + 2 * border_width for x in (sh[1], sh[0])], dtype="uint8")
+        maxi = max(sh[:2])
+        c_x = int(maxi / 2) + border_width
+        c_y = int(maxi / 2) + border_width
+        mask = np.zeros((maxi + 2 * border_width, maxi + 2 * border_width), dtype="uint8")
 
         ellip_m = mask.copy()
-        cv2.ellipse(ellip_m, (c_x, c_y), (axes_x, axes_y), 0, 0, 360, 1, -1)
+        cv2.ellipse(ellip_m, (c_x, c_y), (axes_x, axes_y), sh[2], 0, 360, 1, -1)
+        # contours, hierarchy = cv2.findContours(ellip_m.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # cnt=contours[0]
+        # x, y, w, h = cv2.boundingRect(cnt)
+        min_r, min_c, max_r, max_c = skimea.regionprops(ellip_m)[0].bbox
+        # ellip_m = ellip_m[y - border_width: y + h + 2 * border_width + 1, x - border_width: x + w + 2 * border_width + 1]
+        ellip_m = ellip_m[min_r - border_width: max_r + border_width, min_c - border_width: max_c + border_width]
+        mask = np.zeros(ellip_m.shape, dtype=np.uint8)
+        n_rows, n_cols = mask.shape
+        c_x = int(n_cols / 2) + border_width
+        c_y = int(n_rows / 2) + border_width
+
+        # masks visualization --
+        if show_masks:
+            plt.subplot(1,len(shapes),i), plt.imshow(ellip_m, 'gray', interpolation='nearest')
+            i += 1
 
         masks_sh.append(ellip_m)
 
@@ -112,8 +135,7 @@ def create_masks(shapes, border_width=1, show=False, show_now=True):
             masks_sh.append(corner_m)
 
         masks.append(masks_sh)
-        elipses.append(((c_x, c_y), (axes_x, axes_y)))
-
+        elipses.append(((c_x, c_y), (axes_x, axes_y), sh[2]))
     if show:
         for masks_sh in masks:
             mask = np.zeros(masks_sh[0].shape, dtype=np.byte)
@@ -125,8 +147,8 @@ def create_masks(shapes, border_width=1, show=False, show_now=True):
             for i, m in enumerate(masks_sh):
                 plt.subplot(2, 3, i + 2)
                 plt.imshow(m, 'gray', interpolation='nearest')
-            if show_now:
-                plt.show()
+    if (show or show_masks) and show_now:
+        plt.show()
 
     return masks, elipses
 
@@ -171,15 +193,14 @@ def masks_response(image, masks, type='dark', mean_val=None, offset=10, show=Fal
     return final_resp, resps
 
 
-def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
+def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, save_fig=False):
     fig_dir = ''
     image = tools.smoothing(image)
 
-    mask_shapes = [(5, 5), (9, 5), (5, 9)]
-    # mask_shapes = [(5, 5),]
+    mask_shapes = [(5, 5, 0), (9, 5, 0), (9, 5, 45), (9, 5, 90), (9, 5, 135)]
     border_width = 1
 
-    masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False)
+    masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
 
     pyr_imgs = []
     pyr_masks = []
@@ -197,10 +218,11 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
         layer_positives = []  # hold candidates for current layer and all masks
         layer_outs = []
 
-        layer_fig = plt.figure()
-        plt.suptitle('layer #%i' % layer_id)
-        plt.subplot(2, len(mask_shapes), 1), plt.imshow(im_pyr, 'gray', interpolation='nearest')
-        plt.title('input')
+        if show:
+            layer_fig = plt.figure(figsize=(24, 14))
+            plt.suptitle('layer #%i' % layer_id)
+            plt.subplot(2, len(mask_shapes), 1), plt.imshow(im_pyr, 'gray', interpolation='nearest')
+            plt.title('input')
 
         for mask_id, (m, e) in enumerate(zip(masks, elipses)):
             mask_positives = []
@@ -210,7 +232,7 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
                 resp, m_resps = masks_response(win, m, mean_val=liver_peak, show=False)
                 if resp:
                     # positives.append(((x, y), (x + win_size[0], y + win_size[1])))
-                    elip = ((e[0][0] + x, e[0][1] + y), e[1])
+                    elip = ((e[0][0] + x, e[0][1] + y), e[1], e[2])
                     mask_positives.append(elip)
 
             layer_positives.append(mask_positives)
@@ -219,32 +241,36 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
             mask_outs = np.zeros(im_pyr.shape)
             for i in mask_positives:
                 tmp = np.zeros(im_pyr.shape)
-                cv2.ellipse(tmp, i[0], i[1], 0, 0, 360, 1, thickness=-1)
+                cv2.ellipse(tmp, i[0], i[1], i[2], 0, 360, 1, thickness=-1)
                 mask_outs += tmp
             layer_outs.append(mask_outs)
 
+
             # visualization
-            im_vis = cv2.cvtColor(im_pyr.copy(), cv2.COLOR_GRAY2BGR)
-            for i in mask_positives:
-                # cv2.rectangle(im_vis, i[0], i[1], (255, 0, 255), thickness=1)
-                cv2.ellipse(im_vis, i[0], i[1], 0, 0, 360, (255, 0, 255), thickness=1)
+            if show:
+                im_vis = cv2.cvtColor(im_pyr.copy(), cv2.COLOR_GRAY2BGR)
+                for i in mask_positives:
+                    # cv2.rectangle(im_vis, i[0], i[1], (255, 0, 255), thickness=1)
+                    cv2.ellipse(im_vis, i[0], i[1], i[2], 0, 360, (255, 0, 255), thickness=1)
 
-            plt.subplot(2, len(mask_shapes), mask_id + len(mask_shapes) + 1)
-            plt.imshow(im_vis, interpolation='nearest'), plt.title('%i positives' % len(mask_positives))
-            plt.title('mask #%i' % mask_id)
+                plt.subplot(2, len(mask_shapes), mask_id + len(mask_shapes) + 1)
+                plt.imshow(im_vis, interpolation='nearest'), plt.title('%i positives' % len(mask_positives))
+                plt.title('mask #%i' % mask_id)
 
-        # visualizing layer survival function
-        plt.subplot(2, len(mask_shapes), 2)
-        layer_surv = np.zeros_like(layer_outs[0])
-        for im in layer_outs:
-            layer_surv += im
-        plt.imshow(layer_surv, interpolation='nearest'), plt.colorbar()
-        plt.title('surv. fcn')
+        if show:
+            # visualizing layer survival function
+            plt.subplot(2, len(mask_shapes), 2)
+            layer_surv = np.zeros_like(layer_outs[0])
+            for im in layer_outs:
+                layer_surv += im
+            plt.imshow(layer_surv, interpolation='nearest'), plt.colorbar()
+            plt.title('surv. fcn')
 
-        # fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/circloids/'
-        # if not os.path.exists(fig_dir):
-        #     os.mkdir(fig_dir)
-        # layer_fig.savefig(os.path.join(fig_dir, 'layer_%i_responses.png' % layer_id))
+        if save_fig:
+            fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/circloids/'
+            if not os.path.exists(fig_dir):
+                os.mkdir(fig_dir)
+            layer_fig.savefig(os.path.join(fig_dir, 'layer_%i_responses.png' % layer_id), dpi=100)
 
             # plt.figure()
             # plt.suptitle('layer #%i, mask #%i' % (layer_id, mask_id))
@@ -259,11 +285,15 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
     # survival image acros pyramid layers
     surv_im = calc_survival_fcn(all_outs, pyr_masks, show=False)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest'), plt.title('input')
-    plt.subplot(122), plt.imshow(surv_im, interpolation='nearest'), plt.colorbar(), plt.title('complete survival fcn')
+    if show:
+        surv_fig = plt.figure(figsize=(24, 14))
+        plt.subplot(121), plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest'), plt.title('input')
+        plt.subplot(122), plt.imshow(surv_im, interpolation='nearest'), plt.colorbar(), plt.title('complete survival fcn')
+        if save_fig:
+            surv_fig.savefig(os.path.join(fig_dir, 'complete_survival_fcn.png'), dpi=100)
 
-    plt.show()
+    if show_now:
+        plt.show()
 
 
 #-----------------------------------------------------------------------------------------
@@ -278,4 +308,4 @@ if __name__ == '__main__':
     mask_s = mask[slice_ind, :, :]
 
     pyr_scale = 1.5
-    run(data_s, mask_s, pyr_scale=pyr_scale)
+    run(data_s, mask_s, pyr_scale=pyr_scale, show=True)
