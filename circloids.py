@@ -7,6 +7,7 @@ from imtools import tools
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as matpat
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import skimage.exposure as skiexp
@@ -25,7 +26,7 @@ import os
 import time
 
 
-def calc_survival_fcn(imgs, masks, show=False, show_now=True):
+def calc_survival_fcn(imgs, show=False, show_now=True):
     shape = imgs[0].shape
     surv_im = np.zeros(shape)
     n_imgs = len(imgs)
@@ -116,8 +117,8 @@ def create_masks(shapes, border_width=1, show=False, show_masks=False, show_now=
         ellip_m = ellip_m[min_r - border_width: max_r + border_width, min_c - border_width: max_c + border_width]
         mask = np.zeros(ellip_m.shape, dtype=np.uint8)
         n_rows, n_cols = mask.shape
-        c_x = int(n_cols / 2) + border_width
-        c_y = int(n_rows / 2) + border_width
+        c_x = int(n_cols / 2)
+        c_y = int(n_rows / 2)
 
         # masks visualization --
         if show_masks:
@@ -194,10 +195,12 @@ def masks_response(image, masks, type='dark', mean_val=None, offset=10, show=Fal
 
 
 def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, save_fig=False):
-    fig_dir = ''
+    fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/circloids/'
     image = tools.smoothing(image)
+    image_bb, mask_bb = tools.crop_to_bbox(image, mask)
 
     mask_shapes = [(5, 5, 0), (9, 5, 0), (9, 5, 45), (9, 5, 90), (9, 5, 135)]
+    n_masks = len(mask_shapes)
     border_width = 1
 
     masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
@@ -206,6 +209,12 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
     pyr_masks = []
     pyr_positives = []
     pyr_outs = []
+    pyr_elip_imgs = []
+
+    if save_fig:
+        if not os.path.exists(fig_dir):
+            os.mkdir(fig_dir)
+
     for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
                                                    tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
         im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
@@ -215,14 +224,9 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
         hist, bins = skiexp.histogram(im_pyr[np.nonzero(mask_pyr)])
         liver_peak = bins[np.argmax(hist)]
 
-        layer_positives = []  # hold candidates for current layer and all masks
+        layer_positives = []  # list of candidates for current layer and all masks
         layer_outs = []
-
-        if show:
-            layer_fig = plt.figure(figsize=(24, 14))
-            plt.suptitle('layer #%i' % layer_id)
-            plt.subplot(2, len(mask_shapes), 1), plt.imshow(im_pyr, 'gray', interpolation='nearest')
-            plt.title('input')
+        layer_elip_imgs = []  # list of pyramid layers with elipse overlays
 
         for mask_id, (m, e) in enumerate(zip(masks, elipses)):
             mask_positives = []
@@ -237,60 +241,160 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
 
             layer_positives.append(mask_positives)
 
-            # creating out image
+            # creating out image and elip image
             mask_outs = np.zeros(im_pyr.shape)
+            mask_elip = cv2.cvtColor(im_pyr.copy(), cv2.COLOR_GRAY2BGR)
             for i in mask_positives:
                 tmp = np.zeros(im_pyr.shape)
                 cv2.ellipse(tmp, i[0], i[1], i[2], 0, 360, 1, thickness=-1)
+                cv2.ellipse(mask_elip, i[0], i[1], i[2], 0, 360, (255, 0, 255), thickness=1)
                 mask_outs += tmp
             layer_outs.append(mask_outs)
-
-
-            # visualization
-            if show:
-                im_vis = cv2.cvtColor(im_pyr.copy(), cv2.COLOR_GRAY2BGR)
-                for i in mask_positives:
-                    # cv2.rectangle(im_vis, i[0], i[1], (255, 0, 255), thickness=1)
-                    cv2.ellipse(im_vis, i[0], i[1], i[2], 0, 360, (255, 0, 255), thickness=1)
-
-                plt.subplot(2, len(mask_shapes), mask_id + len(mask_shapes) + 1)
-                plt.imshow(im_vis, interpolation='nearest'), plt.title('%i positives' % len(mask_positives))
-                plt.title('mask #%i' % mask_id)
-
-        if show:
-            # visualizing layer survival function
-            plt.subplot(2, len(mask_shapes), 2)
-            layer_surv = np.zeros_like(layer_outs[0])
-            for im in layer_outs:
-                layer_surv += im
-            plt.imshow(layer_surv, interpolation='nearest'), plt.colorbar()
-            plt.title('surv. fcn')
-
-        if save_fig:
-            fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/circloids/'
-            if not os.path.exists(fig_dir):
-                os.mkdir(fig_dir)
-            layer_fig.savefig(os.path.join(fig_dir, 'layer_%i_responses.png' % layer_id), dpi=100)
-
-            # plt.figure()
-            # plt.suptitle('layer #%i, mask #%i' % (layer_id, mask_id))
-            # plt.subplot(121), plt.imshow(im_pyr, 'gray', interpolation='nearest'), plt.title('input')
-            # plt.subplot(122), plt.imshow(mask_outs, 'jet', interpolation='nearest'), plt.title('surv func')
-        # plt.show()
+            layer_elip_imgs.append(mask_elip)
 
         pyr_positives.append(layer_positives)
         pyr_outs.append(layer_outs)
+        pyr_elip_imgs.append(layer_elip_imgs)
 
+    n_layers = len(pyr_imgs)
+
+    # survival image for masks
+    surv_im_masks = []
+    for i in range(n_masks):
+        surv_im_masks.append(np.zeros(image_bb.shape))
+    for layer in pyr_outs:
+        for i, mask_resp in enumerate(layer):
+            surv_im_masks[i] += cv2.resize(mask_resp, image_bb.shape[::-1])
+
+    # survival image for pyramid layers
+    surv_im_layers = []
+    for i, layer in enumerate(pyr_outs):
+        surv_layer = np.zeros(layer[0].shape)
+        for mask_resp in layer:
+            surv_layer += mask_resp
+        surv_im_layers.append(surv_layer)
+
+    # survival image - overall
     all_outs = [im for layer in pyr_outs for im in layer]
-    # survival image acros pyramid layers
-    surv_im = calc_survival_fcn(all_outs, pyr_masks, show=False)
+    surv_im_pyr = np.zeros(image_bb.shape)
+    for im_out in all_outs:
+        surv_im_pyr += cv2.resize(im_out, image_bb.shape[::-1])
 
+    # responses - overall
+    resp_im_pyr = cv2.cvtColor(image_bb, cv2.COLOR_GRAY2RGB)
+    for layer_id, layer_p in enumerate(pyr_positives):
+        scale = pyr_scale ** layer_id
+        for mask_r in layer_p:
+            for r in mask_r:
+                cv2.ellipse(resp_im_pyr, tuple([int(scale * x) for x in r[0]]), tuple([int(scale * x) for x in r[1]]), r[2], 0, 360, (255, 0, 255), thickness=1)
+
+    # responses - layers
+    resp_im_layers = []
+    for layer_id, layer_p in enumerate(pyr_positives):
+        resp_layer = cv2.cvtColor(pyr_imgs[layer_id], cv2.COLOR_GRAY2RGB)
+        for mask_r in layer_p:
+            for r in mask_r:
+                # cv2.ellipse(resp_layer, tuple([int(scale * x) for x in r[0]]), tuple([int(scale * x) for x in r[1]]), r[2], 0, 360, (255, 0, 255), thickness=1)
+                cv2.ellipse(resp_layer, r[0], r[1], r[2], 0, 360, (255, 0, 255), thickness=1)
+        resp_im_layers.append(resp_layer)
+
+    # responses - masks
+    resp_im_masks = []
+    for i in range(n_masks):
+        resp_im_masks.append(cv2.cvtColor(image_bb, cv2.COLOR_GRAY2RGB))
+    for layer_id, layer_p in enumerate(pyr_positives):
+        scale = pyr_scale ** layer_id
+        for mask_id, mask_r in enumerate(layer_p):
+            for r in mask_r:
+                cv2.ellipse(resp_im_masks[mask_id], tuple([int(scale * x) for x in r[0]]), tuple([int(scale * x) for x in r[1]]), r[2], 0, 360, (255, 0, 255), thickness=1)
+
+    # SHOWING AND SAVING RESULTS -----------------------------------------------------------------
     if show:
-        surv_fig = plt.figure(figsize=(24, 14))
-        plt.subplot(121), plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest'), plt.title('input')
-        plt.subplot(122), plt.imshow(surv_im, interpolation='nearest'), plt.colorbar(), plt.title('complete survival fcn')
+        # masks
+        filters_fig = plt.figure(figsize=(24, 14))
+        for m_id, m in enumerate(masks):
+            mask_lab = np.zeros(m[0].shape, dtype=np.byte)
+            for i, j in enumerate(m):
+                mask_lab += (i + 1) * j
+            plt.subplot(1, n_masks, m_id + 1)
+            plt.imshow(mask_lab, 'jet', interpolation='nearest')
         if save_fig:
-            surv_fig.savefig(os.path.join(fig_dir, 'complete_survival_fcn.png'), dpi=100)
+            filters_fig.savefig(os.path.join(fig_dir, 'masks.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # responses - figure shows masks resps in a pyramid layer
+        for layer_id, layer in enumerate(pyr_elip_imgs):
+            layer_fig = plt.figure(figsize=(24, 14))
+            # plt.suptitle('layer #%i' % (layer_id + 1))
+
+            for mask_id, mask_outs in enumerate(layer):
+                plt.subplot(1, len(mask_shapes), mask_id + 1)
+                plt.imshow(mask_outs, interpolation='nearest')
+                plt.title('layer #%i, mask #%i' % (layer_id + 1, mask_id + 1))
+            if save_fig:
+                layer_fig.savefig(os.path.join(fig_dir, 'resps_layer_%i.png' % (layer_id + 1)), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # responses - overall
+        resp_fig = plt.figure(figsize=(24, 14))
+        plt.subplot(121), plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest')
+        plt.title('input')
+        plt.subplot(122), plt.imshow(resp_im_pyr, interpolation='nearest')
+        plt.title('overall responses')
+        if save_fig:
+            resp_fig.savefig(os.path.join(fig_dir, 'resps_overall.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # responses - layers
+        resp_layer_fig = plt.figure(figsize=(24, 14))
+        for i, resp_l in enumerate(resp_im_layers):
+            plt.subplot(1, n_layers, i + 1)
+            plt.imshow(resp_l, interpolation='nearest')
+            plt.title('resps for layer #%i' % (i + 1))
+        if save_fig:
+            resp_layer_fig.savefig(os.path.join(fig_dir, 'resps_layers.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # responses - masks
+        resp_mask_fig = plt.figure(figsize=(24, 14))
+        for i, resp_m in enumerate(resp_im_masks):
+            plt.subplot(1, n_masks, i + 1)
+            plt.imshow(resp_m, interpolation='nearest')
+            plt.title('resps for mask #%i' % (i + 1))
+        if save_fig:
+            resp_mask_fig.savefig(os.path.join(fig_dir, 'resps_masks.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # survival image - layers
+        surv_layer_fig = plt.figure(figsize=(24, 14))
+        for i, surv_l in enumerate(surv_im_layers):
+            plt.subplot(1, len(surv_im_layers), i + 1)
+            plt.imshow(surv_l, interpolation='nearest')
+            plt.title('surv im for layer #%i' % (i + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+        if save_fig:
+            surv_layer_fig.savefig(os.path.join(fig_dir, 'surv_im_layers.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # survival image - masks
+        surv_mask_fig = plt.figure(figsize=(24, 14))
+        for i, surv_m in enumerate(surv_im_masks):
+            plt.subplot(1, len(surv_im_masks), i + 1)
+            plt.imshow(surv_m, interpolation='nearest')
+            plt.title('surv im for mask #%i' % (i + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+        if save_fig:
+            surv_mask_fig.savefig(os.path.join(fig_dir, 'surv_im_masks.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # survival image - overall
+        surv_fig = plt.figure(figsize=(24, 14))
+        plt.subplot(121), plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest')
+        plt.title('input')
+        plt.subplot(122), plt.imshow(surv_im_pyr, interpolation='nearest')
+        plt.title('overall survival fcn')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+        if save_fig:
+            surv_fig.savefig(os.path.join(fig_dir, 'surv_im_overall.png'), dpi=100, bbox_inches='tight', pad_inches=0)
 
     if show_now:
         plt.show()
@@ -308,4 +412,7 @@ if __name__ == '__main__':
     mask_s = mask[slice_ind, :, :]
 
     pyr_scale = 1.5
-    run(data_s, mask_s, pyr_scale=pyr_scale, show=True)
+    show = True
+    show_now = True
+    save_figs = True
+    run(data_s, mask_s, pyr_scale=pyr_scale, show=show, show_now=show_now, save_fig=save_figs)
