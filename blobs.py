@@ -1,7 +1,4 @@
 from __future__ import division
-#TODO: dodelat zobecnovani - zkontrolovat LOG a dodelat pro CV a DOH
-#TODO: urcit surv layeru pres vsechny parametry (resp. jejich surv)
-#TODO: urcit surv parametru (resp. jejich surv) pres vsechny layery
 # Tady je to zamotany - u circloidu jsem mel nekolik masek - da se rict, ze maska byl jeden parametr s celkem 5 hodnotami.
 #   U blobu mam nekolik parametru s nekolika hodnotami.
 
@@ -264,7 +261,7 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
 def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     logs = []
 
-    # SIGMA RATIO  ----------------------------------------------------
+    # NUMBER OF SIGMAS  ----------------------------------------------------
     logs_ns = []
     for i in num_sigmas:
         blobs = log(image, mask=mask, intensity='dark', num_sigma=i)
@@ -320,16 +317,16 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     return logs, logs_ns, logs_t, logs_ls
 
 
-def testing_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales, save_fig=False):
+def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     dohs = []
 
-    # SIGMA RATIO  ----------------------------------------------------
+    # NUMBER OF SIGMAS  ----------------------------------------------------
     dohs_ns = []
     for i in num_sigmas:
         blobs = doh(image, mask=mask, intensity='dark', num_sigma=i)
         dohs_ns.append(blobs)
         dohs.append(blobs)
-    doh_ns_surv = calc_survival_fcn(dohs_ns, mask, show=False)
+    # doh_ns_surv = calc_survival_fcn(dohs_ns, mask, show=False)
 
     # THRESHOLD  ------------------------------------------------------
     dohs_t = []
@@ -337,47 +334,49 @@ def testing_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales, save_
         blobs = doh(image, mask=mask, intensity='dark', threshold=i)
         dohs_t.append(blobs)
         dohs.append(blobs)
-    doh_t_surv = calc_survival_fcn(dohs_t, mask, show=False)
+    # doh_t_surv = calc_survival_fcn(dohs_t, mask, show=False)
 
-    # OVERLAP  -------------------------------------------------------
-    dohs_o = []
-    for i in overlaps:
-        blobs = doh(image, mask=mask, intensity='dark', overlap=i)
-        dohs_o.append(blobs)
-        dohs.append(blobs)
-    doh_o_surv = calc_survival_fcn(dohs_o, mask, show=False)
+    # # OVERLAP  -------------------------------------------------------
+    # dohs_o = []
+    # for i in overlaps:
+    #     blobs = doh(image, mask=mask, intensity='dark', overlap=i)
+    #     dohs_o.append(blobs)
+    #     dohs.append(blobs)
+    # doh_o_surv = calc_survival_fcn(dohs_o, mask, show=False)
 
-    # OVERLAP  -------------------------------------------------------
+    # LOG SCALE  -------------------------------------------------------
     dohs_ls = []
     for i in log_scales:
         blobs = doh(image, mask=mask, intensity='dark', log_scale=i)
         dohs_ls.append(blobs)
         dohs.append(blobs)
-    doh_ls_surv = calc_survival_fcn(dohs_ls, mask, show=False)
+    # doh_ls_surv = calc_survival_fcn(dohs_ls, mask, show=False)
 
     # calculating overall survival function
     surv_overall = calc_survival_fcn(dohs, mask)
 
-    cmap = 'jet'
-    fig = plt.figure(figsize=(20, 10))
-    plt.subplot(231), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    plt.subplot(232), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('DOG survival')
-    plt.subplot(233), plt.imshow(doh_ns_surv, cmap=cmap, interpolation='nearest'), plt.title('num. of sigmas surv')
-    plt.subplot(234), plt.imshow(doh_t_surv, cmap=cmap, interpolation='nearest'), plt.title('threshold surv')
-    plt.subplot(235), plt.imshow(doh_o_surv, cmap=cmap, interpolation='nearest'), plt.title('overlap surv')
-    plt.subplot(236), plt.imshow(doh_ls_surv, cmap=cmap, interpolation='nearest'), plt.title('log scale surv')
+    # cmap = 'jet'
+    # fig = plt.figure(figsize=(20, 10))
+    # plt.subplot(231), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
+    # plt.subplot(232), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('DOG survival')
+    # plt.subplot(233), plt.imshow(doh_ns_surv, cmap=cmap, interpolation='nearest'), plt.title('num. of sigmas surv')
+    # plt.subplot(234), plt.imshow(doh_t_surv, cmap=cmap, interpolation='nearest'), plt.title('threshold surv')
+    # plt.subplot(235), plt.imshow(doh_o_surv, cmap=cmap, interpolation='nearest'), plt.title('overlap surv')
+    # plt.subplot(236), plt.imshow(doh_ls_surv, cmap=cmap, interpolation='nearest'), plt.title('log scale surv')
+    #
+    # if save_fig:
+    #     save_figure(image, mask, dohs_ns, 'blobs/dohs', 'DOH', 'num_sigma', num_sigmas, show=True, show_now=False)
+    #     save_figure(image, mask, dohs_t, 'blobs/dohs', 'DOH', 'threshold', thresholds, show=True, show_now=False)
+    #     save_figure(image, mask, dohs_o, 'blobs/dohs', 'DOH', 'overlap', overlaps, show=True, show_now=False)
+    #     save_figure(image, mask, dohs_ls, 'blobs/dohs', 'DOH', 'log_scale', log_scales, show=True, show_now=False)
+    #     fig.savefig('blobs/dohs/doh_survival_function.png')
+    #
+    # plt.show()
 
-    if save_fig:
-        save_figure(image, mask, dohs_ns, 'blobs/dohs', 'DOH', 'num_sigma', num_sigmas, show=True, show_now=False)
-        save_figure(image, mask, dohs_t, 'blobs/dohs', 'DOH', 'threshold', thresholds, show=True, show_now=False)
-        save_figure(image, mask, dohs_o, 'blobs/dohs', 'DOH', 'overlap', overlaps, show=True, show_now=False)
-        save_figure(image, mask, dohs_ls, 'blobs/dohs', 'DOH', 'log_scale', log_scales, show=True, show_now=False)
-        fig.savefig('blobs/dohs/doh_survival_function.png')
-
-    plt.show()
+    return dohs, dohs_ns, dohs_t, dohs_ls
 
 
-def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias, save_fig=False):
+def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias, save_fig=False):
     blobs_all = []
 
     # MIN THRESHOLDS -------------------------------------------------
@@ -386,7 +385,7 @@ def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circular
         blobs = cv_blobs(image, mask, min_threshold=i)
         blobs_mt.append(blobs)
         blobs_all.append(blobs)
-    cv_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
+    # cv_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
 
     # MIN AREAS ------------------------------------------------------
     blobs_ma = []
@@ -394,7 +393,7 @@ def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circular
         blobs = cv_blobs(image, mask, min_area=i)
         blobs_ma.append(blobs)
         blobs_all.append(blobs)
-    cv_ma_surv = calc_survival_fcn(blobs_ma, mask, show=False)
+    # cv_ma_surv = calc_survival_fcn(blobs_ma, mask, show=False)
 
     # MIN CIRCULARITIES -----------------------------------------------
     blobs_mcir = []
@@ -402,7 +401,7 @@ def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circular
         blobs = cv_blobs(image, mask, min_circularity=i)
         blobs_mcir.append(blobs)
         blobs_all.append(blobs)
-    cv_mcir_surv = calc_survival_fcn(blobs_mcir, mask, show=False)
+    # cv_mcir_surv = calc_survival_fcn(blobs_mcir, mask, show=False)
 
     # MIN CONVEXITIES -----------------------------------------------
     blobs_mcon = []
@@ -410,7 +409,7 @@ def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circular
         blobs = cv_blobs(image, mask, min_convexity=i)
         blobs_mcon.append(blobs)
         blobs_all.append(blobs)
-    cv_mcon_surv = calc_survival_fcn(blobs_mcon, mask, show=False)
+    # cv_mcon_surv = calc_survival_fcn(blobs_mcon, mask, show=False)
 
     # MIN INERTIAS -----------------------------------------------
     blobs_mi = []
@@ -418,34 +417,36 @@ def testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circular
         blobs = cv_blobs(image, mask, min_inertia=i)
         blobs_mi.append(blobs)
         blobs_all.append(blobs)
-    cv_mi_surv = calc_survival_fcn(blobs_mi, mask, show=False)
+    # cv_mi_surv = calc_survival_fcn(blobs_mi, mask, show=False)
 
     # CALC SURVIVAL FUNCTION ------------------------------------
-    surv_overall = calc_survival_fcn(blobs_all, mask)
+    # surv_overall = calc_survival_fcn(blobs_all, mask)
 
     # visualization
-    cmap = 'jet'
-    fig = plt.figure(figsize=(20, 10))
-    plt.subplot(241), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    plt.subplot(242), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('OPENCV survival')
-    plt.subplot(243), plt.imshow(cv_mt_surv, cmap=cmap, interpolation='nearest'), plt.title('min threshold surv')
-    plt.subplot(244), plt.imshow(cv_ma_surv, cmap=cmap, interpolation='nearest'), plt.title('min area surv')
-    plt.subplot(245), plt.imshow(cv_mcir_surv, cmap=cmap, interpolation='nearest'), plt.title('min circularity surv')
-    plt.subplot(246), plt.imshow(cv_mcon_surv, cmap=cmap, interpolation='nearest'), plt.title('min convexity surv')
-    plt.subplot(247), plt.imshow(cv_mi_surv, cmap=cmap, interpolation='nearest'), plt.title('min inertia surv')
+    # cmap = 'jet'
+    # fig = plt.figure(figsize=(20, 10))
+    # plt.subplot(241), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
+    # plt.subplot(242), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('OPENCV survival')
+    # plt.subplot(243), plt.imshow(cv_mt_surv, cmap=cmap, interpolation='nearest'), plt.title('min threshold surv')
+    # plt.subplot(244), plt.imshow(cv_ma_surv, cmap=cmap, interpolation='nearest'), plt.title('min area surv')
+    # plt.subplot(245), plt.imshow(cv_mcir_surv, cmap=cmap, interpolation='nearest'), plt.title('min circularity surv')
+    # plt.subplot(246), plt.imshow(cv_mcon_surv, cmap=cmap, interpolation='nearest'), plt.title('min convexity surv')
+    # plt.subplot(247), plt.imshow(cv_mi_surv, cmap=cmap, interpolation='nearest'), plt.title('min inertia surv')
+    #
+    # if save_fig:
+    #     save_figure(image, mask, blobs_mt, 'blobs/cv', 'CV', 'min_thresh', min_thresholds, show=True, show_now=False)
+    #     save_figure(image, mask, blobs_ma, 'blobs/cv', 'CV', 'min_area', min_areas, show=True, show_now=False)
+    #     save_figure(image, mask, blobs_mcir, 'blobs/cv', 'CV', 'min_circularity', min_circularities, show=True, show_now=False)
+    #     save_figure(image, mask, blobs_mcon, 'blobs/cv', 'CV', 'min_convexity', min_convexities, show=True, show_now=False)
+    #     save_figure(image, mask, blobs_mi, 'blobs/cv', 'CV', 'min_inertia', min_inertias, show=True, show_now=False)
+    #     fig.savefig('blobs/cv/survival_function.png')
+    #
+    # plt.show()
 
-    if save_fig:
-        save_figure(image, mask, blobs_mt, 'blobs/cv', 'CV', 'min_thresh', min_thresholds, show=True, show_now=False)
-        save_figure(image, mask, blobs_ma, 'blobs/cv', 'CV', 'min_area', min_areas, show=True, show_now=False)
-        save_figure(image, mask, blobs_mcir, 'blobs/cv', 'CV', 'min_circularity', min_circularities, show=True, show_now=False)
-        save_figure(image, mask, blobs_mcon, 'blobs/cv', 'CV', 'min_convexity', min_convexities, show=True, show_now=False)
-        save_figure(image, mask, blobs_mi, 'blobs/cv', 'CV', 'min_inertia', min_inertias, show=True, show_now=False)
-        fig.savefig('blobs/cv/survival_function.png')
-
-    plt.show()
+    return blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi
 
 
-def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, save_fig=False):
+def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, save_fig=False, fig_dir='.'):
     if blob_type == BLOB_DOG:
         # DOG detection -----------------
         print 'DOG detection ...',
@@ -468,8 +469,8 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         thresholds = np.arange(0, 1, 0.1)
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
-        blobs, blobs_nr, blobs_t, blobs_ls = detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales)
-        blobs_sr_surv = calc_survival_fcn(blobs_nr, mask)
+        blobs, blobs_ns, blobs_t, blobs_ls = detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales)
+        blobs_ns_surv = calc_survival_fcn(blobs_ns, mask)
         blobs_t_surv = calc_survival_fcn(blobs_t, mask)
         blobs_ls_surv = calc_survival_fcn(blobs_ls, mask)
         blobs_surv_overall = calc_survival_fcn(blobs, mask)
@@ -482,66 +483,58 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
-        testing_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales, save_fig=save_fig)
+        blobs, blobs_ns, blobs_t, blobs_ls = detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales)
+        blobs_ns_surv = calc_survival_fcn(blobs_ns, mask, show=False)
+        blobs_t_surv = calc_survival_fcn(blobs_t, mask, show=False)
+        blobs_ls_surv = calc_survival_fcn(blobs_ls, mask, show=False)
+        blobs_surv_overall = calc_survival_fcn(blobs, mask)
         print 'done'
 
     elif blob_type == BLOB_CV:
         # OPENCV BLOB DETECTOR -------
         print 'OpenCV blob detection ...',
+        params = ('min_threshold', 'min_area', 'min_circularity', 'min_convexity', 'min_inertia')
         min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
         min_areas = [1, 5, 10, 30, 50, 80, 100, 150]
         min_circularities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
         min_convexities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
         min_inertias = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
-        testing_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias, save_fig=save_fig)
+        blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi = \
+            detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias)
+        blobs_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
+        blobs_ma_surv = calc_survival_fcn(blobs_ma, mask, show=False)
+        blobs_mcir_surv = calc_survival_fcn(blobs_mcir, mask, show=False)
+        blobs_mcon_surv = calc_survival_fcn(blobs_mcon, mask, show=False)
+        blobs_mi_surv = calc_survival_fcn(blobs_mi, mask, show=False)
+        blobs_surv_overall = calc_survival_fcn(blobs_all, mask)
         print 'done'
 
     else:
         raise ValueError('Unknown blob type.')
 
-    if show or save_fig:
-        if blob_type == BLOB_DOG:
-            imgs = (blobs_surv_overall, blobs_sr_surv, blobs_t_surv)
-            titles = ('layer #%i, overall surv' % layer_id, 'layer #%i, sigma ratio surv' % layer_id, 'layer #%i, threshold surv' % layer_id)
-        elif blob_type == BLOB_LOG:
-            imgs = (blobs_surv_overall, blobs_sr_surv, blobs_t_surv, blobs_ls_surv)
-            titles = ('layer #%i, overall surv' % layer_id, 'layer #%i, sigma ratio surv' % layer_id,
-                      'layer #%i, threshold surv' % layer_id, 'layer #%i, log scale' % layer_id)
+    if blob_type == BLOB_DOG:
+        survival_imgs = (blobs_surv_overall, blobs_sr_surv, blobs_t_surv)
+        blobs = (blobs, blobs_sr, blobs_t)
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, sigma ratio' % (layer_id + 1),
+                  'layer #%i, threshold' % (layer_id + 1))
+    elif blob_type == BLOB_LOG:
+        survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv, blobs_ls_surv)
+        blobs = (blobs, blobs_ns, blobs_t, blobs_ls)
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, sigma ratio' % (layer_id + 1),
+                  'layer #%i, threshold' % (layer_id + 1), 'layer #%i, log scale' % (layer_id + 1))
+    elif blob_type == BLOB_DOH:
+        survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv, blobs_ls_surv)
+        blobs = (blobs, blobs_ns, blobs_t, blobs_ls)
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, num sigma' % (layer_id + 1),
+                  'layer #%i, threshold' % (layer_id + 1), 'layer #%i, log scale' % (layer_id + 1))
+    elif blob_type == BLOB_CV:
+        survival_imgs = (blobs_surv_overall, blobs_mt_surv, blobs_ma_surv, blobs_mcir_surv, blobs_mcon_surv, blobs_mi_surv)
+        blobs = (blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi)
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, min thresholh' % (layer_id + 1),
+                  'layer #%i, min area' % (layer_id + 1), 'layer #%i, min circularity' % (layer_id + 1),
+                  'layer #%i, min convexity' % (layer_id + 1), 'layer #%i, min inertia' % (layer_id + 1))
 
-        # survival images ----------------------------
-        fig = plt.figure(figsize=(24, 14))
-        plt.subplot(141), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-        for i, (im, tit) in enumerate(zip(imgs, titles)):
-            plt.subplot(1, len(imgs) + 1, i + 1)
-            plt.imshow(im, 'jet', interpolation='nearest')
-            plt.title(tit)
-            divider = make_axes_locatable(plt.gca())
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            plt.colorbar(cax=cax)
-
-        # response image
-        plt.figure(figsize=(24, 14))
-        plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('layer #%i, input' % layer_id)
-        # plt.subplot(122), plt.imshow(dog_resp_overall, 'gray', interpolation='nearest'), plt.title('layer #%i, overall resp'%layer_id)
-        plt.subplot(122), plt.imshow(image, 'gray', interpolation='nearest')
-        for blobs in blobs:
-            if len(blobs) > 0:
-                for blob in blobs:
-                    y, x, r = blob
-                    c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
-                    plt.gca().add_patch(c)
-        plt.title('layer #%i, overall resp'%layer_id)
-
-        if save_fig:
-            save_figure(image, mask, blobs_sr, 'blobs/dogs', 'DOG', 'sigma_ratio', sigma_ratios, show=True, show_now=False)
-            save_figure(image, mask, blobs_t, 'blobs/dogs', 'DOG', 'threshold', thresholds, show=True, show_now=False)
-            # save_figure(image, mask, dogs_o, 'blobs/dogs', 'DOG', 'overlap', overlaps, show=True)
-            fig.savefig('blobs/dogs/dog_survival_function.png', dpi=100, bbox_inches='tight', pad_inches=0)
-
-        if show and show_now:
-            plt.show()
-
-    dog_res = (blobs, blobs_sr, blobs_t, blobs_surv_overall, blobs_sr_surv, blobs_t_surv)
+    dog_res = blobs, survival_imgs, titles, params
     return dog_res
 
 
@@ -555,17 +548,39 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
     image = tools.smoothing(image, sliceId=0)
 
     blobs_pyr = []
+    survs_pyr = []
+    titles_pyr = []
+    pyr_imgs = []
+    pyr_masks = []
     for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
                                                       tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
-        blob_res = detect_blobs(im_pyr, mask_pyr, blob_type, layer_id=layer_id, show=show, show_now=show_now, save_fig=save_fig)
-        blobs_pyr.append(blob_res)
+        blobs_res, survs_res, titles, params = detect_blobs(im_pyr, mask_pyr, blob_type, layer_id=layer_id,
+                                                            show=show, show_now=show_now, save_fig=save_fig)
+        blobs_pyr.append(blobs_res)
+        survs_pyr.append(survs_res)
+        titles_pyr.append(titles)
+        pyr_imgs.append(im_pyr)
+        pyr_masks.append(mask_pyr)
 
-    # DOGS - survival overall
-    surv_blob_pyr = np.zeros(image.shape)
-    for blobs_l in blobs_pyr:
-        surv_blob_pyr += cv2.resize(blobs_l[3], image.shape[::-1])
+    n_layers = len(pyr_imgs)
+    n_params = len(survs_pyr[0]) - 1  # -1 because the first surv is overall surv
 
-    # DOGS - responses
+    # survival layers
+    # for layer_id, layer in enumerate(survs_pyr):
+    #     fig_surv_layer =
+    #     for im in layer[1:]:  # the first surv is overall
+    #         surv_layer += im
+    #     surv_im_layers.append(surv_layer)
+
+    # survival param -
+
+
+    # survival overall
+    surv_overall = np.zeros(image.shape)
+    for survs_l in survs_pyr:
+        surv_overall += cv2.resize(survs_l[0], image.shape[::-1])
+
+    # responses
     all_blobs = []
     for layer_id, layer_p in enumerate(blobs_pyr):
         scale = pyr_scale ** layer_id
@@ -576,16 +591,134 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
                     all_blobs.append((scale * y, scale * x, scale * r))
 
     if show or save_fig:
-        # survival fcn - overall
+        # SURVIVAL IMAGES  ----------
+        # survival fcn - params per layer, number = n_layers
+        for layer_id, survs_l in enumerate(survs_pyr):
+            fig_surv_layer = plt.figure(figsize=(24, 14))
+            for param_id, (im, tit) in enumerate(zip(survs_l[1:], titles_pyr[layer_id][1:])):
+                plt.subplot(1, n_layers, param_id + 1)
+                plt.imshow(im, 'jet', interpolation='nearest')
+                plt.title(tit)
+                divider = make_axes_locatable(plt.gca())
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                plt.colorbar(cax=cax)
+            if save_fig:
+                fig_surv_layer.savefig(os.path.join(fig_dir, '%s_surv_layer_%i.png' % (blob_type, layer_id)),
+                                       dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # survival fcn - layers per param, number = n_params
+        for param_id in range(n_params):
+            fig_surv_layer = plt.figure(figsize=(24, 14))
+            for layer_id, survs_l in enumerate(survs_pyr):
+                plt.subplot(1, n_layers, layer_id + 1)
+                plt.imshow(survs_l[param_id + 1], 'jet', interpolation='nearest')  # +1 because the first surv is the overall surv
+                plt.title(titles_pyr[layer_id][param_id + 1])  # +1 because the first surv is the overall surv
+                divider = make_axes_locatable(plt.gca())
+                cax = divider.append_axes('right', size='5%', pad=0.05)
+                plt.colorbar(cax=cax)
+            if save_fig:
+                fig_surv_layer.savefig(os.path.join(fig_dir, '%s_surv_%s.png' % (blob_type, params[param_id])),
+                                       dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # survival fcn - layers, number = 1, [layer1, layer2, ...]
+        fig_surv_layers = plt.figure(figsize=(24, 14))
+        for layer_id, survs_l in enumerate(survs_pyr):
+            plt.subplot(1, n_layers, layer_id + 1)
+            plt.imshow(survs_l[0], 'jet', interpolation='nearest')
+            plt.title('layer #%i, surv'% (layer_id + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        # survival fcn - params, number = 1, [param1, param2, ...]
+        surv_params = []
+        for i in range(n_params):
+            surv_params.append(np.zeros(image.shape))
+        for layer in survs_pyr:
+            for i, surv in enumerate(layer[1:]):  # from 1 because the first surv is overall
+                surv_params[i] += cv2.resize(surv, image.shape[::-1])
+        fig_surv_params = plt.figure(figsize=(24, 14))
+        for param_id, (surv_p, param) in enumerate(zip(surv_params, params)):
+            plt.subplot(1, n_params, param_id + 1)
+            plt.imshow(surv_p, 'jet', interpolation='nearest')
+            plt.title('%s, surv' % param)
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        # survival fcn - overall, number = 1
         fig_surv = plt.figure(figsize=(24, 14))
         plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-        plt.subplot(122), plt.imshow(surv_blob_pyr, 'jet', interpolation='nearest')
+        plt.subplot(122), plt.imshow(surv_overall, 'jet', interpolation='nearest')
         plt.title('%s - overall survival fcn' % blob_type)
         divider = make_axes_locatable(plt.gca())
         cax = divider.append_axes('right', size='5%', pad=0.05)
         plt.colorbar(cax=cax)
 
-        # response image - overall
+        # RESPONSE IMAGES  ----------
+        # response image - layers per param, number = n_params, [p1l1, p1l2, ...]
+        for param_id in range(n_params):
+            fig_resps_layer = plt.figure(figsize=(24, 14))
+            for layer_id, blobs_l in enumerate(blobs_pyr):
+                plt.subplot(1, n_layers, layer_id + 1)
+                plt.imshow(pyr_imgs[layer_id], 'gray', interpolation='nearest')
+                for blobs in blobs_l[param_id + 1]:
+                    if len(blobs) > 0:
+                        for blob in blobs:
+                            y, x, r = blob
+                            c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
+                            plt.gca().add_patch(c)
+                plt.title(titles_pyr[layer_id][param_id + 1])  # +1 because the first surv is the overall surv
+            if save_fig:
+                fig_resps_layer.savefig(os.path.join(fig_dir, '%s_resps_%s.png' % (blob_type, params[param_id])),
+                                        dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # response image - params per layer, number = n_layers, [l1p1, l1p2, ...]
+        for layer_id, blobs_l in enumerate(blobs_pyr):
+            fig_resps_layer = plt.figure(figsize=(24, 14))
+            for param_id, (param, tit) in enumerate(zip(params, titles_pyr[layer_id][1:])):
+                plt.subplot(1, n_layers, param_id + 1)
+                plt.imshow(pyr_imgs[layer_id], 'gray', interpolation='nearest')
+                for blobs in blobs_l[param_id + 1]:
+                    if len(blobs) > 0:
+                        for blob in blobs:
+                            y, x, r = blob
+                            c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
+                            plt.gca().add_patch(c)
+                plt.title(tit)
+            if save_fig:
+                fig_resps_layer.savefig(os.path.join(fig_dir, '%s_resps_layer_%i.png' % (blob_type, layer_id)),
+                                        dpi=100, bbox_inches='tight', pad_inches=0)
+
+        # response image - params, number = 1, [param1, param2, ...]
+        fig_resps_params = plt.figure(figsize=(24, 14))
+        for param_id, param in enumerate(params):
+            for layer_id, blobs_l in enumerate(blobs_pyr):
+                scale = pyr_scale ** layer_id
+                plt.subplot(1, n_params, param_id + 1)
+                plt.imshow(pyr_imgs[0], 'gray', interpolation='nearest')
+                for blobs in blobs_l[param_id + 1]:
+                    if len(blobs) > 0:
+                        for blob in blobs:
+                            y, x, r = blob
+                            c = plt.Circle((scale * x, scale * y), scale * r, color='r', linewidth=2, fill=False)
+                            plt.gca().add_patch(c)
+                plt.title('%s' % param)
+
+        # response image - layers, number = 1
+        fig_resps_layers = plt.figure(figsize=(24, 14))
+        for layer_id, blobs_l in enumerate(blobs_pyr):
+            plt.subplot(1, n_layers, layer_id + 1)
+            plt.imshow(pyr_imgs[layer_id], 'gray', interpolation='nearest')
+            for blobs in blobs_l[0]:
+                if len(blobs) > 0:
+                    for blob in blobs:
+                        y, x, r = blob
+                        c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
+                        plt.gca().add_patch(c)
+            plt.title('layer #%i'% (layer_id + 1) )
+
+        # response image - overall, number = 1
         fig_resp = plt.figure(figsize=(24, 14))
         plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
         plt.subplot(122), plt.imshow(image, 'gray', interpolation='nearest')
@@ -596,8 +729,12 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
         plt.title('%s - overall response image' % blob_type)
 
         if save_fig:
-            fig_surv.savefig(os.path.join(fig_dir, '%s_surv_im_overall.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv.savefig(os.path.join(fig_dir, '%s_surv_overall.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_layers.savefig(os.path.join(fig_dir, '%s_surv_layers.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_params.savefig(os.path.join(fig_dir, '%s_surv_params.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
             fig_resp.savefig(os.path.join(fig_dir, '%s_resps_overall.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_resps_layers.savefig(os.path.join(fig_dir, '%s_resps_layers.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_resps_params.savefig(os.path.join(fig_dir, '%s_resps_params.png' % blob_type), dpi=100, bbox_inches='tight', pad_inches=0)
 
         if show_now:
             plt.show()
@@ -616,7 +753,7 @@ if __name__ == '__main__':
 
     show = True
     show_now = False
-    save_fig = False
+    save_fig = True
     pyr_scale = 1.5
     blob_type = BLOB_DOG
     run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type, show=show, show_now=show_now, save_fig=save_fig)
