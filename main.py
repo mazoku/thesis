@@ -250,4 +250,4 @@ if __name__ == '__main__':
 
         # pyed = QTSeedEditor(self.data3d, mode='seed', voxelSize=self.voxelsize_mm)
 
-#TODO: SLICS - vyplnit diry po morp openingu
+#TODO: SLICS - vyplnit diry po morph openingu

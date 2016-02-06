@@ -200,10 +200,21 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
     image_bb, mask_bb = tools.crop_to_bbox(image, mask)
 
     mask_shapes = [(5, 5, 0), (9, 5, 0), (9, 5, 45), (9, 5, 90), (9, 5, 135)]
+    # mask_shapes = [(15, 15, 0), (29, 15, 0), (29, 15, 45), (29, 15, 90), (29, 15, 135)]
     n_masks = len(mask_shapes)
     border_width = 1
 
     masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
+
+    filters_fig = plt.figure(figsize=(24, 14))
+    for m_id, m in enumerate(masks):
+        mask_lab = np.zeros(m[0].shape, dtype=np.byte)
+        for i, j in enumerate(m):
+            mask_lab += (i + 1) * j
+        plt.subplot(1, n_masks, m_id + 1)
+        plt.imshow(mask_lab, 'jet', interpolation='nearest')
+    filters_fig.savefig(os.path.join(fig_dir, 'masks2.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+    plt.show()
 
     pyr_imgs = []
     pyr_masks = []

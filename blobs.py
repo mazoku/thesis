@@ -1,7 +1,6 @@
 from __future__ import division
-# Tady je to zamotany - u circloidu jsem mel nekolik masek - da se rict, ze maska byl jeden parametr s celkem 5 hodnotami.
-#   U blobu mam nekolik parametru s nekolika hodnotami.
-
+#TODO: vybrat nejaky lepsi default hodnoty - napr. pri testovani parametru u cv je default min_area=1 - to je urcite spatne
+    # Vhodnou volbou default parametru se snizi celkovy pocet odezev -> lepsi survival.
 import sys
 sys.path.append('../imtools/')
 from imtools import tools
@@ -12,6 +11,8 @@ import numpy as np
 import skimage.exposure as skiexp
 import skimage.feature as skifea
 import scipy.stats as scista
+import skimage.color as skicol
+import skimage.data as skidat
 
 import cv2
 
@@ -80,6 +81,14 @@ def doh(image, mask=None, intensity='bright', min_sigma=1, max_sigma=30, num_sig
     if mask is None:
         mask = np.ones_like(image)
     im = check_blob_intensity(image, intensity)
+
+    # mean_v = np.mean(im[np.nonzero(mask)])
+    # im = np.where(mask, im, mean_v)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im, 'gray')
+    # plt.subplot(122), plt.imshow(im2, 'gray')
+    # plt.show()
+
     try:
         blobs = skifea.blob_doh(im, min_sigma=min_sigma, max_sigma=max_sigma, num_sigma=num_sigma,
                                 threshold=threshold, overlap=overlap, log_scale=log_scale)
@@ -88,7 +97,7 @@ def doh(image, mask=None, intensity='bright', min_sigma=1, max_sigma=30, num_sig
     blobs = [x for x in blobs if mask[x[0], x[1]]]
     blobs = np.array(blobs)
     if len(blobs) > 0:
-        blobs[:, 2] = blobs[:, 2] * math.sqrt(2)
+        blobs[:, 2] = blobs[:, 2]# * math.sqrt(2)
     return blobs
 
 
@@ -208,7 +217,6 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
         blobs = dog(image, mask=mask, intensity='dark', sigma_ratio=i)
         dogs_sr.append(blobs)
         dogs.append(blobs)
-    # dog_sr_surv = calc_survival_fcn(dogs_sr, mask, show=False)
 
     # THRESHOLD  ------------------------------------------------------
     dogs_t = []
@@ -216,7 +224,6 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
         blobs = dog(image, mask=mask, intensity='dark', threshold=i)
         dogs_t.append(blobs)
         dogs.append(blobs)
-    # dog_t_surv = calc_survival_fcn(dogs_t, mask, show=False)
 
     # # OVERLAP  -------------------------------------------------------
     # dogs_o = []
@@ -224,36 +231,6 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
     #     blobs = dog(image, mask=mask, intensity='dark', overlap=i)
     #     dogs_o.append(blobs)
     #     dogs.append(blobs)
-    # dog_o_surv = calc_survival_fcn(dogs_o, mask, show=False)
-
-    # surv_overall = calc_survival_fcn(dogs, mask)
-    #
-    # if show or save_fig:
-    #     cmap = 'jet'
-    #     fig = plt.figure(figsize=(24, 14))
-    #     plt.subplot(141), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    #     plt.subplot(142), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('DOG survival')
-    #     divider = make_axes_locatable(plt.gca())
-    #     cax = divider.append_axes('right', size='5%', pad=0.05)
-    #     plt.colorbar(cax=cax)
-    #     plt.subplot(143), plt.imshow(dog_sr_surv, cmap=cmap, interpolation='nearest'), plt.title('sigma ratio surv')
-    #     divider = make_axes_locatable(plt.gca())
-    #     cax = divider.append_axes('right', size='5%', pad=0.05)
-    #     plt.colorbar(cax=cax)
-    #     plt.subplot(144), plt.imshow(dog_t_surv, cmap=cmap, interpolation='nearest'), plt.title('threshold surv')
-    #     divider = make_axes_locatable(plt.gca())
-    #     cax = divider.append_axes('right', size='5%', pad=0.05)
-    #     plt.colorbar(cax=cax)
-    #     # plt.subplot(236), plt.imshow(dog_o_surv, cmap=cmap, interpolation='nearest'), plt.title('overlap surv')
-    #
-    #     if save_fig:
-    #         save_figure(image, mask, dogs_sr, 'blobs/dogs', 'DOG', 'sigma_ratio', sigma_ratios, show=True, show_now=False)
-    #         save_figure(image, mask, dogs_t, 'blobs/dogs', 'DOG', 'threshold', thresholds, show=True, show_now=False)
-    #         # save_figure(image, mask, dogs_o, 'blobs/dogs', 'DOG', 'overlap', overlaps, show=True)
-    #         fig.savefig('blobs/dogs/dog_survival_function.png', dpi=100, bbox_inches='tight', pad_inches=0)
-    #
-    #     if show and show_now:
-    #         plt.show()
 
     return dogs, dogs_sr, dogs_t
 
@@ -267,7 +244,6 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
         blobs = log(image, mask=mask, intensity='dark', num_sigma=i)
         logs_ns.append(blobs)
         logs.append(blobs)
-    # log_ns_surv = calc_survival_fcn(logs_ns, mask, show=False)
 
     # THRESHOLD  ------------------------------------------------------
     logs_t = []
@@ -275,7 +251,6 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
         blobs = log(image, mask=mask, intensity='dark', threshold=i)
         logs_t.append(blobs)
         logs.append(blobs)
-    # log_t_surv = calc_survival_fcn(logs_t, mask, show=False)
 
     # OVERLAP  -------------------------------------------------------
     # logs_o = []
@@ -283,7 +258,6 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     #     blobs = log(image, mask=mask, intensity='dark', overlap=i)
     #     logs_o.append(blobs)
     #     logs.append(blobs)
-    # log_o_surv = calc_survival_fcn(logs_o, mask, show=False)
 
     # LOG SCALE  -------------------------------------------------------
     logs_ls = []
@@ -291,28 +265,6 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
         blobs = log(image, mask=mask, intensity='dark', log_scale=i)
         logs_ls.append(blobs)
         logs.append(blobs)
-    # log_ls_surv = calc_survival_fcn(logs_o, mask, show=False)
-
-    # surv_overall = calc_survival_fcn(logs, mask)
-
-    # cmap = 'jet'
-    # fig = plt.figure(figsize=(20, 10))
-    # plt.subplot(231), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(232), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('LOG survival')
-    # plt.subplot(233), plt.imshow(log_ns_surv, cmap=cmap, interpolation='nearest'), plt.title('num. of sigmas surv')
-    # plt.subplot(234), plt.imshow(log_t_surv, cmap=cmap, interpolation='nearest'), plt.title('threshold surv')
-    # plt.subplot(235), plt.imshow(log_o_surv, cmap=cmap, interpolation='nearest'), plt.title('overlap surv')
-    # plt.subplot(236), plt.imshow(log_ls_surv, cmap=cmap, interpolation='nearest'), plt.title('log scale surv')
-    # fig.savefig('blobs/logs/log_survival_function.png')
-    #
-    # if save_fig:
-    #     save_figure(image, mask, logs_ns, 'blobs/logs', 'LOG', 'num_sigma', num_sigmas, show=True, show_now=False)
-    #     save_figure(image, mask, logs_t, 'blobs/logs', 'LOG', 'threshold', thresholds, show=True, show_now=False)
-    #     save_figure(image, mask, logs_o, 'blobs/logs', 'LOG', 'overlap', overlaps, show=True, show_now=False)
-    #     save_figure(image, mask, logs_ls, 'blobs/logs', 'LOG', 'log_scale', log_scales, show=True, show_now=False)
-    #     fig.savefig('blobs/logs/log_survival_function.png')
-
-    # plt.show()
 
     return logs, logs_ns, logs_t, logs_ls
 
@@ -324,17 +276,17 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     dohs_ns = []
     for i in num_sigmas:
         blobs = doh(image, mask=mask, intensity='dark', num_sigma=i)
+        # blobs = doh(image, mask=mask, intensity='bright', num_sigma=i)
         dohs_ns.append(blobs)
         dohs.append(blobs)
-    # doh_ns_surv = calc_survival_fcn(dohs_ns, mask, show=False)
 
     # THRESHOLD  ------------------------------------------------------
     dohs_t = []
     for i in thresholds:
         blobs = doh(image, mask=mask, intensity='dark', threshold=i)
+        # blobs = doh(image, mask=mask, intensity='bright', threshold=i)
         dohs_t.append(blobs)
         dohs.append(blobs)
-    # doh_t_surv = calc_survival_fcn(dohs_t, mask, show=False)
 
     # # OVERLAP  -------------------------------------------------------
     # dohs_o = []
@@ -342,7 +294,6 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     #     blobs = doh(image, mask=mask, intensity='dark', overlap=i)
     #     dohs_o.append(blobs)
     #     dohs.append(blobs)
-    # doh_o_surv = calc_survival_fcn(dohs_o, mask, show=False)
 
     # LOG SCALE  -------------------------------------------------------
     dohs_ls = []
@@ -350,28 +301,6 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
         blobs = doh(image, mask=mask, intensity='dark', log_scale=i)
         dohs_ls.append(blobs)
         dohs.append(blobs)
-    # doh_ls_surv = calc_survival_fcn(dohs_ls, mask, show=False)
-
-    # calculating overall survival function
-    surv_overall = calc_survival_fcn(dohs, mask)
-
-    # cmap = 'jet'
-    # fig = plt.figure(figsize=(20, 10))
-    # plt.subplot(231), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(232), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('DOG survival')
-    # plt.subplot(233), plt.imshow(doh_ns_surv, cmap=cmap, interpolation='nearest'), plt.title('num. of sigmas surv')
-    # plt.subplot(234), plt.imshow(doh_t_surv, cmap=cmap, interpolation='nearest'), plt.title('threshold surv')
-    # plt.subplot(235), plt.imshow(doh_o_surv, cmap=cmap, interpolation='nearest'), plt.title('overlap surv')
-    # plt.subplot(236), plt.imshow(doh_ls_surv, cmap=cmap, interpolation='nearest'), plt.title('log scale surv')
-    #
-    # if save_fig:
-    #     save_figure(image, mask, dohs_ns, 'blobs/dohs', 'DOH', 'num_sigma', num_sigmas, show=True, show_now=False)
-    #     save_figure(image, mask, dohs_t, 'blobs/dohs', 'DOH', 'threshold', thresholds, show=True, show_now=False)
-    #     save_figure(image, mask, dohs_o, 'blobs/dohs', 'DOH', 'overlap', overlaps, show=True, show_now=False)
-    #     save_figure(image, mask, dohs_ls, 'blobs/dohs', 'DOH', 'log_scale', log_scales, show=True, show_now=False)
-    #     fig.savefig('blobs/dohs/doh_survival_function.png')
-    #
-    # plt.show()
 
     return dohs, dohs_ns, dohs_t, dohs_ls
 
@@ -385,7 +314,6 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
         blobs = cv_blobs(image, mask, min_threshold=i)
         blobs_mt.append(blobs)
         blobs_all.append(blobs)
-    # cv_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
 
     # MIN AREAS ------------------------------------------------------
     blobs_ma = []
@@ -393,7 +321,6 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
         blobs = cv_blobs(image, mask, min_area=i)
         blobs_ma.append(blobs)
         blobs_all.append(blobs)
-    # cv_ma_surv = calc_survival_fcn(blobs_ma, mask, show=False)
 
     # MIN CIRCULARITIES -----------------------------------------------
     blobs_mcir = []
@@ -401,7 +328,6 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
         blobs = cv_blobs(image, mask, min_circularity=i)
         blobs_mcir.append(blobs)
         blobs_all.append(blobs)
-    # cv_mcir_surv = calc_survival_fcn(blobs_mcir, mask, show=False)
 
     # MIN CONVEXITIES -----------------------------------------------
     blobs_mcon = []
@@ -409,7 +335,6 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
         blobs = cv_blobs(image, mask, min_convexity=i)
         blobs_mcon.append(blobs)
         blobs_all.append(blobs)
-    # cv_mcon_surv = calc_survival_fcn(blobs_mcon, mask, show=False)
 
     # MIN INERTIAS -----------------------------------------------
     blobs_mi = []
@@ -417,31 +342,6 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
         blobs = cv_blobs(image, mask, min_inertia=i)
         blobs_mi.append(blobs)
         blobs_all.append(blobs)
-    # cv_mi_surv = calc_survival_fcn(blobs_mi, mask, show=False)
-
-    # CALC SURVIVAL FUNCTION ------------------------------------
-    # surv_overall = calc_survival_fcn(blobs_all, mask)
-
-    # visualization
-    # cmap = 'jet'
-    # fig = plt.figure(figsize=(20, 10))
-    # plt.subplot(241), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(242), plt.imshow(surv_overall, cmap=cmap, interpolation='nearest'), plt.title('OPENCV survival')
-    # plt.subplot(243), plt.imshow(cv_mt_surv, cmap=cmap, interpolation='nearest'), plt.title('min threshold surv')
-    # plt.subplot(244), plt.imshow(cv_ma_surv, cmap=cmap, interpolation='nearest'), plt.title('min area surv')
-    # plt.subplot(245), plt.imshow(cv_mcir_surv, cmap=cmap, interpolation='nearest'), plt.title('min circularity surv')
-    # plt.subplot(246), plt.imshow(cv_mcon_surv, cmap=cmap, interpolation='nearest'), plt.title('min convexity surv')
-    # plt.subplot(247), plt.imshow(cv_mi_surv, cmap=cmap, interpolation='nearest'), plt.title('min inertia surv')
-    #
-    # if save_fig:
-    #     save_figure(image, mask, blobs_mt, 'blobs/cv', 'CV', 'min_thresh', min_thresholds, show=True, show_now=False)
-    #     save_figure(image, mask, blobs_ma, 'blobs/cv', 'CV', 'min_area', min_areas, show=True, show_now=False)
-    #     save_figure(image, mask, blobs_mcir, 'blobs/cv', 'CV', 'min_circularity', min_circularities, show=True, show_now=False)
-    #     save_figure(image, mask, blobs_mcon, 'blobs/cv', 'CV', 'min_convexity', min_convexities, show=True, show_now=False)
-    #     save_figure(image, mask, blobs_mi, 'blobs/cv', 'CV', 'min_inertia', min_inertias, show=True, show_now=False)
-    #     fig.savefig('blobs/cv/survival_function.png')
-    #
-    # plt.show()
 
     return blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi
 
@@ -465,8 +365,10 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         # LOG detection -----------------
         print 'LOG detection ...',
         params = ('num_sigma', 'threshold', 'log_scale')
-        num_sigmas = np.arange(5, 15, 2)
-        thresholds = np.arange(0, 1, 0.1)
+        # num_sigmas = np.arange(5, 15, 2)
+        num_sigmas = np.array([1, 5, 10])
+        thresholds = np.arange(0.02, 0.1, 0.01)
+        # thresholds = np.array([0.02, 0.1])
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
         blobs, blobs_ns, blobs_t, blobs_ls = detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales)
@@ -479,8 +381,10 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_DOH:
         # DOH detection -----------------
         print 'DOH detection ...',
-        num_sigmas = np.arange(5, 15, 2)
-        thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
+        params = ('num_sigma', 'threshold', 'log_scale')
+        num_sigmas = [1, 5, 10]
+        # thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
+        thresholds = [0.02]#, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
         blobs, blobs_ns, blobs_t, blobs_ls = detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales)
@@ -494,11 +398,16 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         # OPENCV BLOB DETECTOR -------
         print 'OpenCV blob detection ...',
         params = ('min_threshold', 'min_area', 'min_circularity', 'min_convexity', 'min_inertia')
-        min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
-        min_areas = [1, 5, 10, 30, 50, 80, 100, 150]
-        min_circularities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
-        min_convexities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
-        min_inertias = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
+        # min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
+        min_thresholds = [10, 30, 50, 80, 100, 150, 200]
+        # min_areas = [1, 5, 10, 30, 50, 80, 100, 150]
+        min_areas = [10, 30, 50, 80, 100, 150]
+        # min_circularities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
+        min_circularities = [0.3, 0.5, 0.6, 0.8]
+        # min_convexities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
+        min_convexities = [0.3, 0.5, 0.6, 0.8]
+        # min_inertias = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
+        min_inertias = [0.3, 0.5, 0.6, 0.8]
         blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi = \
             detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias)
         blobs_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
@@ -520,7 +429,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_LOG:
         survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv, blobs_ls_surv)
         blobs = (blobs, blobs_ns, blobs_t, blobs_ls)
-        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, sigma ratio' % (layer_id + 1),
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, num sigmas' % (layer_id + 1),
                   'layer #%i, threshold' % (layer_id + 1), 'layer #%i, log scale' % (layer_id + 1))
     elif blob_type == BLOB_DOH:
         survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv, blobs_ls_surv)
@@ -530,7 +439,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_CV:
         survival_imgs = (blobs_surv_overall, blobs_mt_surv, blobs_ma_surv, blobs_mcir_surv, blobs_mcon_surv, blobs_mi_surv)
         blobs = (blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi)
-        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, min thresholh' % (layer_id + 1),
+        titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, min threshold' % (layer_id + 1),
                   'layer #%i, min area' % (layer_id + 1), 'layer #%i, min circularity' % (layer_id + 1),
                   'layer #%i, min convexity' % (layer_id + 1), 'layer #%i, min inertia' % (layer_id + 1))
 
@@ -596,7 +505,7 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
         for layer_id, survs_l in enumerate(survs_pyr):
             fig_surv_layer = plt.figure(figsize=(24, 14))
             for param_id, (im, tit) in enumerate(zip(survs_l[1:], titles_pyr[layer_id][1:])):
-                plt.subplot(1, n_layers, param_id + 1)
+                plt.subplot(1, n_params, param_id + 1)
                 plt.imshow(im, 'jet', interpolation='nearest')
                 plt.title(tit)
                 divider = make_axes_locatable(plt.gca())
@@ -605,6 +514,10 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
             if save_fig:
                 fig_surv_layer.savefig(os.path.join(fig_dir, '%s_surv_layer_%i.png' % (blob_type, layer_id)),
                                        dpi=100, bbox_inches='tight', pad_inches=0)
+        if not show:
+            plt.close('all')
+        elif blob_type == BLOB_CV:  # need to spare memory
+            plt.show()
 
         # survival fcn - layers per param, number = n_params
         for param_id in range(n_params):
@@ -619,6 +532,10 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
             if save_fig:
                 fig_surv_layer.savefig(os.path.join(fig_dir, '%s_surv_%s.png' % (blob_type, params[param_id])),
                                        dpi=100, bbox_inches='tight', pad_inches=0)
+        if not show:
+            plt.close('all')
+        elif blob_type == BLOB_CV:  # need to spare memory
+            plt.show()
 
         # survival fcn - layers, number = 1, [layer1, layer2, ...]
         fig_surv_layers = plt.figure(figsize=(24, 14))
@@ -672,12 +589,16 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
             if save_fig:
                 fig_resps_layer.savefig(os.path.join(fig_dir, '%s_resps_%s.png' % (blob_type, params[param_id])),
                                         dpi=100, bbox_inches='tight', pad_inches=0)
+        if not show:
+            plt.close('all')
+        elif blob_type == BLOB_CV:  # need to spare memory
+            plt.show()
 
         # response image - params per layer, number = n_layers, [l1p1, l1p2, ...]
         for layer_id, blobs_l in enumerate(blobs_pyr):
             fig_resps_layer = plt.figure(figsize=(24, 14))
             for param_id, (param, tit) in enumerate(zip(params, titles_pyr[layer_id][1:])):
-                plt.subplot(1, n_layers, param_id + 1)
+                plt.subplot(1, n_params, param_id + 1)
                 plt.imshow(pyr_imgs[layer_id], 'gray', interpolation='nearest')
                 for blobs in blobs_l[param_id + 1]:
                     if len(blobs) > 0:
@@ -689,6 +610,10 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
             if save_fig:
                 fig_resps_layer.savefig(os.path.join(fig_dir, '%s_resps_layer_%i.png' % (blob_type, layer_id)),
                                         dpi=100, bbox_inches='tight', pad_inches=0)
+        if not show:
+            plt.close('all')
+        elif blob_type == BLOB_CV:  # need to spare memory
+            plt.show()
 
         # response image - params, number = 1, [param1, param2, ...]
         fig_resps_params = plt.figure(figsize=(24, 14))
@@ -751,11 +676,25 @@ if __name__ == '__main__':
     data_s = tools.windowing(data_s)
     mask_s = mask[slice_ind, :, :]
 
-    show = True
+    show = False
     show_now = False
     save_fig = True
     pyr_scale = 1.5
-    blob_type = BLOB_DOG
+    blob_type = BLOB_CV
+
+    # data_s = skidat.hubble_deep_field()[200:500, 200:500]
+    # data_s = skicol.rgb2gray(data_s)
+    # blobs_doh = skifea.blob_doh(data_s, max_sigma=30, threshold=.01)
+    # plt.figure()
+    # plt.imshow(data_s, 'gray', interpolation='nearest')
+    # for blob in blobs_doh:
+    #     y, x, r = blob
+    #     c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
+    #     plt.gca().add_patch(c)
+    # plt.show()
+
+    # data_s = skiexp.rescale_intensity(data_s, out_range=np.uint8).astype(np.uint8)
+    # mask_s = np.ones_like(data_s)
     run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type, show=show, show_now=show_now, save_fig=save_fig)
     if show and not show_now:
         plt.show()
