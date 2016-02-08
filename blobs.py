@@ -27,6 +27,7 @@ BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'cv'
 
+
 def check_blob_intensity(image, intensity, mask=None, show=False, show_now=True):
     if mask is None:
         mask = np.ones_like(image)
@@ -45,7 +46,29 @@ def check_blob_intensity(image, intensity, mask=None, show=False, show_now=True)
     return im
 
 
-def dog(image, mask=None, intensity='bright', min_sigma=1, max_sigma=50, sigma_ratio=1.6, threshold=0.1, overlap=0.5):
+def get_blob_mean_value(blobs, image, mask):
+    mean_vals = []
+    for blob in blobs:
+        y, x, r = blob
+        b_mask = np.zeros(image.shape)
+        cv2.circle(b_mask, (x, y), r, color=1, thickness=-1)
+        b_mask *= mask
+        pts = image[np.nonzero(b_mask)]
+        mean_vals.append(pts.mean())
+
+        # im_tmp = cv2.cvtColor(image.copy(), cv2.COLOR_GRAY2BGR)
+        # cv2.circle(im_tmp, (x, y), r, color=(255, 0, 255), thickness=1)
+        # plt.figure()
+        # plt.subplot(121), plt.imshow(im_tmp, 'gray', interpolation='nearest')
+        # plt.subplot(122), plt.imshow(image * mask, 'gray', interpolation='nearest')
+        # plt.title('%.1f' % pts.mean())
+        # plt.show()
+
+
+    return mean_vals
+
+
+def dog(image, mask=None, intensity='dark', min_sigma=1, max_sigma=50, sigma_ratio=2, threshold=0.1, overlap=1):
     if mask is None:
         mask = np.ones_like(image)
     im = check_blob_intensity(image, intensity, show=False)
@@ -61,7 +84,7 @@ def dog(image, mask=None, intensity='bright', min_sigma=1, max_sigma=50, sigma_r
     return blobs
 
 
-def log(image, mask=None, intensity='bright', min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.1, overlap=0.5, log_scale=False):
+def log(image, mask=None, intensity='dark', min_sigma=1, max_sigma=50, num_sigma=10, threshold=0.05, overlap=1, log_scale=False):
     if mask is None:
         mask = np.ones_like(image)
     im = check_blob_intensity(image, intensity)
@@ -77,10 +100,10 @@ def log(image, mask=None, intensity='bright', min_sigma=1, max_sigma=50, num_sig
     return blobs
 
 
-def doh(image, mask=None, intensity='bright', min_sigma=1, max_sigma=30, num_sigma=10, threshold=0.01, overlap=0.5, log_scale=False):
+def doh(image, mask=None, intensity='dark', min_sigma=1, max_sigma=30, num_sigma=10, threshold=0.001, overlap=1, offset=10, log_scale=False):
     if mask is None:
         mask = np.ones_like(image)
-    im = check_blob_intensity(image, intensity)
+    # im = check_blob_intensity(image, intensity='light')
 
     # mean_v = np.mean(im[np.nonzero(mask)])
     # im = np.where(mask, im, mean_v)
@@ -90,26 +113,38 @@ def doh(image, mask=None, intensity='bright', min_sigma=1, max_sigma=30, num_sig
     # plt.show()
 
     try:
-        blobs = skifea.blob_doh(im, min_sigma=min_sigma, max_sigma=max_sigma, num_sigma=num_sigma,
+        blobs = skifea.blob_doh(image, min_sigma=min_sigma, max_sigma=max_sigma, num_sigma=num_sigma,
                                 threshold=threshold, overlap=overlap, log_scale=log_scale)
     except:
         return []
     blobs = [x for x in blobs if mask[x[0], x[1]]]
+    blob_means = get_blob_mean_value(blobs, image, mask)
+    liver_mean = image[np.nonzero(mask)].mean()
+    if intensity in ['dark', 'black']:
+        blobs = [b for b, bm in zip(blobs, blob_means) if bm < (liver_mean - offset)]
+    elif intensity in ['bright', 'light', 'white']:
+        blobs = [b for b, bm in zip(blobs, blob_means) if bm > (liver_mean + offset)]
     blobs = np.array(blobs)
-    if len(blobs) > 0:
-        blobs[:, 2] = blobs[:, 2]# * math.sqrt(2)
+    # if len(blobs) > 0:
+    #     blobs[:, 2] = blobs[:, 2]# * math.sqrt(2)
     return blobs
 
 
-def cv_blobs(image, mask=None, min_threshold=10, max_threshold=255, min_area=1, min_circularity=0, min_convexity=0, min_inertia=0):
+def cv_blobs(image, mask=None, intensity='dark', min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
+             min_circularity=0.2, min_convexity=0.2, min_inertia=0.2, offset=10):
     if mask is None:
         mask = np.ones_like(image)
     try:
         params = cv2.SimpleBlobDetector_Params()
         params.minThreshold = min_threshold
         params.maxThreshold = max_threshold
+        params.thresholdStep = 2
         params.filterByArea = True
         params.minArea = min_area
+        params.maxArea = max_area
+        params.maxCircularity = 1
+        params.maxConvexity = 1
+        params.maxInertiaRatio = 1
         if min_circularity > 0:
             params.filterByCircularity = True
             params.minCircularity = min_circularity
@@ -139,6 +174,12 @@ def cv_blobs(image, mask=None, min_threshold=10, max_threshold=255, min_area=1, 
     blobs = np.array(blobs)
     if len(blobs) > 0:
         blobs[:, 2] = blobs[:, 2] * math.sqrt(2)
+    blob_means = get_blob_mean_value(blobs, image, mask)
+    liver_mean = image[np.nonzero(mask)].mean()
+    if intensity in ['dark', 'black']:
+        blobs = [b for b, bm in zip(blobs, blob_means) if bm < (liver_mean - offset)]
+    elif intensity in ['bright', 'light', 'white']:
+        blobs = [b for b, bm in zip(blobs, blob_means) if bm > (liver_mean + offset)]
     return blobs
 
 
@@ -366,8 +407,8 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         print 'LOG detection ...',
         params = ('num_sigma', 'threshold', 'log_scale')
         # num_sigmas = np.arange(5, 15, 2)
-        num_sigmas = np.array([1, 5, 10])
-        thresholds = np.arange(0.02, 0.1, 0.01)
+        num_sigmas =[5, 10, 15]
+        thresholds = np.arange(0.02, 0.1, 0.02)
         # thresholds = np.array([0.02, 0.1])
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
@@ -382,9 +423,9 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         # DOH detection -----------------
         print 'DOH detection ...',
         params = ('num_sigma', 'threshold', 'log_scale')
-        num_sigmas = [1, 5, 10]
+        num_sigmas = [5, 10, 15]
         # thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
-        thresholds = [0.02]#, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
+        thresholds = np.arange(0.001, 0.01, 0.002)#, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
         overlaps = np.arange(0, 1, 0.2)
         log_scales = [False, True]
         blobs, blobs_ns, blobs_t, blobs_ls = detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales)
@@ -682,9 +723,8 @@ if __name__ == '__main__':
     pyr_scale = 1.5
     blob_type = BLOB_CV
 
-    # data_s = skidat.hubble_deep_field()[200:500, 200:500]
-    # data_s = skicol.rgb2gray(data_s)
-    # blobs_doh = skifea.blob_doh(data_s, max_sigma=30, threshold=.01)
+    blobs_doh = cv_blobs(data_s, mask=mask_s, min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
+                         min_circularity=0.2, min_convexity=0.2, min_inertia=0.2)
     # plt.figure()
     # plt.imshow(data_s, 'gray', interpolation='nearest')
     # for blob in blobs_doh:
@@ -692,6 +732,7 @@ if __name__ == '__main__':
     #     c = plt.Circle((x, y), r, color='r', linewidth=2, fill=False)
     #     plt.gca().add_patch(c)
     # plt.show()
+    # sys.exit(0)
 
     # data_s = skiexp.rescale_intensity(data_s, out_range=np.uint8).astype(np.uint8)
     # mask_s = np.ones_like(data_s)
