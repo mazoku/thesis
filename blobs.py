@@ -705,6 +705,49 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
         if show_now:
             plt.show()
 
+    return surv_overall, survs_pyr, pyr_imgs, pyr_masks
+
+
+def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False):
+    blob_types = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
+    n_types = len(blob_types)
+    survs = []
+
+    image, mask = tools.crop_to_bbox(image, mask)
+    image = tools.smoothing(image, sliceId=0)
+
+    for blob_type in blob_types:
+        # print 'Calculating %s ...' % blob_type,
+        surv_overall, survs_pyr, pyr_imgs, pyr_masks = run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type,
+                                                           show=show, show_now=show_now, save_fig=save_fig)
+        survs.append((surv_overall, survs_pyr, blob_type))
+        # print 'done'
+
+    # survival image - overall
+    survs_overall = np.zeros(image.shape)
+    for surv_str in survs:
+        surv = surv_str[0]
+        if surv.shape != survs_overall.shape:
+            surv = cv2.resize(surv, survs_overall.shape[::-1])
+        survs_overall += surv
+    survs_overall /= float(n_types)
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(survs_overall, 'jet', interpolation='nearest')
+    divider = make_axes_locatable(plt.gca())
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    plt.colorbar(cax=cax)
+    plt.show()
+
+    # survival image - layers
+    surv_layers = survs[0][1]
+    for surv_str in survs:
+        layers = surv_str[1]
+        for i, surv_l in layers:
+            surv_layers[i] += surv_l
+    surv_layers /= float(n_types)
+
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -719,12 +762,14 @@ if __name__ == '__main__':
 
     show = False
     show_now = False
-    save_fig = True
+    save_fig = False
     pyr_scale = 1.5
     blob_type = BLOB_CV
 
-    blobs_doh = cv_blobs(data_s, mask=mask_s, min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
-                         min_circularity=0.2, min_convexity=0.2, min_inertia=0.2)
+    run_all(data_s, mask_s, pyr_scale=pyr_scale, show=show, show_now=show_now, save_fig=save_fig)
+
+    # blobs_doh = cv_blobs(data_s, mask=mask_s, min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
+    #                      min_circularity=0.2, min_convexity=0.2, min_inertia=0.2)
     # plt.figure()
     # plt.imshow(data_s, 'gray', interpolation='nearest')
     # for blob in blobs_doh:
