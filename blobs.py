@@ -708,10 +708,12 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
     return surv_overall, survs_pyr, pyr_imgs, pyr_masks
 
 
-def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False):
+def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False,
+            show_indi=False, show_now_indi=True, save_fig_indi=False):
     blob_types = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
     n_types = len(blob_types)
     survs = []
+    fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/blobs/'
 
     image, mask = tools.crop_to_bbox(image, mask)
     image = tools.smoothing(image, sliceId=0)
@@ -719,7 +721,7 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
     for blob_type in blob_types:
         # print 'Calculating %s ...' % blob_type,
         surv_overall, survs_pyr, pyr_imgs, pyr_masks = run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type,
-                                                           show=show, show_now=show_now, save_fig=save_fig)
+                                                           show=show_indi, show_now=show_now_indi, save_fig=save_fig_indi)
         survs.append((surv_overall, survs_pyr, blob_type))
         # print 'done'
 
@@ -732,22 +734,42 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
         survs_overall += surv
     survs_overall /= float(n_types)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(survs_overall, 'jet', interpolation='nearest')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.show()
-
     # survival image - layers
     surv_layers = survs[0][1]
     for surv_str in survs:
         layers = surv_str[1]
-        for i, surv_l in layers:
+        for i, surv_l in enumerate(layers):
             surv_layers[i] += surv_l
-    surv_layers /= float(n_types)
+    surv_layers = [x / float(n_types) for x in surv_layers]
 
+    n_layers = len(surv_layers)
+
+    # VISUALIZATION ----------------------------------------------------------------------------------
+    if show or save_fig:
+        # survival image - overall
+        fig_surv_overall = plt.figure(figsize=(24, 14))
+        plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
+        plt.subplot(122), plt.imshow(survs_overall, 'jet', interpolation='nearest')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+
+        # survival fcn - layers, number = 1, [layer1, layer2, ...]
+        fig_surv_layers = plt.figure(figsize=(24, 14))
+        for layer_id, survs_l in enumerate(surv_layers):
+            plt.subplot(1, n_layers, layer_id + 1)
+            plt.imshow(survs_l[0], 'jet', interpolation='nearest')
+            plt.title('layer #%i' % (layer_id + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        if save_fig:
+            fig_surv_overall.savefig(os.path.join(fig_dir, 'surv_overall.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_layers.savefig(os.path.join(fig_dir, 'surv_layers.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+    if show and show_now:
+        plt.show()
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -762,11 +784,12 @@ if __name__ == '__main__':
 
     show = False
     show_now = False
-    save_fig = False
+    save_fig = True
     pyr_scale = 1.5
     blob_type = BLOB_CV
 
-    run_all(data_s, mask_s, pyr_scale=pyr_scale, show=show, show_now=show_now, save_fig=save_fig)
+    run_all(data_s, mask_s, pyr_scale=pyr_scale, show=show, show_now=show_now, save_fig=save_fig,
+            show_indi=False, show_now_indi=False, save_fig_indi=False)
 
     # blobs_doh = cv_blobs(data_s, mask=mask_s, min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
     #                      min_circularity=0.2, min_convexity=0.2, min_inertia=0.2)
@@ -779,20 +802,7 @@ if __name__ == '__main__':
     # plt.show()
     # sys.exit(0)
 
-    # data_s = skiexp.rescale_intensity(data_s, out_range=np.uint8).astype(np.uint8)
-    # mask_s = np.ones_like(data_s)
-    run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type, show=show, show_now=show_now, save_fig=save_fig)
-    if show and not show_now:
-        plt.show()
-
-    # im_o, img, saliency = run(data_s, mask_s, show=False)
-    # im_o_s, img_s, saliency_s = run(data_s, mask_s, smoothing=True, show=False)
-    #
-    # plt.figure()
-    # plt.subplot(231), plt.imshow(im_o, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(233), plt.imshow(saliency, 'gray', interpolation='nearest'), plt.title('saliency map')
-    #
-    # plt.subplot(234), plt.imshow(im_o_s, 'gray', interpolation='nearest'), plt.title('input')
-    # plt.subplot(235), plt.imshow(img_s, 'gray', interpolation='nearest'), plt.title('smoothed')
-    # plt.subplot(236), plt.imshow(saliency_s, 'gray', interpolation='nearest'), plt.title('saliency')
-    # plt.show()
+    # # INDIVIDUAL BLOB METHODS -----------
+    # run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type, show=show, show_now=show_now, save_fig=save_fig)
+    # if show and not show_now:
+    #     plt.show()
