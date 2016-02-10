@@ -25,7 +25,7 @@ import os
 BLOB_DOG = 'dog'
 BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
-BLOB_CV = 'cv'
+BLOB_CV = 'openCV'
 
 
 def check_blob_intensity(image, intensity, mask=None, show=False, show_now=True):
@@ -711,6 +711,7 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
 def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False,
             show_indi=False, show_now_indi=True, save_fig_indi=False):
     blob_types = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
+    # blob_types = [BLOB_DOG, BLOB_CV]
     n_types = len(blob_types)
     survs = []
     fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/blobs/'
@@ -722,7 +723,8 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
         # print 'Calculating %s ...' % blob_type,
         surv_overall, survs_pyr, pyr_imgs, pyr_masks = run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type,
                                                            show=show_indi, show_now=show_now_indi, save_fig=save_fig_indi)
-        survs.append((surv_overall, survs_pyr, blob_type))
+        surv_layers = [s[0] for s in survs_pyr]
+        survs.append((surv_overall, surv_layers, blob_type))
         # print 'done'
 
     # survival image - overall
@@ -735,11 +737,14 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
     survs_overall /= float(n_types)
 
     # survival image - layers
-    surv_layers = survs[0][1]
+    surv_layers = []#survs[0][1]
     for surv_str in survs:
         layers = surv_str[1]
-        for i, surv_l in enumerate(layers):
-            surv_layers[i] += surv_l
+        if len(surv_layers) == 0:
+            surv_layers = layers
+        else:
+            for i, surv_l in enumerate(layers):
+                surv_layers[i] += surv_l
     surv_layers = [x / float(n_types) for x in surv_layers]
 
     n_layers = len(surv_layers)
@@ -754,12 +759,25 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
         cax = divider.append_axes('right', size='5%', pad=0.05)
         plt.colorbar(cax=cax)
 
-        # survival fcn - layers, number = 1, [layer1, layer2, ...]
+        # survival image - layers, number = 1, [layer1, layer2, ...]
         fig_surv_layers = plt.figure(figsize=(24, 14))
         for layer_id, survs_l in enumerate(surv_layers):
             plt.subplot(1, n_layers, layer_id + 1)
-            plt.imshow(survs_l[0], 'jet', interpolation='nearest')
+            plt.imshow(survs_l, 'jet', interpolation='nearest')
             plt.title('layer #%i' % (layer_id + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        # survival image - overall jednotlivych metod [input, dog, log, hog, opencv]
+        fig_surv_methods = plt.figure(figsize=(24, 14))
+        plt.subplot(1, n_types + 1, 1)
+        plt.imshow(image, 'gray', interpolation='nearest')
+        plt.title('input')
+        for type_id, surv_str in enumerate(survs):
+            plt.subplot(1, n_types + 1, type_id + 2)
+            plt.imshow(surv_str[0], 'jet', interpolation='nearest')
+            plt.title(surv_str[2])
             divider = make_axes_locatable(plt.gca())
             cax = divider.append_axes('right', size='5%', pad=0.05)
             plt.colorbar(cax=cax)
@@ -767,6 +785,7 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
         if save_fig:
             fig_surv_overall.savefig(os.path.join(fig_dir, 'surv_overall.png'), dpi=100, bbox_inches='tight', pad_inches=0)
             fig_surv_layers.savefig(os.path.join(fig_dir, 'surv_layers.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_methods.savefig(os.path.join(fig_dir, 'surv_methods.png'), dpi=100, bbox_inches='tight', pad_inches=0)
 
     if show and show_now:
         plt.show()

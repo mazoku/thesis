@@ -206,15 +206,15 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
 
     masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
 
-    filters_fig = plt.figure(figsize=(24, 14))
-    for m_id, m in enumerate(masks):
-        mask_lab = np.zeros(m[0].shape, dtype=np.byte)
-        for i, j in enumerate(m):
-            mask_lab += (i + 1) * j
-        plt.subplot(1, n_masks, m_id + 1)
-        plt.imshow(mask_lab, 'jet', interpolation='nearest')
-    filters_fig.savefig(os.path.join(fig_dir, 'masks2.png'), dpi=100, bbox_inches='tight', pad_inches=0)
-    plt.show()
+    # filters_fig = plt.figure(figsize=(24, 14))
+    # for m_id, m in enumerate(masks):
+    #     mask_lab = np.zeros(m[0].shape, dtype=np.byte)
+    #     for i, j in enumerate(m):
+    #         mask_lab += (i + 1) * j
+    #     plt.subplot(1, n_masks, m_id + 1)
+    #     plt.imshow(mask_lab, 'jet', interpolation='nearest')
+    # filters_fig.savefig(os.path.join(fig_dir, 'masks.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+    # plt.show()
 
     pyr_imgs = []
     pyr_masks = []
