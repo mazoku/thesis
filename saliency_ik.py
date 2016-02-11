@@ -340,7 +340,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if return_all:
         return intensty, gabor, rg, by, cout, saliency, saliency_mark_max
     else:
-        return im_orig, mask, saliency
+        return im_orig, im, saliency
 
 
 #---------------------------------------------------------------------------------------------
