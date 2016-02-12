@@ -7,8 +7,11 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append('../imtools/')
 from imtools import tools
+import skimage.exposure as skiexp
 
+import os
 import sys
+
 sys.path.append('../pySaliencyMap/')
 import pySaliencyMap
 
@@ -36,7 +39,10 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
     saliency_map *= mask
     im_orig *= mask
 
+    saliency_map = skiexp.rescale_intensity(saliency_map, out_range=(0, 1))
+
     if show:
+        plt.figure(figsize=(24, 14))
         if smoothing:
             plt.subplot(131), plt.imshow(im_orig, 'gray', interpolation='nearest'), plt.title('input')
             plt.subplot(132), plt.imshow(image, 'gray', interpolation='nearest'), plt.title('smoothed')

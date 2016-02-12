@@ -9,8 +9,10 @@ sys.path.append('../imtools/')
 from imtools import tools
 
 import sys
-sys.path.append('../saliency-map/src/')
 
+import skimage.exposure as skiexp
+
+sys.path.append('../saliency-map/src/')
 from saliency_map import SaliencyMap
 # from utils import OpencvIo
 
@@ -35,6 +37,8 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
 
     saliency_map *= mask
     im_orig *= mask
+
+    saliency_map = skiexp.rescale_intensity(saliency_map, out_range=(0, 1))
 
     if show:
         if smoothing:

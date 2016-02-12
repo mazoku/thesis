@@ -8,6 +8,7 @@ import sys
 sys.path.append('../imtools/')
 from imtools import tools
 import cv2
+import skimage.exposure as skiexp
 
 sys.path.append('../sight-spot/')
 import SightSpotUtil
@@ -30,14 +31,17 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
     if smoothing:
         image = tools.smoothing(image)
 
+    # defaultne hleda svetle oblasti
+    image = np.invert(image)
+
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BAYER_GR2RGB).astype(np.float32)
 
-    print 'Calculate saliency map for test image:'
+    # print 'Calculate saliency map for test image:'
     orgb_image = SightSpotUtil.eval_orgb_image(rgb_image)
 
-    start = time.clock()
-    saliency_map = SightSpotUtil.eval_saliency_map(orgb_image, 3.0, 60.0, 'auto')
-    print 'Saliency map extracted in', time.clock() - start, 'sec.'
+    # start = time.clock()
+    saliency_map = SightSpotUtil.eval_saliency_map(orgb_image, 1.0, 40.0, 'auto')
+    # print 'Saliency map extracted in', time.clock() - start, 'sec.'
 
     # start = time.clock()
     # heatmap_image = SightSpotUtil.eval_heatmap(saliency_map)
@@ -48,6 +52,8 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
     saliency_map *= mask
     # heatmap_image *= np.dstack((mask, mask, mask))
     im_orig *= mask
+
+    saliency_map = skiexp.rescale_intensity(saliency_map, out_range=(0, 1))
 
     if show:
         if smoothing:

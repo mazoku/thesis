@@ -23,21 +23,21 @@ IK = 'ik'
 MAYO = 'mayo'
 
 
-def saliency_map(image, mask, method, layer_id, smooth=True, show=False, show_now=True, save_fig=False):
+def saliency_map(image, mask, method, layer_id, smooth=True, show=False, show_now=True):
     if method == AKISATO:
-        im_orig, img_calc, saliency = salaki.run(image, mask, smoothing=smooth, show=False)
+        im_orig, img_calc, saliency = salaki.run(image, mask, smoothing=smooth, show=show, show_now=show)
     elif method == GOOGLE:
-        im_orig, img_calc, saliency = salgoo.run(image, mask, smoothing=smooth, show=False)
+        im_orig, img_calc, saliency = salgoo.run(image, mask, smoothing=smooth, show=show, show_now=show)
     elif method == IK:
         # intensty, gabor, rg, by, cout, saliency, saliency_mark_max = salik.run(im, return_all=True, smoothing=smooth, save_fig=False, show=True)
-        im_orig, img_calc, saliency = salik.run(image, return_all=False, smoothing=smooth, save_fig=False, show=True)
+        im_orig, img_calc, saliency = salik.run(image, mask, return_all=False, smoothing=smooth, save_fig=False, show=show, show_now=show)
     elif method == MAYO:
-        im_orig, img_calc, saliency = salmay.run(image, mask=mask, smoothing=smooth, show=False)
+        im_orig, img_calc, saliency = salmay.run(image, mask=mask, smoothing=smooth, show=show, show_now=show)
 
     return saliency
 
 
-def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=False):
+def run(image, mask, pyr_scale, method, smooth=True, show=False, show_now=True, save_fig=False):
     fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/saliency/%s/' % method
     if save_fig:
         dirs = fig_dir.split('/')
@@ -49,7 +49,8 @@ def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=Fals
         #     os.mkdir(fig_dir)
 
     image, mask = tools.crop_to_bbox(image, mask)
-    image = tools.smoothing(image, sliceId=0)
+    # if smooth:
+    #     image = tools.smoothing(image, sliceId=0)
 
     pyr_saliencies = []
     # pyr_survs = []
@@ -58,11 +59,14 @@ def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=Fals
     pyr_masks = []
     for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
                                                       tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
-        saliency = saliency_map(im_pyr, mask_pyr, method, layer_id=layer_id, show=show, show_now=show_now, save_fig=save_fig)
+        saliency = saliency_map(im_pyr, mask_pyr, method, layer_id=layer_id, smooth=smooth, show=show, show_now=show_now)
 
         pyr_saliencies.append(saliency)
         pyr_imgs.append(im_pyr)
         pyr_masks.append(mask_pyr)
+
+        if method == MAYO:
+            break  # mayo ma pyramidy zabudovane v sobe
 
     n_layers = len(pyr_imgs)
 
@@ -70,6 +74,7 @@ def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=Fals
     survival = np.zeros(image.shape)
     for sal in pyr_saliencies:
         survival += cv2.resize(sal, image.shape[::-1])
+    survival /= float(n_layers)
 
     if show or save_fig:
         fig_sal_layers = plt.figure(figsize=(24, 14))
@@ -81,7 +86,7 @@ def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=Fals
             cax = divider.append_axes('right', size='5%', pad=0.05)
             plt.colorbar(cax=cax)
 
-        fig_urv_overall = plt.figure(figsize=(24, 14))
+        fig_surv_overall = plt.figure(figsize=(24, 14))
         plt.subplot(121)
         plt.imshow(image, 'gray', interpolation='nearest'), plt.title('input')
         plt.subplot(122)
@@ -92,10 +97,99 @@ def run(image, mask, pyr_scale, method, show=False, show_now=True, save_fig=Fals
 
         if save_fig:
             fig_sal_layers.savefig(os.path.join(fig_dir, '%s_layers.png' % method), dpi=100, bbox_inches='tight', pad_inches=0)
-            fig_urv_overall.savefig(os.path.join(fig_dir, '%s_surv_overall.png' % method), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_overall.savefig(os.path.join(fig_dir, '%s_surv_overall.png' % method), dpi=100, bbox_inches='tight', pad_inches=0)
 
         if show_now:
             plt.show()
+
+    return survival, pyr_saliencies
+
+
+def run_all(image, mask, pyr_scale=2., smooth=True, show=False, show_now=True, save_fig=False,
+            show_indi=False, show_now_indi=True, save_fig_indi=False):
+    methods = [AKISATO, GOOGLE, IK, MAYO]
+    # methods = [AKISATO, IK, MAYO]
+    n_methods = len(methods)
+    outputs = []
+    fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/saliency/'
+
+    image, mask = tools.crop_to_bbox(image, mask)
+    # image = tools.smoothing(image, sliceId=0)
+
+    for method in methods:
+        print 'Calculating %s ...' % method,
+        surv_overall, pyr_saliencies = run(data_s, mask_s, pyr_scale=pyr_scale, method=method, smooth=smooth,
+                                                           show=show_indi, show_now=show_now_indi, save_fig=save_fig_indi)
+        outputs.append((surv_overall, pyr_saliencies, method))
+        print 'done.'
+
+    # survival image - overall
+    survs_overall = np.zeros(image.shape)
+    for out_str in outputs:
+        surv = out_str[0]
+        if surv.shape != survs_overall.shape:  # to by se teoreticky nemelo stat
+            surv = cv2.resize(surv, survs_overall.shape[::-1])
+        survs_overall += surv
+    survs_overall /= float(n_methods)
+
+    # survival image - layers
+    surv_layers = []
+    for surv_str in outputs:
+        layers = surv_str[1]
+        if len(surv_layers) == 0:
+            surv_layers = layers
+        else:
+            for i, surv_l in enumerate(layers):
+                surv_layers[i] += surv_l
+    surv_layers = [x / float(n_methods) for x in surv_layers]
+
+    n_layers = len(surv_layers)
+
+    # VISUALIZATION ----------------------------------------------------------------------------------
+    if show or save_fig:
+        # survival image - overall
+        fig_surv_overall = plt.figure(figsize=(24, 14))
+        plt.subplot(121)
+        plt.imshow(image, 'gray', interpolation='nearest')
+        plt.title('input')
+        plt.subplot(122)
+        plt.imshow(survs_overall, 'jet', interpolation='nearest')
+        plt.title('survival overall')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+
+        # survival image - layers, number = 1, [layer1, layer2, ...]
+        fig_surv_layers = plt.figure(figsize=(24, 14))
+        for layer_id, survs_l in enumerate(surv_layers):
+            plt.subplot(1, n_layers, layer_id + 1)
+            plt.imshow(survs_l, 'jet', interpolation='nearest')
+            plt.title('saliency, layer #%i' % (layer_id + 1))
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        # survival image - overall jednotlivych metod [input, dog, log, hog, opencv]
+        fig_surv_methods = plt.figure(figsize=(24, 14))
+        plt.subplot(1, n_methods + 1, 1)
+        plt.imshow(image, 'gray', interpolation='nearest')
+        plt.title('input')
+        for type_id, surv_str in enumerate(outputs):
+            plt.subplot(1, n_methods + 1, type_id + 2)
+            plt.imshow(surv_str[0], 'jet', interpolation='nearest')
+            plt.title('saliency, %s ' % surv_str[2])
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+
+        if save_fig:
+            fig_surv_overall.savefig(os.path.join(fig_dir, 'surv_overall.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_layers.savefig(os.path.join(fig_dir, 'surv_layers.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+            fig_surv_methods.savefig(os.path.join(fig_dir, 'surv_methods.png'), dpi=100, bbox_inches='tight', pad_inches=0)
+
+    if show and show_now:
+        plt.show()
+
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -110,11 +204,16 @@ if __name__ == '__main__':
 
     show = True
     show_now = False
-    save_fig = True
+    save_fig = False
+    smooth = True
     pyr_scale = 1.5
-    method = AKISATO
+    # method = AKISATO
+    # method = GOOGLE
+    # method = IK
+    method = MAYO
 
-    run(data_s, mask_s, pyr_scale=pyr_scale, method=method, show=show, show_now=show_now, save_fig=save_fig)
+    # run(data_s, mask_s, pyr_scale=pyr_scale, method=method, smooth=True, show=show, show_now=show_now, save_fig=save_fig)
+    run_all(data_s, mask_s, pyr_scale=pyr_scale, smooth=smooth, show=show, show_now=show_now, save_fig=save_fig)
 
     if show:
         plt.show()

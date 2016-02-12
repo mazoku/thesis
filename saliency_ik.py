@@ -33,6 +33,8 @@ import numpy
 from scipy.ndimage.filters import maximum_filter
 import matplotlib.pyplot as plt
 import numpy as np
+import skimage.exposure as skiexp
+import skimage.morphology as skimor
 
 import os.path
 import sys
@@ -320,6 +322,17 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     cout = cv2.resize(cout, dsize=orig_shape[::-1]) * mask
     saliency = cv2.resize(saliency, dsize=orig_shape[::-1]) * mask
     saliency_mark_max = cv2.resize(saliency_mark_max, dsize=orig_shape[::-1])
+
+    # morphology
+    # saliency2 = skimor.closing(saliency, selem=skimor.disk(5))
+    # saliency3 = skimor.white_tophat(saliency, selem=skimor.disk(10))
+    # plt.figure(figsize=(24, 14))
+    # plt.subplot(131), plt.imshow(saliency, 'jet', interpolation='nearest'), plt.title('saliency')
+    # plt.subplot(132), plt.imshow(saliency2, 'jet', interpolation='nearest'), plt.title('saliency + gray morph close (disk(3))')
+    # plt.subplot(133), plt.imshow(saliency3, 'jet', interpolation='nearest'), plt.title('saliency + white top hat (disk(3))')
+    # plt.show()
+
+    saliency = skiexp.rescale_intensity(saliency, out_range=(0, 1))
 
     if save_fig:
         save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max)
