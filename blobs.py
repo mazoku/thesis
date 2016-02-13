@@ -1,6 +1,4 @@
 from __future__ import division
-#TODO: vybrat nejaky lepsi default hodnoty - napr. pri testovani parametru u cv je default min_area=1 - to je urcite spatne
-    # Vhodnou volbou default parametru se snizi celkovy pocet odezev -> lepsi survival.
 import sys
 sys.path.append('../imtools/')
 from imtools import tools
