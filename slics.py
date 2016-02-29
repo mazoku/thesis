@@ -4,7 +4,10 @@ import os
 import numpy as np
 import skimage.segmentation as skiseg
 import skimage.morphology as skimor
+import skimage.color as skicol
 import cv2
+
+import matplotlib.pyplot as plt
 
 # import tools
 import os
@@ -29,10 +32,9 @@ def run(data, mask, voxel_size, return_vis=False):
     #                     slic_zero=True, enforce_connectivity=True)
     slics = np.swapaxes(np.swapaxes(slics, 1, 2), 0, 1) * (mask > 0)
 
-    tools.show_3d(slics)
+    # tools.show_3d(slics)
 
     slics_big = np.zeros_like(slics)
-
     areaT = 6000
     for i in np.unique(slics):
         slic = tools.opening3D(slics == i, selem=skimor.disk(3))
@@ -81,4 +83,15 @@ if __name__ == '__main__':
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     print 'Processing file -- %s' % data_fname[data_fname.rfind('/') + 1:]
-    run(data, mask, voxel_size)
+    slics_big, vis, ranges, cmaps = run(data, mask, voxel_size, return_vis=True)
+
+    slice_id = 17
+    fig = plt.figure()
+    n_imgs = len(vis)
+    for i, (vis, rg, cm) in enumerate(zip(vis, ranges, cmaps)):
+        tit = vis[slice_id][i][0]
+        im = vis[slice_id][i][1]
+        plt.subplot(1, n_imgs, i + 1)
+        plt.imshow(im, cmap=cm, vmin=rg[0], vmax=rg[1], interpolation='nearest')
+        plt.title(tit)
+    plt.show()
