@@ -9,9 +9,13 @@ import skimage.morphology as skimor
 import skimage.measure as skimea
 import scipy.ndimage as scindi
 
+import matplotlib.pyplot as plt
+
 from PyQt4 import QtCore, QtGui
 
 import pickle
+
+from collections import namedtuple
 
 if os.path.exists('../data_viewers/'):
     sys.path.append('../data_viewers/')
@@ -32,6 +36,64 @@ else:
         #     for lbl in range(1, num + 1):
         #         obj = labels == lbl
         #         slice_o += scindi.binary_fill_holes(obj)
+
+
+def get_blobs(data, min_area=50):
+    data = tools.windowing(data.copy(), sliceId=0)
+    data = data == 0
+    data = tools.opening3D(data, sliceId=0)
+
+    labels, num = skimea.label(data, return_num=True)
+    blobs = []
+    blobNT = namedtuple('blob', ['area', 'cent', 'width', 'height'])
+
+    for i in range(1, num + 1):
+        lab = labels == i
+        area = lab.sum()
+        if area > min_area:
+            pts = np.nonzero(lab)
+            # cent = np.array([pts[0].mean(), pts[1].mean(), pts[2].mean()])
+            cent = np.array([coor.mean() for coor in pts])
+            width = pts[1].max() - pts[1].min()
+            height = pts[0].max() - pts[0].min()
+            blob = blobNT(area=area, cent=cent, width=width, height=height)
+            blobs.append(blob)
+
+    return blobs
+
+
+def register_data(liver, lesion):#, max_area_diff=5, max_dist=20):
+    liver_blobs = get_blobs(liver)
+    lesion_blobs = get_blobs(lesion)
+
+    dists = []
+    for livblo in liver_blobs:
+        for lesblo in lesion_blobs:
+            area_diff = livblo.area - lesblo.area
+            width_diff = livblo.width - lesblo.width
+            height_diff = livblo.height - lesblo.height
+            cent_dist = (livblo.cent - lesblo.cent).astype(np.int)
+            if area_diff + width_diff + height_diff == 0:
+                dists.append(cent_dist)
+
+    unique = []
+    counts = []
+    for i in range(len(dists)):
+        if not (np.any([(dists[i] == x).all() for x in unique])):
+            unique.append(dists[i])
+            c = 0
+            for j in range(i, len(dists)):
+                if (dists[i] == dists[j]).all():
+                    c += 1
+            counts.append(c)
+
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(slice, 'gray')
+    # plt.subplot(132), plt.imshow(slice < 50, 'gray')
+    # plt.subplot(133), plt.imshow(slice == 0, 'gray')
+    # plt.show()
+
+    pass
 
 
 def merge_dataset(data_dir):
@@ -67,23 +129,28 @@ def merge_dataset(data_dir):
 
         mask_t = scindi.binary_fill_holes(mask_t)
 
-        seg_viewer.show(liver_path, lesion_path)
+        # registruji data na sebe
+        register_data(data_l, data_t)
+
+        # print 'liver:', liver_path
+        # print 'lesion:', lesion_path
+        # seg_viewer.show(liver_path, lesion_path)
 
         ext = liver_fname[liver_fname.rfind('.'):]
         output_fname = liver_fname[:liver_fname.rfind('.')] + 'GT' + ext
         output_path = os.path.join(data_dir, 'gt', output_fname)
-        if not os._exists(os.path.join(data_dir, 'gt')):
+        if not os.path.exists(os.path.join(data_dir, 'gt')):
             os.mkdir(os.path.join(data_dir, 'gt'))
 
-        data_dict['data3d'] = data_l
-        data_dict['segmentation'] = mask_l + mask_t  # jatra maji 1, leze 2
-        data_dict['voxelsize_mm'] = voxel_size_l
-        pickle.dump(data_dict, open(output_path, 'wb'))
-
-        print 'liver:', liver_fname
-        print 'lesion:', lesion_fname
-        print 'ground truth: ', output_fname
-        print '----------------------------'
+        # data_dict['data3d'] = data_l
+        # data_dict['segmentation'] = mask_l + mask_t  # jatra maji 1, leze 2
+        # data_dict['voxelsize_mm'] = voxel_size_l
+        # pickle.dump(data_dict, open(output_path, 'wb'))
+        #
+        # print 'liver:', liver_fname
+        # print 'lesion:', lesion_fname
+        # print 'ground truth: ', output_fname
+        # print '----------------------------'
 
 
 #------------------------------------------------------------------------------------------------
@@ -103,6 +170,11 @@ if __name__ == '__main__':
     # le = SegViewer(datap1=datap_1, datap2=datap_2)
     # le.show()
     # sys.exit(app.exec_())
+
+    #---------------------------------------------------------------
+    # liver_path = '/home/tomas/Data/medical/dataset/189a_arterial-.pklz'
+    # lesion_path = '/home/tomas/Data/medical/dataset/189a_arterial-leze.pklz'
+    # seg_viewer.show(liver_path, lesion_path)
 
     #---------------------------------------------------------------
     data_dir = '/home/tomas/Data/medical/dataset'
