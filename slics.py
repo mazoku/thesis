@@ -1,5 +1,8 @@
 from __future__ import division
 
+#TODO:
+    # Zaplneni der po odstraneni malych objektu vis http://stackoverflow.com/questions/5551286/filling-gaps-in-a-numpy-array
+
 import os
 import numpy as np
 import skimage.segmentation as skiseg

@@ -19,10 +19,21 @@ from collections import namedtuple
 
 if os.path.exists('../data_viewers/'):
     sys.path.append('../data_viewers/')
-    from dataviewers import seg_viewer
+    from dataviewers import seg_viewer, viewer_3D
 else:
     print 'You need to import package dataviewers: https://github.com/mazoku/data_viewers'
     sys.exit(0)
+
+# if os.path.exists('../imtools/'):
+#     sys.path.append('../imtools/')
+#     from imtools import tools
+# else:
+#     print 'You need to import package imtools: https://github.com/mjirik/imtools'
+#     sys.exit(0)
+
+import imp
+tools = imp.load_source('tools', '../imtools/imtools/tools.py')
+# import tools
 
 
 # def process_lesion_mask(mask):
@@ -36,6 +47,11 @@ else:
         #     for lbl in range(1, num + 1):
         #         obj = labels == lbl
         #         slice_o += scindi.binary_fill_holes(obj)
+
+BGD_LABEL = 0
+HEALTHY_LABEL = 2
+HYPO_LABEL = 1
+HYPER_LABEL = 3
 
 
 def get_blobs(data, min_area=50):
@@ -62,7 +78,7 @@ def get_blobs(data, min_area=50):
     return blobs
 
 
-def register_data(liver, lesion):#, max_area_diff=5, max_dist=20):
+def register_data(liver, lesion, lesion_m):#, max_area_diff=5, max_dist=20):
     liver_blobs = get_blobs(liver)
     lesion_blobs = get_blobs(lesion)
 
@@ -81,19 +97,20 @@ def register_data(liver, lesion):#, max_area_diff=5, max_dist=20):
     for i in range(len(dists)):
         if not (np.any([(dists[i] == x).all() for x in unique])):
             unique.append(dists[i])
-            c = 0
-            for j in range(i, len(dists)):
+            c = 1
+            for j in range(i + 1, len(dists)):
                 if (dists[i] == dists[j]).all():
                     c += 1
             counts.append(c)
 
-    # plt.figure()
-    # plt.subplot(131), plt.imshow(slice, 'gray')
-    # plt.subplot(132), plt.imshow(slice < 50, 'gray')
-    # plt.subplot(133), plt.imshow(slice == 0, 'gray')
-    # plt.show()
+    best_dist = dists[np.argmax(counts)]
 
-    pass
+    pts = np.nonzero(lesion_m)
+    pts_reg = [x + y for x, y in zip(pts, best_dist)]
+    reg_les = np.zeros_like(liver)
+    reg_les[pts_reg] = 1
+
+    return reg_les
 
 
 def merge_dataset(data_dir):
@@ -124,13 +141,30 @@ def merge_dataset(data_dir):
     for liver_fname, lesion_fname in dataset:
         liver_path = os.path.join(data_dir, liver_fname)
         lesion_path = os.path.join(data_dir, lesion_fname)
-        data_l, mask_l, voxel_size_l = tools.load_pickle_data(liver_path)
+        liver_datap = tools.load_pickle_data(liver_path, return_datap=True)
+        data_l = liver_datap['data3d']
+        mask_l = liver_datap['segmentation'].astype(np.int)
+        voxel_size_l = liver_datap['voxelsize_mm']
         data_t, mask_t, voxel_size_t = tools.load_pickle_data(lesion_path)
 
-        mask_t = scindi.binary_fill_holes(mask_t)
+        # mask_t2 = scindi.binary_fill_holes(mask_t)
+        mask_t = tools.fill_holes(mask_t, slicewise=True, slice_id=0)
+        # for i in range(mask_t.shape[0]):
+        #     plt.figure()
+        #     plt.subplot(131), plt.imshow(mask_t[i, :, :], 'gray'), plt.title('mask_t, rez %i' % i)
+        #     plt.subplot(132), plt.imshow(mask_t2[i, :, :], 'gray'), plt.title('mask_t2')
+        #     plt.subplot(133), plt.imshow(scindi.binary_erosion(mask_t[i, :, :]), 'gray'), plt.title('filled')
+        #     plt.show()
+        # seg_viewer.show(255 * mask_t, 255 * mask_t2)
 
         # registruji data na sebe
-        register_data(data_l, data_t)
+        mask_t = register_data(data_l, data_t, mask_t)
+        mask_t *= mask_l  # oznaceni lezi muze pretekat oznaceni jater -> proto toto maskovani
+
+        mask_final = np.where(mask_l, HEALTHY_LABEL, BGD_LABEL)
+        mask_final = np.where(mask_t, HYPO_LABEL, mask_final)
+
+        # viewer_3D.show(mask_final, range=True)
 
         # print 'liver:', liver_path
         # print 'lesion:', lesion_path
@@ -142,11 +176,17 @@ def merge_dataset(data_dir):
         if not os.path.exists(os.path.join(data_dir, 'gt')):
             os.mkdir(os.path.join(data_dir, 'gt'))
 
-        # data_dict['data3d'] = data_l
-        # data_dict['segmentation'] = mask_l + mask_t  # jatra maji 1, leze 2
-        # data_dict['voxelsize_mm'] = voxel_size_l
-        # pickle.dump(data_dict, open(output_path, 'wb'))
-        #
+        data_dict['data3d'] = data_l
+        # mask_final = np.where(mask_final == 2, liver_datap['slab']['lesions'], mask_final)
+        data_dict['segmentation'] = mask_final
+
+        # data_dict['segmentation'] = mask_t  # jatra maji 1, leze 2
+        data_dict['voxelsize_mm'] = voxel_size_l
+        data_dict['slab'] = liver_datap['slab']
+        pickle.dump(data_dict, open(output_path, 'wb'))
+
+        seg_viewer.show(liver_path, data_dict)
+
         # print 'liver:', liver_fname
         # print 'lesion:', lesion_fname
         # print 'ground truth: ', output_fname
@@ -164,12 +204,7 @@ if __name__ == '__main__':
     # datap_2 = tools.load_pickle_data(fname_2, return_datap=True)
     # print datap_1['segmentation'].shape
     # print datap_2['segmentation'].shape
-    #
-    # # starting application
-    # app = QtGui.QApplication(sys.argv)
-    # le = SegViewer(datap1=datap_1, datap2=datap_2)
-    # le.show()
-    # sys.exit(app.exec_())
+    # seg_viewer.show(datap_1, datap_2)
 
     #---------------------------------------------------------------
     # liver_path = '/home/tomas/Data/medical/dataset/189a_arterial-.pklz'
