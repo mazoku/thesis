@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from PyQt4 import QtCore, QtGui
 
 import pickle
+import gzip
 
 from collections import namedtuple
 
@@ -183,7 +184,10 @@ def merge_dataset(data_dir):
         # data_dict['segmentation'] = mask_t  # jatra maji 1, leze 2
         data_dict['voxelsize_mm'] = voxel_size_l
         data_dict['slab'] = liver_datap['slab']
-        pickle.dump(data_dict, open(output_path, 'wb'))
+        file =  gzip.open(output_path, 'wb', compresslevel=1)
+        pickle.dump(data_dict, file)
+        file.close()
+        # pickle.dump(data_dict, open(output_path, 'wb'))
 
         seg_viewer.show(liver_path, data_dict)
 
