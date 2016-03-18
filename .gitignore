@@ -3,3 +3,4 @@
 .idea
 figs*
 blobs
+MNIST_data
