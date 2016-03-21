@@ -109,7 +109,13 @@ def register_data(liver, lesion, lesion_m):#, max_area_diff=5, max_dist=20):
     pts = np.nonzero(lesion_m)
     pts_reg = [x + y for x, y in zip(pts, best_dist)]
     reg_les = np.zeros_like(liver)
-    reg_les[pts_reg] = 1
+    # coords_ok = [(0 <= pts_reg[0]) * (pts_reg[0] < reg_les.shape[0]),
+    #              (0 <= pts_reg[1]) * (pts_reg[1] < reg_les.shape[1]),
+    #              (0 <= pts_reg[2]) * (pts_reg[2] < reg_les.shape[2])]
+    coords_ok = [(0 <= pts_reg[x]) * (pts_reg[x] < reg_les.shape[x]) for x in range(reg_les.ndim)]
+    coords_ok = np.array(coords_ok).sum(0) == 3
+    pts_reg_filt = [pts_reg[x][np.nonzero(coords_ok)] for x in range(reg_les.ndim)]
+    reg_les[pts_reg_filt] = 1
 
     return reg_les
 
@@ -138,8 +144,11 @@ def merge_dataset(data_dir):
         else:
             print 'Cannot find liver data for \'%s\'' % lesion_fname
 
+    # liver_fname =
+    # lesion_fname =
     # nactu data a sloucim masky
-    for liver_fname, lesion_fname in dataset:
+    for i, (liver_fname, lesion_fname) in enumerate(dataset):
+        print 'Merging %i/%i: %s, %s ...' % (i + 1, len(dataset), liver_fname, lesion_fname),
         liver_path = os.path.join(data_dir, liver_fname)
         lesion_path = os.path.join(data_dir, lesion_fname)
         liver_datap = tools.load_pickle_data(liver_path, return_datap=True)
@@ -188,13 +197,36 @@ def merge_dataset(data_dir):
         pickle.dump(data_dict, file)
         file.close()
         # pickle.dump(data_dict, open(output_path, 'wb'))
-
-        seg_viewer.show(liver_path, data_dict)
+        print 'done'
+        if i == 1:
+            seg_viewer.show(liver_path, data_dict)
 
         # print 'liver:', liver_fname
         # print 'lesion:', lesion_fname
         # print 'ground truth: ', output_fname
         # print '----------------------------'
+
+
+def check_data(data_dir):
+    data = []
+    # najdu vsechny pklz soubory
+    for (rootDir, dirNames, filenames) in os.walk(data_dir):
+        for filename in filenames:
+            if filename[-5:] == '.pklz':
+                data.append(filename)
+
+    app = QtGui.QApplication(sys.argv)
+    for i, fname in enumerate(data):
+        print 'Showing %i/%i: %s' % (i + 1, len(data), fname)
+        seg_viewer.show(os.path.join(data_dir, fname), os.path.join(data_dir, fname), app=app)
+        # datap = tools.load_pickle_data(os.path.join(data_dir, fname), return_datap=True)
+        # print ', values:', np.unique(datap['segmentation'])
+
+    # TODO: spatne leze
+        # 235_arterial-GT.pklz
+        # 232_arterial-GT.pklz - uplne jine leze
+    # TODO: spatne jatra
+        # 185a_arterial-GT.pklz
 
 
 #------------------------------------------------------------------------------------------------
@@ -211,12 +243,13 @@ if __name__ == '__main__':
     # seg_viewer.show(datap_1, datap_2)
 
     #---------------------------------------------------------------
-    # liver_path = '/home/tomas/Data/medical/dataset/189a_arterial-.pklz'
-    # lesion_path = '/home/tomas/Data/medical/dataset/189a_arterial-leze.pklz'
+    # liver_path = '/home/tomas/Data/medical/dataset/183a_arterial-.pklz'
+    # lesion_path = '/home/tomas/Data/medical/dataset/183a_arterial-leze.pklz'
     # seg_viewer.show(liver_path, lesion_path)
 
     #---------------------------------------------------------------
     data_dir = '/home/tomas/Data/medical/dataset'
+    gt_dir = '/home/tomas/Data/medical/dataset/gt'
 
     res_fname = ''
     gt_fname = ''
@@ -225,4 +258,7 @@ if __name__ == '__main__':
     show_now = False
     save_fig = False
 
-    merge_dataset(data_dir)
+    # merge_dataset(data_dir)
+
+    # check merged data
+    check_data(gt_dir)
