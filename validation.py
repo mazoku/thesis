@@ -3,7 +3,6 @@ from __future__ import division
 import os
 import sys
 
-from imtools import tools
 import numpy as np
 import skimage.morphology as skimor
 import skimage.measure as skimea
@@ -17,6 +16,13 @@ import pickle
 import gzip
 
 from collections import namedtuple
+
+if os.path.exists('../imtools/'):
+    sys.path.append('../imtools/')
+    from imtools import tools
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 if os.path.exists('../data_viewers/'):
     sys.path.append('../data_viewers/')
