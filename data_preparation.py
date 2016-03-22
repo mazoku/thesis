@@ -6,14 +6,16 @@ import os
 import numpy as np
 
 if os.path.exists('../imtools/'):
-    sys.path.append('../imtools/')
+    # sys.path.append('../imtools/')
+    sys.path.insert(0, '../imtools/')
     from imtools import tools, misc
 else:
     print 'You need to import package imtools: https://github.com/mjirik/imtools'
     sys.exit(0)
 
 if os.path.exists('../data_viewers/'):
-    sys.path.append('../data_viewers/')
+    # sys.path.append('../data_viewers/')
+    sys.path.insert(0, '../data_viewers/')
     from dataviewers import seg_viewer, viewer_3D
 else:
     print 'You need to import package dataviewers: https://github.com/mazoku/data_viewers'
@@ -34,6 +36,7 @@ def slice_data(fname, reshape=True, shape=(20, 20)):
     data3d = misc.resize_to_shape(data3d, shape=new_shape, order=1)
     labels = misc.resize_to_shape(labels, shape=new_shape, order=0)
 
+    data_cubes = [cube for cube in tools.sliding_window_3d(data3d, 10, new_shape, only_whole=False, include_last=True)]
 
     # seg_viewer.show(data3d, 100 * labels)
 

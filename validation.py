@@ -25,7 +25,8 @@ from collections import namedtuple
 #     sys.exit(0)
 
 if os.path.exists('../data_viewers/'):
-    sys.path.append('../data_viewers/')
+    # sys.path.append('../data_viewers/')
+    sys.path.insert(0, '../data_viewers/')
     from dataviewers import seg_viewer, viewer_3D
 else:
     print 'You need to import package dataviewers: https://github.com/mazoku/data_viewers'
