@@ -17,12 +17,12 @@ import gzip
 
 from collections import namedtuple
 
-if os.path.exists('../imtools/'):
-    sys.path.append('../imtools/')
-    from imtools import tools
-else:
-    print 'You need to import package imtools: https://github.com/mjirik/imtools'
-    sys.exit(0)
+# if os.path.exists('../imtools/'):
+#     sys.path.append('../imtools/')
+#     from imtools import tools
+# else:
+#     print 'You need to import package imtools: https://github.com/mjirik/imtools'
+#     sys.exit(0)
 
 if os.path.exists('../data_viewers/'):
     sys.path.append('../data_viewers/')
@@ -204,8 +204,8 @@ def merge_dataset(data_dir):
         file.close()
         # pickle.dump(data_dict, open(output_path, 'wb'))
         print 'done'
-        if i == 1:
-            seg_viewer.show(liver_path, data_dict)
+        # if i == 1:
+        #     seg_viewer.show(liver_path, data_dict)
 
         # print 'liver:', liver_fname
         # print 'lesion:', lesion_fname
@@ -227,13 +227,6 @@ def check_data(data_dir):
         seg_viewer.show(os.path.join(data_dir, fname), os.path.join(data_dir, fname), app=app)
         # datap = tools.load_pickle_data(os.path.join(data_dir, fname), return_datap=True)
         # print ', values:', np.unique(datap['segmentation'])
-
-    # TODO: spatne leze
-        # 235_arterial-GT.pklz
-        # 232_arterial-GT.pklz - uplne jine leze
-    # TODO: spatne jatra
-        # 185a_arterial-GT.pklz
-
 
 #------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------
