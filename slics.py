@@ -123,9 +123,9 @@ def run(data, mask, voxel_size, is_2D=False, bboxing=False, return_vis=False, sh
 
             if save_fig:
                 fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/slics/'
-                dirs = fig_dir.split('/')
+                dirs = fig_dir.split(os.sep)
                 for i in range(2, len(dirs)):
-                    subdir = '/'.join(dirs[:i])
+                    subdir = os.sep.join(dirs[:i])
                     if not os.path.exists(subdir):
                         os.mkdir(subdir)
                 if is_2D:

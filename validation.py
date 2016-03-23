@@ -214,18 +214,22 @@ def merge_dataset(data_dir):
         # print '----------------------------'
 
 
-def check_data(data_dir):
+def check_data(data_dir, ext='pklz'):
     data = []
     # najdu vsechny pklz soubory
     for (rootDir, dirNames, filenames) in os.walk(data_dir):
         for filename in filenames:
-            if filename[-5:] == '.pklz':
+            if filename.split('.')[-1] == ext:  #'.pklz':
                 data.append(filename)
 
     app = QtGui.QApplication(sys.argv)
     for i, fname in enumerate(data):
         print 'Showing %i/%i: %s' % (i + 1, len(data), fname)
-        seg_viewer.show(os.path.join(data_dir, fname), os.path.join(data_dir, fname), app=app)
+        if ext == 'pklz':
+            seg_viewer.show(os.path.join(data_dir, fname), os.path.join(data_dir, fname), app=app)
+        if ext == 'npz':
+            data = np.load(os.path.join(data_dir, fname))
+            seg_viewer.show(data, os.path.join(data_dir, fname), app=app)
         # datap = tools.load_pickle_data(os.path.join(data_dir, fname), return_datap=True)
         # print ', values:', np.unique(datap['segmentation'])
 
@@ -250,6 +254,7 @@ if __name__ == '__main__':
     #---------------------------------------------------------------
     data_dir = '/home/tomas/Data/medical/dataset'
     gt_dir = '/home/tomas/Data/medical/dataset/gt'
+    # cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes/180_venous'
 
     res_fname = ''
     gt_fname = ''
