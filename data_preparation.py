@@ -36,6 +36,9 @@ def slice_data(fname, reshape=True, cube_shape=(20, 20, 20), step=10):
     data_cubes = []
     label_cubes = []
 
+    # data3d = np.arange(1, 401).reshape((4, 10, 10))
+    # labels = 2 * np.ones((4, 10, 10))
+
     # resizing data to have same spacing
     orig_shape = data3d.shape
     n_slices = orig_shape[0] * (voxelsize_mm[0] / voxelsize_mm[1])
@@ -47,8 +50,8 @@ def slice_data(fname, reshape=True, cube_shape=(20, 20, 20), step=10):
     lesion_lbl = 1
     liver_lbl = 2
     bgd_lbl = 0
-    data_cubes_all = [cube[4] for cube in tools.sliding_window_3d(data3d, step, cube_shape, only_whole=False, include_last=True)]
-    label_cubes_all = [cube[4] for cube in tools.sliding_window_3d(labels, step, cube_shape, only_whole=False, include_last=True)]
+    data_cubes_all = [cube[4] for cube in tools.sliding_window_3d(data3d, step, cube_shape, only_whole=True, include_last=True)]
+    label_cubes_all = [cube[4] for cube in tools.sliding_window_3d(labels, step, cube_shape, only_whole=True, include_last=True)]
     areaT = 0.5 * np.prod(cube_shape)  # prah pro minimalni zastoupeni jater v kostce
     # for data_cube, label_cube in zip(tools.sliding_window_3d(data3d, 10, cube_shape, only_whole=False, include_last=True)[4],
     #                                  tools.sliding_window_3d(labels, 10, cube_shape, only_whole=False, include_last=True)[4]):
@@ -155,11 +158,19 @@ def find_datapairs(data_dir, ext='npz'):
 
 # --------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    cube_shape = (20, 20, 20)
-    # cube_shape = (50, 50, 50)
+    # cube_shape = (20, 20, 20)
+    cube_shape = (50, 50, 50)
     step = 25
     data_dir = '/home/tomas/Data/medical/dataset/gt'
-    process_dir(data_dir, cube_shape, step)
+    # process_dir(data_dir, cube_shape, step)
 
-    cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes_20/180_venous'
+    # test_dir = '/home/tomas/Data/medical/dataset/gt/189a_venous-GT.pklz'
+    # data_cubes, label_cubes = slice_data(test_dir, cube_shape=(1, 5, 5), step=2)
+    # app = QtGui.QApplication(sys.argv)
+    # for i, (data_cube, label_cube) in enumerate(zip(data_cubes, label_cubes)):
+    #     print 'cube #%i/%i' % (i + 1, len(data_cubes))
+    #     print data_cube
+        # seg_viewer.show(data_cube, 200 * label_cube, app=app)
+
+    cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes_50/180_venous'
     check_data(cube_dir)
