@@ -143,7 +143,7 @@ def gaborConspicuity(image, steps):
     """
         Creates the conspicuity map for the channel `orientations'.
     """
-    gaborConspicuity = numpy.zeros((60,80), numpy.uint8)
+    gaborConspicuity = numpy.zeros((60,80))
     for step in range(steps):
         theta = step * (math.pi/steps)
         gaborFilter = makeGaborFilter(dims=(10,10), lambd=2.5, theta=theta, psi=math.pi/2, sigma=2.5, gamma=.5)
@@ -173,6 +173,13 @@ def byConspicuity(image):
     """
     def by(image):
         _,__,b,y = cv2.split(image)
+        # plt.figure()
+        # diff = cv2.absdiff(b, y)
+        # plt.subplot(131), plt.imshow(b, 'gray', interpolation='nearest')
+        # plt.subplot(132), plt.imshow(y, 'gray', interpolation='nearest')
+        # plt.subplot(133), plt.imshow(diff, 'gray', interpolation='nearest')
+        # plt.show()
+
         return cv2.absdiff(b,y)
     fs = features(image = image, channel = by)
     return sumNormalizedFeatures(fs)
@@ -246,6 +253,10 @@ def makeNormalizedColorChannels(image, thresholdRatio=10.):
     G = g - (r + b) / 2
     B = b - (g + r) / 2
     Y = (r + g) / 2 - cv2.absdiff(r,g) / 2 - b
+    # R = cv2.absdiff(r, cv2.add(g, b) / 2)  # r - (g + b) / 2
+    # G = cv2.absdiff(g, cv2.add(r, b) / 2)  # g - (r + b) / 2
+    # B = cv2.absdiff(b, cv2.add(g, r) / 2)  # b - (g + r) / 2
+    # Y = cv2.absdiff(cv2.absdiff((cv2.add(r, g)) / 2, cv2.absdiff(r, g) / 2), b)  # (r + g) / 2 - cv2.absdiff(r, g) / 2 - b
 
     # Negative values are set to zero.
     cv2.threshold(src=R, dst=R, thresh=0., maxval=0.0, type=cv2.THRESH_TOZERO)
@@ -287,7 +298,7 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
 
     if mask is None:
-        mask = np.ones_like(im)
+        mask = np.ones(im.shape[:-1])
         im_orig = im.copy()
     else:
         im, mask = tools.crop_to_bbox(im, mask)
@@ -297,6 +308,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
 
     if im.ndim == 2:
         im = cv2.cvtColor(im, cv2.COLOR_BAYER_GR2RGB)
+        # im = cv2.cvtColor(im, cv2.COLOR_GRAY2RGB)
 
     im_orig = im.copy()
     orig_shape = im_orig.shape[:-1]
@@ -315,6 +327,9 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     saliency_mark_max = markMaxima(saliency)
     cout = .25 * c
 
+    # saliency_nonN = 1./3 * (intensty + c + gabor)
+    # saliency_nonN = cv2.resize(saliency_nonN, dsize=orig_shape[::-1]) * mask
+
     intensty = cv2.resize(intensty, dsize=orig_shape[::-1]) * mask
     gabor = cv2.resize(gabor, dsize=orig_shape[::-1]) * mask
     rg = cv2.resize(rg, dsize=orig_shape[::-1]) * mask
@@ -330,6 +345,21 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # plt.subplot(131), plt.imshow(saliency, 'jet', interpolation='nearest'), plt.title('saliency')
     # plt.subplot(132), plt.imshow(saliency2, 'jet', interpolation='nearest'), plt.title('saliency + gray morph close (disk(3))')
     # plt.subplot(133), plt.imshow(saliency3, 'jet', interpolation='nearest'), plt.title('saliency + white top hat (disk(3))')
+    # plt.show()
+
+    # plt.figure()
+    # plt.subplot(241), plt.imshow(intensty, 'gray', interpolation='nearest'), plt.title('intensity')
+    # plt.subplot(245), plt.imshow(N(intensty), 'gray', interpolation='nearest'), plt.title('norm intensity')
+    # plt.subplot(242), plt.imshow(gabor, 'gray', interpolation='nearest'), plt.title('gabor')
+    # plt.subplot(246), plt.imshow(N(gabor), 'gray', interpolation='nearest'), plt.title('norm gabor')
+    # plt.subplot(243), plt.imshow(rg, 'gray', interpolation='nearest'), plt.title('rg')
+    # plt.subplot(247), plt.imshow(N(rg), 'gray', interpolation='nearest'), plt.title('norm rg')
+    # plt.subplot(244), plt.imshow(by, 'gray', interpolation='nearest'), plt.title('by')
+    # plt.subplot(248), plt.imshow(N(by), 'gray', interpolation='nearest'), plt.title('norm by')
+    #
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(saliency, 'gray', interpolation='nearest'), plt.title('saliency N')
+    # plt.subplot(122), plt.imshow(saliency_nonN, 'gray', interpolation='nearest'), plt.title('saliency')
     # plt.show()
 
     saliency = skiexp.rescale_intensity(saliency, out_range=(0, 1))
@@ -359,7 +389,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
+    data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     slice_ind = 17
