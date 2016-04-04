@@ -6,9 +6,12 @@ import cv2
 import numpy
 from scipy.ndimage.filters import maximum_filter
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
+
 import skimage.exposure as skiexp
 import skimage.morphology as skimor
+from sklearn.cluster import KMeans
 
 import os.path
 import sys
@@ -47,7 +50,7 @@ def features(image, channel, levels=9, start_size=(640,480), ):
     scales = [image]
     for l in xrange(levels - 1):
         logger.debug("scaling at level %d", l)
-        scales.append(cv2.pyrDown(scales[-1]))
+        scales.append(cv2.pyrDown(scales[-1]))  # TODO: nahradit cv2.pyrDown vlastnim (cv2 pouziva gaussian bluring)
 
     features = []
     for i in xrange(1, levels - 5):
@@ -131,10 +134,74 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
     cv2.imwrite(base_name + '_saliency_mark_max.png', saliency_mark_max)
 
 
+def color_clustering(img, mask=None, k=3):
+    if mask is None:
+        mask = np.ones_like(img)
+    clt = KMeans(n_clusters=k)
+    data = img[np.nonzero(mask)]
+    clt.fit(data.reshape(len(data), 1))
+    cents = clt.cluster_centers_
+
+    return cents
+
+
+def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
+    sigm_t = 0.2
+    if mask is None:
+        mask = np.ones_like(im)
+    mean_v = im[np.nonzero(mask)].mean()
+    if type == 'both':
+        im_diff = np.abs(im - mean_v) * mask
+    elif type == 'hypo':
+        im_diff = np.abs(im - mean_v) * ((im - mean_v) < 0) * mask
+    else:  # type == 'hyper'
+        im_diff = np.abs(im - mean_v) * ((im - mean_v) > 0) * mask
+
+    if use_sigmoid:
+        im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
+        im_sigm = im_sigm * (im_sigm > sigm_t)
+        im_res = im_sigm.copy()
+    else:
+        im_res = im_diff.copy()
+
+    if morph_proc:
+        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(1)))
+        im_res = im_morph.copy()
+
+    if show:
+        imgs = [im, im_diff, im_res]
+        titles = ['input', 'difference', 'result']
+        if morph_proc:
+            imgs.insert(2, im_morph)
+            titles.insert(2, 'morphology')
+        if use_sigmoid:
+            imgs.insert(2, im_sigm)
+            titles.insert(2, 'sigmoid')
+        n_imgs = len(imgs)
+        plt.figure()
+        for i, (im, tit) in enumerate(zip(imgs, titles)):
+            plt.subplot(1, n_imgs, i + 1)
+            plt.imshow(im, 'gray', interpolation='nearest')
+            plt.title(tit)
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+        if show_now:
+            plt.show()
+
+    return im_diff
+
+
+def conspicuity_prob_models(im, mask, show=False, show_now=True):
+    cents = color_clustering(im, mask, k=3)
+
+
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
     """
     im ... grayscale image
     """
+    show = True  # debug show
+
     if mask is None:
         mask = np.ones_like(im)
     else:
@@ -148,12 +215,19 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if smoothing:
         im = tools.smoothing(im)
 
+    # conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
+    conspicuity_prob_models(im, mask, show=show, show_now=False)
+
     # TODO: tady vypocitat ruzne conspicuity
-    # TODO: C1 ... intenzita
-    # TODO: C2 ... textura (LBP, LIP)
-    # TODO: C3 ... prob modely
-    # TODO: C4 ... blob odezvy
-    # TODO: C5 ... circloidy
+    # TODO: Conspicuity ... prob modely
+    # TODO: Conspicuity ... blob odezvy
+    # TODO: Conspicuity ... circloidy
+    # TODO: Conspicuity ... textura (LBP, LIP)
+    # TODO: Conspicuity ... HEQ pipeline
+    # TODO: Conspicuity ... fuzzy
+
+    if show:
+        plt.show()
 
     # saliency = skiexp.rescale_intensity(saliency, out_range=(0, 1))
 
@@ -196,55 +270,55 @@ if __name__ == "__main__":
     data_s *= mask_s.astype(data_s.dtype)
     # im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
 
-    # data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
-    im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
-    # im = cv2.cvtColor(data_s, cv2.COLOR_GRAY2RGB)
-    # im = makeNormalizedColorChannels(im)
-    thresholdRatio = 10
-    threshold = im.max() / thresholdRatio
-    r, g, b = cv2.split(im)
-
+    # # data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
+    # im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
+    # # im = cv2.cvtColor(data_s, cv2.COLOR_GRAY2RGB)
+    # # im = makeNormalizedColorChannels(im)
+    # thresholdRatio = 10
+    # threshold = im.max() / thresholdRatio
+    # r, g, b = cv2.split(im)
+    #
+    # # plt.figure()
+    # # plt.subplot(131), plt.imshow(r[120:160, 15:52], 'gray', interpolation='nearest')
+    # # plt.subplot(132), plt.imshow(np.where(r[120:160, 15:52] <= threshold, 0, r[120:160, 15:52]), 'gray', interpolation='nearest')
+    # # plt.subplot(133), plt.imshow(cv2.threshold(src=r[120:160, 15:52], thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)[1], 'gray', interpolation='nearest')
+    # # plt.show()
+    #
+    # cv2.threshold(src=r, dst=r, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
+    # cv2.threshold(src=g, dst=g, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
+    # cv2.threshold(src=b, dst=b, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
+    # R = cv2.absdiff(r, cv2.add(g, b) / 2)  # r - (g + b) / 2
+    # G = cv2.absdiff(g, cv2.add(r, b) / 2)  # g - (r + b) / 2
+    # B = cv2.absdiff(b, cv2.add(g, r) / 2)  # b - (g + r) / 2
+    # Y = cv2.absdiff(cv2.absdiff((cv2.add(r, g)) / 2, cv2.absdiff(r, g) / 2), b)  # (r + g) / 2 - cv2.absdiff(r, g) / 2 - b
+    # im = cv2.merge((R, G, B, Y))
+    # # im = cv2.merge((r, g, b))
+    #
     # plt.figure()
-    # plt.subplot(131), plt.imshow(r[120:160, 15:52], 'gray', interpolation='nearest')
-    # plt.subplot(132), plt.imshow(np.where(r[120:160, 15:52] <= threshold, 0, r[120:160, 15:52]), 'gray', interpolation='nearest')
-    # plt.subplot(133), plt.imshow(cv2.threshold(src=r[120:160, 15:52], thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)[1], 'gray', interpolation='nearest')
+    # plt.subplot(341), plt.imshow(g, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(342), plt.imshow(b, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(343), plt.imshow(cv2.add(g, b), 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(344), plt.imshow(cv2.absdiff(r, cv2.add(g, b) / 2), 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(347), plt.imshow(g + b, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(348), plt.imshow(r - (g + b) / 2, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # mean = g[np.nonzero(mask_s)].mean()
+    # median = np.median(g[np.nonzero(mask_s)])
+    # tum = 2 * cv2.absdiff(g, int(mean) * np.ones_like(g))
+    # _, tum2 = cv2.threshold(src=r, thresh=mean * 0.9, maxval=0.0, type=cv2.THRESH_TOZERO_INV)
+    # _, tum3 = cv2.threshold(src=r, thresh=median * 0.9, maxval=0.0, type=cv2.THRESH_TOZERO_INV)
+    # plt.subplot(3,4,9), plt.imshow(tum, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(3,4,10), plt.imshow(tum2, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.subplot(3,4,11), plt.imshow(tum3, 'gray', interpolation='nearest', vmin=0, vmax=255)
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.subplot(151), plt.imshow(data_s, 'gray', interpolation='nearest'), plt.title('orig')
+    # plt.subplot(152), plt.imshow(im[:, :, 0], 'gray', interpolation='nearest'), plt.title('red')
+    # plt.subplot(153), plt.imshow(im[:, :, 1], 'gray', interpolation='nearest'), plt.title('green')
+    # plt.subplot(154), plt.imshow(im[:, :, 2], 'gray', interpolation='nearest'), plt.title('blue')
+    # plt.subplot(155), plt.imshow(im[:, :, 3], 'gray', interpolation='nearest'), plt.title('yellow')
+    # # plt.subplot(155), plt.imshow(np.where(r < threshold, 0, r), 'gray', interpolation='nearest'), plt.title('yellow')
     # plt.show()
 
-    cv2.threshold(src=r, dst=r, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
-    cv2.threshold(src=g, dst=g, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
-    cv2.threshold(src=b, dst=b, thresh=threshold, maxval=0.0, type=cv2.THRESH_TOZERO)
-    R = cv2.absdiff(r, cv2.add(g, b) / 2)  # r - (g + b) / 2
-    G = cv2.absdiff(g, cv2.add(r, b) / 2)  # g - (r + b) / 2
-    B = cv2.absdiff(b, cv2.add(g, r) / 2)  # b - (g + r) / 2
-    Y = cv2.absdiff(cv2.absdiff((cv2.add(r, g)) / 2, cv2.absdiff(r, g) / 2), b)  # (r + g) / 2 - cv2.absdiff(r, g) / 2 - b
-    im = cv2.merge((R, G, B, Y))
-    # im = cv2.merge((r, g, b))
-
-    plt.figure()
-    plt.subplot(341), plt.imshow(g, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(342), plt.imshow(b, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(343), plt.imshow(cv2.add(g, b), 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(344), plt.imshow(cv2.absdiff(r, cv2.add(g, b) / 2), 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(347), plt.imshow(g + b, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(348), plt.imshow(r - (g + b) / 2, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    mean = g[np.nonzero(mask_s)].mean()
-    median = np.median(g[np.nonzero(mask_s)])
-    tum = 2 * cv2.absdiff(g, int(mean) * np.ones_like(g))
-    _, tum2 = cv2.threshold(src=r, thresh=mean * 0.9, maxval=0.0, type=cv2.THRESH_TOZERO_INV)
-    _, tum3 = cv2.threshold(src=r, thresh=median * 0.9, maxval=0.0, type=cv2.THRESH_TOZERO_INV)
-    plt.subplot(3,4,9), plt.imshow(tum, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(3,4,10), plt.imshow(tum2, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.subplot(3,4,11), plt.imshow(tum3, 'gray', interpolation='nearest', vmin=0, vmax=255)
-    plt.show()
-
-    plt.figure()
-    plt.subplot(151), plt.imshow(data_s, 'gray', interpolation='nearest'), plt.title('orig')
-    plt.subplot(152), plt.imshow(im[:, :, 0], 'gray', interpolation='nearest'), plt.title('red')
-    plt.subplot(153), plt.imshow(im[:, :, 1], 'gray', interpolation='nearest'), plt.title('green')
-    plt.subplot(154), plt.imshow(im[:, :, 2], 'gray', interpolation='nearest'), plt.title('blue')
-    plt.subplot(155), plt.imshow(im[:, :, 3], 'gray', interpolation='nearest'), plt.title('yellow')
-    # plt.subplot(155), plt.imshow(np.where(r < threshold, 0, r), 'gray', interpolation='nearest'), plt.title('yellow')
-    plt.show()
-
     # run(im, save_fig=False, show=True, show_now=False)
-    run(data_s, smoothing=True, save_fig=False, show=True)
+    run(data_s, mask=mask_s, smoothing=True, save_fig=False, show=True)
