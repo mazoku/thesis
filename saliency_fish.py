@@ -134,7 +134,7 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
     cv2.imwrite(base_name + '_saliency_mark_max.png', saliency_mark_max)
 
 
-def color_clustering(img, mask=None, k=3):
+def dominant_colors(img, mask=None, k=3):
     if mask is None:
         mask = np.ones_like(img)
     clt = KMeans(n_clusters=k)
@@ -143,6 +143,23 @@ def color_clustering(img, mask=None, k=3):
     cents = clt.cluster_centers_
 
     return cents
+
+
+def color_clustering(img, mask=None, colors=None, k=3):
+    if mask is None:
+        mask = np.ones(img.shape[:2])
+    if colors is None:
+        colors = dominant_colors(img, mask=mask, k=k)
+    diffs = np.array([np.abs(img - x) for x in colors])
+
+    clust = np.argmin(diffs, 0)
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
+    plt.show()
+
+    return clust, colors
 
 
 def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
@@ -193,7 +210,7 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
 
 
 def conspicuity_prob_models(im, mask, show=False, show_now=True):
-    cents = color_clustering(im, mask, k=3)
+    clust, cents = color_clustering(im, mask, k=3)
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
@@ -219,7 +236,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     conspicuity_prob_models(im, mask, show=show, show_now=False)
 
     # TODO: tady vypocitat ruzne conspicuity
-    # TODO: Conspicuity ... prob modely
+    # TODO: Conspicuity ... prob modely / anomalie
     # TODO: Conspicuity ... blob odezvy
     # TODO: Conspicuity ... circloidy
     # TODO: Conspicuity ... textura (LBP, LIP)
