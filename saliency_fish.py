@@ -5,6 +5,7 @@ import logging
 import cv2
 import numpy
 from scipy.ndimage.filters import maximum_filter
+import scipy.stats as scista
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
@@ -12,6 +13,7 @@ import numpy as np
 import skimage.exposure as skiexp
 import skimage.morphology as skimor
 from sklearn.cluster import KMeans
+import sklearn.mixture as sklmix
 
 import os.path
 import sys
@@ -154,10 +156,10 @@ def color_clustering(img, mask=None, colors=None, k=3):
 
     clust = np.argmin(diffs, 0)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
-    plt.show()
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
+    # plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
+    # plt.show()
 
     return clust, colors
 
@@ -209,8 +211,29 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
     return im_diff
 
 
-def conspicuity_prob_models(im, mask, show=False, show_now=True):
+def conspicuity_prob_models(im, mask, type='both', show=False, show_now=True):
     clust, cents = color_clustering(im, mask, k=3)
+    if type == 'both':
+        #TODO: body jsou nejak spatne
+        pts_hypo = ((clust == np.argmin(cents)) * mask).flatten()
+        pts_hyper = ((clust == np.argmax(cents)) * mask).flatten()
+        pts = np.hstack((pts_hypo, pts_hyper))
+        rv = sklmix.GMM(n_components=2)
+        rv.fit(pts.reshape(len(pts), 1))
+    else:
+        if type == 'hypo':
+            pts = ((clust == np.argmin(cents)) * mask).flatten()
+        elif type == 'hyper':
+            pts = ((clust == np.argmax(cents)) * mask).flatten()
+        rv = scista.norm.fit(pts)
+
+    if show:
+        x = np.arange(256)
+        y = np.array(rv.predict_proba(x.reshape((len(x), 1)))).max(1)
+        plt.figure()
+        plt.plot(x, y, 'b-')
+        plt.axis('tight')
+        plt.show()
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
