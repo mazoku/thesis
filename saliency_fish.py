@@ -17,6 +17,7 @@ import sklearn.mixture as sklmix
 
 import os.path
 import sys
+import datetime
 
 import sys
 sys.path.append('../imtools/')
@@ -27,9 +28,15 @@ if sys.version_info[0] != 2:
 
 logger = logging.getLogger(__name__)
 
+verbose = False
 
 
-def features(image, channel, levels=9, start_size=(640,480), ):
+def _debug(msg, msgType="[INFO]"):
+    if verbose:
+        print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
+
+
+def cross_scale_diffs(image, channel, levels=9, start_size=(640,480), ):
     """
     Extracts features by down-scaling the image levels times,
     transforms the image by applying the function channel to
@@ -44,29 +51,48 @@ def features(image, channel, levels=9, start_size=(640,480), ):
                         scaled to that size and then scaled by half
                         levels times. Therefore, both entries in
                         start_size must be divisible by 2^levels.
-	"""
-    image = channel(image)
+    """
+    # image = channel(image)
     if image.shape != start_size:
         image = cv2.resize(image, dsize=start_size)
 
     scales = [image]
     for l in xrange(levels - 1):
         logger.debug("scaling at level %d", l)
-        scales.append(cv2.pyrDown(scales[-1]))  # TODO: nahradit cv2.pyrDown vlastnim (cv2 pouziva gaussian bluring)
+        # new_s = tools.pyramid_down(scales[-1])
+        new_s = cv2.pyrDown(src=scales[-1])
+        if new_s is not None:
+            scales.append(new_s)
+        else:
+            break
+    levels = len(scales)
+        # scales.append(cv2.pyrDown(scales[-1]))  # TODO: nahradit cv2.pyrDown vlastnim (cv2 pouziva gaussian bluring)
 
+    d1 = 3
+    d2 = 4
     features = []
-    for i in xrange(1, levels - 5):
+    for i in xrange(0, levels - d2):
+    # for i in xrange(0, levels - 5):
         big = scales[i]
-        for j in (3,4):
+        for j in (d1, d2):
+        # for j in (3, 4):
             logger.debug("computing features for levels %d and %d", i, i + j)
             small = scales[i + j]
-            srcsize = small.shape[1],small.shape[0]
-            dstsize = big.shape[1],big.shape[0]
+            srcsize = small.shape[1], small.shape[0]
+            dstsize = big.shape[1], big.shape[0]
             logger.debug("Shape source: %s, Shape target :%s", srcsize, dstsize)
             scaled = cv2.resize(src=small, dsize=dstsize)
-            features.append(((i+1,j+1),cv2.absdiff(big, scaled)))
+            features.append(((i+1,j+1), cv2.absdiff(big, scaled)))
+            # print 'added (%i, %i)' % (i, i + j)
+            # pass
 
-    return features
+    # for i, f in enumerate(features):
+    #     plt.figure()
+    #     plt.imshow(f[1], 'gray', interpolation='nearest')
+    #     plt.title(f[0])
+    # plt.show()
+
+    return features, levels
 
 
 def sumNormalizedFeatures(features, levels=9, startSize=(640,480)):
@@ -136,35 +162,36 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
     cv2.imwrite(base_name + '_saliency_mark_max.png', saliency_mark_max)
 
 
-def dominant_colors(img, mask=None, k=3):
-    if mask is None:
-        mask = np.ones_like(img)
-    clt = KMeans(n_clusters=k)
-    data = img[np.nonzero(mask)]
-    clt.fit(data.reshape(len(data), 1))
-    cents = clt.cluster_centers_
-
-    return cents
-
-
-def color_clustering(img, mask=None, colors=None, k=3):
-    if mask is None:
-        mask = np.ones(img.shape[:2])
-    if colors is None:
-        colors = dominant_colors(img, mask=mask, k=k)
-    diffs = np.array([np.abs(img - x) for x in colors])
-
-    clust = np.argmin(diffs, 0)
-
-    # plt.figure()
-    # plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
-    # plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
-    # plt.show()
-
-    return clust, colors
+# def dominant_colors(img, mask=None, k=3):
+#     if mask is None:
+#         mask = np.ones_like(img)
+#     clt = KMeans(n_clusters=k)
+#     data = img[np.nonzero(mask)]
+#     clt.fit(data.reshape(len(data), 1))
+#     cents = clt.cluster_centers_
+#
+#     return cents
+#
+#
+# def color_clustering(img, mask=None, colors=None, k=3):
+#     if mask is None:
+#         mask = np.ones(img.shape[:2])
+#     if colors is None:
+#         colors = dominant_colors(img, mask=mask, k=k)
+#     diffs = np.array([np.abs(img - x) for x in colors])
+#
+#     clust = np.argmin(diffs, 0)
+#
+#     # plt.figure()
+#     # plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
+#     # plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
+#     # plt.show()
+#
+#     return clust, colors
 
 
 def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
+    _debug('Running intensity conspicuity calculation ...')
     sigm_t = 0.2
     if mask is None:
         mask = np.ones_like(im)
@@ -187,9 +214,12 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
         im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(1)))
         im_res = im_morph.copy()
 
+    features, levels = cross_scale_diffs(im_diff, None)
+    consp_int = cv2.resize(sumNormalizedFeatures(features, levels=levels), dsize=im.shape[::-1])
+
     if show:
-        imgs = [im, im_diff, im_res]
-        titles = ['input', 'difference', 'result']
+        imgs = [im, im_diff, im_res, consp_int]
+        titles = ['input', 'difference', 'result im', 'conspicuity']
         if morph_proc:
             imgs.insert(2, im_morph)
             titles.insert(2, 'morphology')
@@ -208,32 +238,38 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
         if show_now:
             plt.show()
 
-    return im_diff
+    return consp_int, im_diff
 
 
-def conspicuity_prob_models(im, mask, type='both', show=False, show_now=True):
-    clust, cents = color_clustering(im, mask, k=3)
-    if type == 'both':
-        #TODO: body jsou nejak spatne
-        pts_hypo = ((clust == np.argmin(cents)) * mask).flatten()
-        pts_hyper = ((clust == np.argmax(cents)) * mask).flatten()
-        pts = np.hstack((pts_hypo, pts_hyper))
-        rv = sklmix.GMM(n_components=2)
-        rv.fit(pts.reshape(len(pts), 1))
-    else:
-        if type == 'hypo':
-            pts = ((clust == np.argmin(cents)) * mask).flatten()
-        elif type == 'hyper':
-            pts = ((clust == np.argmax(cents)) * mask).flatten()
-        rv = scista.norm.fit(pts)
-
-    if show:
-        x = np.arange(256)
-        y = np.array(rv.predict_proba(x.reshape((len(x), 1)))).max(1)
-        plt.figure()
-        plt.plot(x, y, 'b-')
-        plt.axis('tight')
-        plt.show()
+# def conspicuity_prob_models(im, mask, type='both', show=False, show_now=True):
+#     _debug('Running prob model conspicuity calculation ...')
+#     clust, cents = color_clustering(im, mask, k=3)
+#     if type == 'both':
+#         pts_hypo = im[np.nonzero((clust == np.argmin(cents)) * mask)]
+#         pts_hyper = im[np.nonzero((clust == np.argmax(cents)) * mask)]
+#         # plt.figure()
+#         # cs_i = np.argsort(cents.flatten())
+#         # plt.subplot(131), plt.imshow((clust == cs_i[0]) * mask), plt.title('(a) hypo')
+#         # plt.subplot(132), plt.imshow((clust == cs_i[1]) * mask), plt.title('(b) healthy')
+#         # plt.subplot(133), plt.imshow((clust == cs_i[2]) * mask), plt.title('(c) hyper')
+#         # plt.show()
+#         pts = np.hstack((pts_hypo, pts_hyper))
+#         rv = sklmix.GMM(n_components=2)
+#         rv.fit(pts.reshape(len(pts), 1))
+#     else:
+#         if type == 'hypo':
+#             pts = ((clust == np.argmin(cents)) * mask).flatten()
+#         elif type == 'hyper':
+#             pts = ((clust == np.argmax(cents)) * mask).flatten()
+#         rv = scista.norm.fit(pts)
+#
+#     if show:
+#         x = np.arange(256)
+#         y = np.array(rv.predict_proba(x.reshape((len(x), 1)))).max(1)
+#         plt.figure()
+#         plt.plot(x, y, 'b-')
+#         plt.axis('tight')
+#         plt.show()
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
@@ -255,11 +291,10 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if smoothing:
         im = tools.smoothing(im)
 
-    # conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
-    conspicuity_prob_models(im, mask, show=show, show_now=False)
+    conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
+    # conspicuity_prob_models(im, mask, show=show, show_now=False)
 
     # TODO: tady vypocitat ruzne conspicuity
-    # TODO: Conspicuity ... prob modely / anomalie
     # TODO: Conspicuity ... blob odezvy
     # TODO: Conspicuity ... circloidy
     # TODO: Conspicuity ... textura (LBP, LIP)
@@ -296,6 +331,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
+    verbose = True
     data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
