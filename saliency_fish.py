@@ -20,8 +20,13 @@ import sys
 import datetime
 
 import sys
-sys.path.append('../imtools/')
-from imtools import tools
+if os.path.exists('../imtools/'):
+    # sys.path.append('../imtools/')
+    sys.path.insert(0, '../imtools/')
+    from imtools import tools, misc
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 if sys.version_info[0] != 2:
     raise Exception("This script was written for Python version 2.  You're running Python %s." % sys.version)
