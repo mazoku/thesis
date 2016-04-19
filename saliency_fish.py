@@ -28,8 +28,8 @@ else:
     print 'You need to import package imtools: https://github.com/mjirik/imtools'
     sys.exit(0)
 
-if sys.version_info[0] != 2:
-    raise Exception("This script was written for Python version 2.  You're running Python %s." % sys.version)
+# if sys.version_info[0] != 2:
+#     raise Exception("This script was written for Python version 2.  You're running Python %s." % sys.version)
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +64,14 @@ def cross_scale_diffs(image, channel, levels=9, start_size=(640,480), ):
     scales = [image]
     for l in xrange(levels - 1):
         logger.debug("scaling at level %d", l)
-        # new_s = tools.pyramid_down(scales[-1])
-        new_s = cv2.pyrDown(src=scales[-1])
+        new_s = tools.pyramid_down(scales[-1], smooth=True)
+        new_s = sigmoid(new_s)
+        # new_s = cv2.pyrDown(src=scales[-1])
         if new_s is not None:
             scales.append(new_s)
         else:
             break
     levels = len(scales)
-        # scales.append(cv2.pyrDown(scales[-1]))  # TODO: nahradit cv2.pyrDown vlastnim (cv2 pouziva gaussian bluring)
 
     d1 = 3
     d2 = 4
@@ -195,6 +195,17 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
 #     return clust, colors
 
 
+def sigmoid(image, mask=None, a=0.1, c=20, sigm_t = 0.2):
+    if mask is None:
+        mask = np.ones(image.shape)
+
+    im_sigm = (1. / (1 + (np.exp(-a * (image - c))))) * mask
+    im_sigm = im_sigm * (im_sigm > sigm_t)
+    im_res = im_sigm
+
+    return im_res
+
+
 def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
     _debug('Running intensity conspicuity calculation ...')
     sigm_t = 0.2
@@ -209,8 +220,9 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
         im_diff = np.abs(im - mean_v) * ((im - mean_v) > 0) * mask
 
     if use_sigmoid:
-        im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
-        im_sigm = im_sigm * (im_sigm > sigm_t)
+        im_sigm = sigmoid(im_diff, mask, a=a, c=c, sigm_t=sigm_t)
+        # im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
+        # im_sigm = im_sigm * (im_sigm > sigm_t)
         im_res = im_sigm.copy()
     else:
         im_res = im_diff.copy()
