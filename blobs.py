@@ -17,6 +17,7 @@ import cv2
 import copy
 import math
 import os
+import datetime
 
 
 # constants
@@ -24,6 +25,11 @@ BLOB_DOG = 'dog'
 BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'openCV'
+
+
+def _debug(msg, msgType="[INFO]"):
+    if verbose:
+        print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
 
 
 def check_blob_intensity(image, intensity, mask=None, show=False, show_now=True):
@@ -385,10 +391,11 @@ def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circulari
     return blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi
 
 
-def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, save_fig=False, fig_dir='.'):
+def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, save_fig=False, fig_dir='.', verbose=True):
     if blob_type == BLOB_DOG:
         # DOG detection -----------------
-        print 'DOG detection ...',
+        # print 'DOG detection ...',
+        _debug('DOG detection ...')
         params = ('sigma_ratio', 'threshold')
         sigma_ratios = np.arange(0.6, 2, 0.2)
         thresholds = np.arange(0, 1, 0.1)
@@ -398,11 +405,12 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         blobs_t_surv = calc_survival_fcn(blobs_t, mask)
         blobs_surv_overall = calc_survival_fcn(blobs, mask)
         # dog_resp_overall = compose_resp_im(image, dogs)
-        print 'done'
+        # print 'done'
 
     elif blob_type == BLOB_LOG:
         # LOG detection -----------------
-        print 'LOG detection ...',
+        # print 'LOG detection ...',
+        _debug('LOG detection ...')
         params = ('num_sigma', 'threshold', 'log_scale')
         # num_sigmas = np.arange(5, 15, 2)
         num_sigmas =[5, 10, 15]
@@ -415,11 +423,12 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         blobs_t_surv = calc_survival_fcn(blobs_t, mask)
         blobs_ls_surv = calc_survival_fcn(blobs_ls, mask)
         blobs_surv_overall = calc_survival_fcn(blobs, mask)
-        print 'done'
+        # print 'done'
 
     elif blob_type == BLOB_DOH:
         # DOH detection -----------------
-        print 'DOH detection ...',
+        # print 'DOH detection ...',
+        _debug('DOH detection ...')
         params = ('num_sigma', 'threshold', 'log_scale')
         num_sigmas = [5, 10, 15]
         # thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
@@ -431,11 +440,12 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         blobs_t_surv = calc_survival_fcn(blobs_t, mask, show=False)
         blobs_ls_surv = calc_survival_fcn(blobs_ls, mask, show=False)
         blobs_surv_overall = calc_survival_fcn(blobs, mask)
-        print 'done'
+        # print 'done'
 
     elif blob_type == BLOB_CV:
         # OPENCV BLOB DETECTOR -------
-        print 'OpenCV blob detection ...',
+        # print 'OpenCV blob detection ...',
+        _debug('OpenCV blob detection ...')
         params = ('min_threshold', 'min_area', 'min_circularity', 'min_convexity', 'min_inertia')
         # min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
         min_thresholds = [10, 30, 50, 80, 100, 150, 200]
@@ -455,7 +465,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         blobs_mcon_surv = calc_survival_fcn(blobs_mcon, mask, show=False)
         blobs_mi_surv = calc_survival_fcn(blobs_mi, mask, show=False)
         blobs_surv_overall = calc_survival_fcn(blobs_all, mask)
-        print 'done'
+        # print 'done'
 
     else:
         raise ValueError('Unknown blob type.')
@@ -486,7 +496,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     return dog_res
 
 
-def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=False):
+def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=False, verbose=True):
     fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/blobs/%s/' % blob_type
     if save_fig:
         if not os.path.exists(fig_dir):
@@ -503,7 +513,7 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
     for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
                                                       tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
         blobs_res, survs_res, titles, params = detect_blobs(im_pyr, mask_pyr, blob_type, layer_id=layer_id,
-                                                            show=show, show_now=show_now, save_fig=save_fig)
+                                                            show=show, show_now=show_now, save_fig=save_fig, verbose=verbose)
         blobs_pyr.append(blobs_res)
         survs_pyr.append(survs_res)
         titles_pyr.append(titles)
@@ -707,7 +717,7 @@ def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=F
 
 
 def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False,
-            show_indi=False, show_now_indi=True, save_fig_indi=False):
+            show_indi=False, show_now_indi=True, save_fig_indi=False, verbose=True):
     blob_types = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
     # blob_types = [BLOB_DOG, BLOB_CV]
     n_types = len(blob_types)
@@ -719,8 +729,9 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
 
     for blob_type in blob_types:
         # print 'Calculating %s ...' % blob_type,
-        surv_overall, survs_pyr, pyr_imgs, pyr_masks = run(data_s, mask_s, pyr_scale=pyr_scale, blob_type=blob_type,
-                                                           show=show_indi, show_now=show_now_indi, save_fig=save_fig_indi)
+        surv_overall, survs_pyr, pyr_imgs, pyr_masks = run(image, mask, pyr_scale=pyr_scale, blob_type=blob_type,
+                                                           show=show_indi, show_now=show_now_indi, save_fig=save_fig_indi,
+                                                           verbose=verbose)
         surv_layers = [s[0] for s in survs_pyr]
         survs.append((surv_overall, surv_layers, blob_type))
         # print 'done'
@@ -788,6 +799,8 @@ def run_all(image, mask, pyr_scale=2., show=False, show_now=True, save_fig=False
     if show and show_now:
         plt.show()
 
+    return survs_overall, survs
+
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
@@ -803,11 +816,12 @@ if __name__ == '__main__':
     show = False
     show_now = False
     save_fig = True
+    verbose = True
     pyr_scale = 1.5
     blob_type = BLOB_CV
 
     run_all(data_s, mask_s, pyr_scale=pyr_scale, show=show, show_now=show_now, save_fig=save_fig,
-            show_indi=False, show_now_indi=False, save_fig_indi=False)
+            show_indi=False, show_now_indi=False, save_fig_indi=False, verbose=verbose)
 
     # blobs_doh = cv_blobs(data_s, mask=mask_s, min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
     #                      min_circularity=0.2, min_convexity=0.2, min_inertia=0.2)

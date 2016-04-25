@@ -19,6 +19,9 @@ import os.path
 import sys
 import datetime
 
+# for conspicuity calculations
+import blobs
+
 import sys
 if os.path.exists('../imtools/'):
     # sys.path.append('../imtools/')
@@ -286,7 +289,28 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
 #         plt.figure()
 #         plt.plot(x, y, 'b-')
 #         plt.axis('tight')
+#     if show_now:
 #         plt.show()
+
+
+def conspicuity_blobs(im, mask, pyr_scale=2, show=False, show_now=True):
+    # _debug('Running blob response conspicuity calculation ...')
+    blob_surv, survs = blobs.run_all(im, mask, pyr_scale=pyr_scale, show=False, show_now=False)
+
+    if show:
+        imgs = [im, blob_surv] + [s[0] for s in survs]
+        titles = ['input', 'blob surv'] + [s[2] for s in survs]
+        n_imgs = len(imgs)
+        cmaps = ['gray'] + (n_imgs - 1) * ['jet']
+        for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
+            plt.subplot(1, n_imgs, i + 1)
+            plt.imshow(im, cmap=cmap, interpolation='nearest')
+            plt.title(tit)
+            divider = make_axes_locatable(plt.gca())
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            plt.colorbar(cax=cax)
+        if show_now:
+            plt.show()
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
@@ -308,8 +332,9 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if smoothing:
         im = tools.smoothing(im)
 
-    conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
+    # conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
     # conspicuity_prob_models(im, mask, show=show, show_now=False)
+    conspicuity_blobs(im, mask=mask, show=show, show_now=False)
 
     # TODO: tady vypocitat ruzne conspicuity
     # TODO: Conspicuity ... blob odezvy
