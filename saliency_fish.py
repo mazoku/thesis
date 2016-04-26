@@ -39,6 +39,11 @@ logger = logging.getLogger(__name__)
 verbose = False
 
 
+def set_verbose(val):
+    global verbose
+    verbose = val
+
+
 def _debug(msg, msgType="[INFO]"):
     if verbose:
         print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
@@ -313,11 +318,13 @@ def conspicuity_blobs(im, mask, pyr_scale=2, show=False, show_now=True):
             plt.show()
 
 
-def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True):
+def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True, verbose=True):
     """
     im ... grayscale image
     """
     show = True  # debug show
+
+    set_verbose(verbose)
 
     if mask is None:
         mask = np.ones_like(im)
@@ -439,4 +446,4 @@ if __name__ == "__main__":
     # plt.show()
 
     # run(im, save_fig=False, show=True, show_now=False)
-    run(data_s, mask=mask_s, smoothing=True, save_fig=False, show=True)
+    run(data_s, mask=mask_s, smoothing=True, save_fig=False, show=True, verbose=verbose)
