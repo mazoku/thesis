@@ -24,6 +24,19 @@ import copy
 import math
 import os
 import time
+import datetime
+
+verbose = True
+
+
+def set_verbose(val):
+    global verbose
+    verbose = val
+
+
+def _debug(msg, msgType="[INFO]"):
+    if verbose:
+        print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
 
 
 def calc_survival_fcn(imgs, show=False, show_now=True):
@@ -194,16 +207,19 @@ def masks_response(image, masks, type='dark', mean_val=None, offset=10, show=Fal
     return final_resp, resps
 
 
-def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, save_fig=False):
+def run(image, mask, type='dark', pyr_scale=2., min_pyr_size=20, show=False, show_now=True, save_fig=False, verbose=True):
+    set_verbose(verbose)
+
     fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/circloids/'
     image = tools.smoothing(image)
     image_bb, mask_bb = tools.crop_to_bbox(image, mask)
 
-    mask_shapes = [(5, 5, 0), (9, 5, 0), (9, 5, 45), (9, 5, 90), (9, 5, 135)]
-    # mask_shapes = [(15, 15, 0), (29, 15, 0), (29, 15, 45), (29, 15, 90), (29, 15, 135)]
+    # mask_shapes = [(5, 5, 0), (9, 5, 0), (9, 5, 45), (9, 5, 90), (9, 5, 135)]
+    mask_shapes = [(15, 15, 0), (29, 15, 0), (29, 15, 45), (29, 15, 90), (29, 15, 135)]
     n_masks = len(mask_shapes)
     border_width = 1
 
+    _debug('Creating masks...')
     masks, elipses = create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
 
     # filters_fig = plt.figure(figsize=(24, 14))
@@ -226,9 +242,17 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
         if not os.path.exists(fig_dir):
             os.mkdir(fig_dir)
 
+    _debug('Calculating responses...')
     for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
                                                    tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
         im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
+
+        # setting up values outside mask to better suppress responses on the border of the mask
+        if type == 'dark':
+            im_pyr = np.where(mask_pyr, im_pyr, 0)
+        else:
+            im_pyr = np.where(mask_pyr, im_pyr, 255)
+
         pyr_imgs.append(im_pyr)
         pyr_masks.append(mask_pyr)
 
@@ -244,7 +268,7 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
             win_size = m[0].shape[::-1]
             step_size = 4
             for (x, y, win_mask, win) in tools.sliding_window(im_pyr, window_size=win_size, step_size=step_size, mask=mask_pyr):
-                resp, m_resps = masks_response(win, m, mean_val=liver_peak, show=False)
+                resp, m_resps = masks_response(win, m, type=type, mean_val=liver_peak, show=False)
                 if resp:
                     # positives.append(((x, y), (x + win_size[0], y + win_size[1])))
                     elip = ((e[0][0] + x, e[0][1] + y), e[1], e[2])
@@ -409,6 +433,8 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, s
 
     if show_now:
         plt.show()
+
+    return surv_im_pyr, surv_im_layers, surv_im_masks
 
 
 #-----------------------------------------------------------------------------------------

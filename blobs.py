@@ -26,6 +26,13 @@ BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'openCV'
 
+verbose = True
+
+
+def set_verbose(val):
+    global verbose
+    verbose = val
+
 
 def _debug(msg, msgType="[INFO]"):
     if verbose:
@@ -497,6 +504,8 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
 
 
 def run(image, mask, pyr_scale, blob_type, show=False, show_now=True, save_fig=False, verbose=True):
+    set_verbose(verbose)
+
     fig_dir = '/home/tomas/Dropbox/Work/Dizertace/figures/blobs/%s/' % blob_type
     if save_fig:
         if not os.path.exists(fig_dir):
