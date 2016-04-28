@@ -1,9 +1,5 @@
 from __future__ import division
 
-import sys
-sys.path.append('../imtools/')
-from imtools import tools
-
 from skimage import feature
 from skimage.transform import rotate
 from skimage.feature import local_binary_pattern
@@ -14,6 +10,31 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 import cv2
+
+import datetime
+
+import sys
+import os
+if os.path.exists('../imtools/'):
+    # sys.path.append('../imtools/')
+    sys.path.insert(0, '../imtools/')
+    from imtools import tools, misc
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
+
+
+verbose = True
+
+
+def set_verbose(val):
+    global verbose
+    verbose = val
+
+
+def _debug(msg, msgType="[INFO]"):
+    if verbose:
+        print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
 
 
 def overlay_labels(image, lbp, labels):
@@ -31,37 +52,77 @@ def hist(ax, lbp):
     return ax.hist(lbp.ravel(), normed=True, bins=n_bins, range=(0, n_bins), facecolor='0.5')
 
 
-def run(image, mask=None, n_points=24, radius=3):
+def find_prototypes(im, mask, lbp, lbp_type, blob_type, w, n_points, k=1):
+    if lbp_type == 'edge':
+        labels = range(n_points // 2 - w, n_points // 2 + w + 1)
+    elif lbp_type == 'flat':
+        labels = list(range(0, w + 1)) + list(range(n_points - w, n_points + 2))
+    elif lbp_type == 'corner':
+        i_14 = n_points // 4  # 1/4th of the histogram
+        i_34 = 3 * (n_points // 4)      # 3/4th of the histogram
+        labels = (list(range(i_14 - w, i_14 + w + 1)) + list(range(i_34 - w, i_34 + w + 1)))
+    else:
+        raise IOError('Wrong prototype value.')
 
-    # # extract the histogram of Local Binary Patterns
-    # lbp = feature.local_binary_pattern(im, numPoints, radius, method="uniform")
-    # (hist, _) = np.histogram(lbp.ravel(), bins=range(0, numPoints + 3), range=(0, numPoints + 2))
-    #
-    # # optionally normalize the histogram
-    # eps = 1e-7
-    # hist = hist.astype("float")
-    # hist /= (hist.sum() + eps)
+    t = k * im[np.nonzero(mask)].mean()
+    if blob_type == 'hypo':
+        blob_m = (im < t) * mask
+    elif blob_type == 'hyper':
+        blob_m = (im > t) * mask
+    else:
+        raise IOError('Wrong blobtype value.')
+    lbp_m = np.logical_or.reduce([lbp == each for each in labels])
+    lbp_prototype = np.logical_and(blob_m, lbp_m)
 
-    radius = 3
-    n_points = 8 * radius
+    return lbp_prototype
+
+
+def run(image, mask=None, n_points=24, radius=3, lbp_type='flat', blob_type='hypo', pyr_scale=2, show_now=True, save_fig=False, verbose=True):
+    set_verbose(verbose)
 
     if mask is None:
         mask = np.ones_like(image)
 
-    image = tools.windowing(image).astype(np.uint8)
-    im_bb, mask_bb = tools.crop_to_bbox(image, mask)
-    im_bb = tools.smoothing(im_bb, sliceId=0)
+    image, mask = tools.crop_to_bbox(image, mask)
+    image = tools.smoothing(image, sliceId=0)
 
-    lbp = local_binary_pattern(im_bb, n_points, radius, 'uniform')
+    lbp_pyr = []
+    pyr_imgs = []
+    pyr_masks = []
+    for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
+                                                      tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
+        lbp_res = local_binary_pattern(im_pyr, n_points, radius, 'uniform')
+        w = radius - 1
+        lbp_prototype = find_prototypes(im_pyr, mask_pyr, lbp_res, lbp_type, blob_type, w, n_points, k=1)
+        lbp_pyr.append(lbp_res)
+        pyr_imgs.append(im_pyr)
+        pyr_masks.append(mask_pyr)
+
+    # survival overall
+    surv_overall = np.zeros(image.shape)
+    for survs_l in lbp_pyr:
+        surv_overall += cv2.resize(survs_l[0], image.shape[::-1])
+
+    # radius = 3
+    # n_points = 8 * radius
+
+    # if mask is None:
+    #     mask = np.ones_like(image)
+
+    # image = tools.windowing(image).astype(np.uint8)
+    # im_bb, mask_bb = tools.crop_to_bbox(image, mask)
+    # im_bb = tools.smoothing(im_bb, sliceId=0)
+
+    # lbp = local_binary_pattern(im_bb, n_points, radius, 'uniform')
 
     # plot histograms of LBP of textures
     # fig, (ax_img, ax_hist) = plt.subplots(nrows=2, ncols=3, figsize=(9, 6))
     # plt.gray()
 
-    titles = ('edge', 'flat', 'corner')
-    w = width = radius - 1
+    # titles = ('edge', 'flat', 'corner')
+    # w = radius - 1
     # edge_labels = range(n_points // 2 - w, n_points // 2 + w + 1)
-    flat_labels = list(range(0, w + 1)) + list(range(n_points - w, n_points + 2))
+    # flat_labels = list(range(0, w + 1)) + list(range(n_points - w, n_points + 2))
     # flat_labels = [0, n_points + 1]
     # flat_labels = [n_points + 1,]
     # i_14 = n_points // 4            # 1/4th of the histogram
@@ -125,7 +186,7 @@ def run(image, mask=None, n_points=24, radius=3):
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'  # slice_id = 17
+    data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'  # slice_id = 17
     # data_fname = '/home/tomas/Data/liver_segmentation/org-exp_185_48441644_venous_5.0_B30f-.pklz'  # slice_id = 14
     # data_fname = '/home/tomas/Data/liver_segmentation/org-exp_186_49290986_venous_5.0_B30f-.pklz'  # slice_id = 5
     data, mask, voxel_size = tools.load_pickle_data(data_fname)

@@ -8,7 +8,15 @@ import numpy as np
 import scipy.ndimage as scindi
 
 import io3d
-import tools
+import sys
+import os
+if os.path.exists('../imtools/'):
+    # sys.path.append('../imtools/')
+    sys.path.insert(0, '../imtools/')
+    from imtools import tools, misc
+else:
+    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
 
 
 def get_circle(im, pt, rad=3):
@@ -20,12 +28,15 @@ def get_circle(im, pt, rad=3):
     # pts[1] += pt[0]
     pts_shifted = np.array([pts[0] + pt[1] - rad, pts[1] + pt[0] - rad])
     # idx_trimmed = [i.all() for i in pts_shifted.transpose() < np.array([max_x, max_y])]
-    pts_trimmed = np.array([x for x in pts_shifted.transpose() if 0 <= x[0] <= max_x and 0 <= x[1] <= max_y]).transpose()
+    pts_trimmed = np.array([x for x in pts_shifted.transpose() if 0 <= x[0] <= max_y and 0 <= x[1] <= max_x]).transpose()
     pts_trimmed = [x for x in pts_trimmed]
     # pts_trimmed = [pt for pt in pts_shifted.transpose() if 0 <= pt[0] <= max_x and 0 <= pt[1] <= max_y]
     # x_trimed = [x for x in pts_shifted[0] if 0 <= x <= max_x]
     # y_trimed = [x for x in pts_shifted[1] if 0 <= x <= max_y]
+    # try:
     ints = im[pts_trimmed]
+    # except:
+    #     pass
 
     return ints, pts_trimmed, mask
 
@@ -54,7 +65,7 @@ def get_pt_interactively(data, windowing=False, win_l=50, win_w=350):
 
 
 def lip_im(data, rad=3):
-    x_coords, y_coords = np.indices(data.shape)
+    y_coords, x_coords = np.indices(data.shape)
     x_coords = x_coords.flatten()
     y_coords = y_coords.flatten()
     n_pts = len(x_coords)
@@ -63,7 +74,7 @@ def lip_im(data, rad=3):
     ssd_im = np.zeros(data.shape)
     var_im = np.zeros(data.shape)
     for i in range(n_pts):
-        ad, ssd, var = run(data, rad=rad, pt=(y_coords[i], x_coords[i]))
+        ad, ssd, var = run(data, rad=rad, pt=(x_coords[i], y_coords[i]))
         ad_im[y_coords[i], x_coords[i]] = ad
         ssd_im[y_coords[i], x_coords[i]] = ssd
         var_im[y_coords[i], x_coords[i]] = var
@@ -115,29 +126,30 @@ def run(data, rad=3, pt=None, windowing=False, show=False):
 
 ################################################################################
 if __name__ == '__main__':
-    rad = 1
+    rad = 5
 
-    # slice = 17
-    # fname = '/home/tomas/Data/liver_segmentation/tryba/data_other/org-exp_183_46324212_venous_5.0_B30f-.pklz'
-    #
-    # dr = io3d.DataReader()
-    # datap = dr.Get3DData(fname, dataplus_format=True)
-    # data = datap['data3d'][slice, ...]
-    # mask = datap['segmentation'][slice, ...]
+    data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'  # slice_id = 17
+    data_i, mask, voxel_size = tools.load_pickle_data(data_fname)
+    slice_ind = 17
+    data = data_i[slice_ind, :, :]
+    data_s = data
+    data_s = tools.windowing(data_s)
+    mask_s = mask[slice_ind, :, :]
 
-    data = np.array([[  5,   8,  12,   4,   8,   6,   9,   0,   5,   8],
-                     [  1,  10,  16,   5,   2,   0,   2,   8,   7,   5],
-                     [  9,   2,   6,   8,   2,  10,   7,   1,   9,  11],
-                     [  7,   6,  10,  15,  58,  90,  12,   9,  15,   6],
-                     [ 12,   8,  11, 130, 200, 110,  96,  12,  18,   1],
-                     [  8,   9,  26,  99, 120,  80,  78,  20,   5,  11],
-                     [ 20,  12,  14, 150, 160,  90, 100,  16,  11,  15],
-                     [ 10,  13,   9,  12, 136, 120, 110,  20,   8,   8],
-                     [ 11,  13,  11,  10,  76,  60,   9,   0,  10,  36],
-                     [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1]], dtype=np.float)
+    # data = np.array([[  5,   8,  12,   4,   8,   6,   9,   0,   5,   8],
+    #                  [  1,  10,  16,   5,   2,   0,   2,   8,   7,   5],
+    #                  [  9,   2,   6,   8,   2,  10,   7,   1,   9,  11],
+    #                  [  7,   6,  10,  15,  58,  90,  12,   9,  15,   6],
+    #                  [ 12,   8,  11, 130, 200, 110,  96,  12,  18,   1],
+    #                  [  8,   9,  26,  99, 120,  80,  78,  20,   5,  11],
+    #                  [ 20,  12,  14, 150, 160,  90, 100,  16,  11,  15],
+    #                  [ 10,  13,   9,  12, 136, 120, 110,  20,   8,   8],
+    #                  [ 11,  13,  11,  10,  76,  60,   9,   0,  10,  36],
+    #                  [  9,  11,  18,   4,   7,  20,  18,  14,   9,   1],
+    #                  [  8,   6,   5,   0,   6,   4,   3,   2,   1,   0]], dtype=np.float)
 
     # data_s = skifil.gaussian_filter(data, sigma=0.5)
-    data_s = skires.denoise_tv_chambolle(data)
+    # data_s = skires.denoise_tv_chambolle(data)
 
     plt.figure()
     plt.gray()
@@ -146,3 +158,5 @@ if __name__ == '__main__':
 
     # run(data, rad=rad, windowing=False)
     lip_im(data_s, rad=rad)
+
+#TODO: nema potencial

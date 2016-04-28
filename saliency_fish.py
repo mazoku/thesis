@@ -22,6 +22,7 @@ import datetime
 # for conspicuity calculations
 import blobs
 import circloids
+import lbp
 
 import sys
 if os.path.exists('../imtools/'):
@@ -336,6 +337,13 @@ def conspicuity_circloids(im, mask, pyr_scale=2, show=False, show_now=True):
             plt.colorbar(cax=cax)
         if show_now:
             plt.show()
+
+
+def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
+    for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(im, scale=pyr_scale, inter=cv2.INTER_NEAREST),
+                                                      tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
+        im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
+        lbp.run(im_pyr, mask_pyr)
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True, verbose=True):
