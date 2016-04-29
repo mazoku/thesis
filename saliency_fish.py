@@ -265,7 +265,7 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
         if show_now:
             plt.show()
 
-    return consp_int, im_diff
+    return consp_int#, im_diff
 
 
 # def conspicuity_prob_models(im, mask, type='both', show=False, show_now=True):
@@ -319,6 +319,8 @@ def conspicuity_blobs(im, mask, pyr_scale=2, show=False, show_now=True):
         if show_now:
             plt.show()
 
+    return blob_surv
+
 
 def conspicuity_circloids(im, mask, pyr_scale=2, show=False, show_now=True):
     circ_surv, circ_surv_layers, circ_surv_masks = circloids.run(im, mask, pyr_scale=pyr_scale, show=False, show_now=False, verbose=verbose)
@@ -338,12 +340,14 @@ def conspicuity_circloids(im, mask, pyr_scale=2, show=False, show_now=True):
         if show_now:
             plt.show()
 
+    return circ_surv
+
 
 def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
-    for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(im, scale=pyr_scale, inter=cv2.INTER_NEAREST),
-                                                      tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST))):
-        im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
-        lbp.run(im_pyr, mask_pyr)
+    lbp_surv, _ = lbp.run(im, mask, n_points=24, radius=3, lbp_type='flat', blob_type='hypo', pyr_scale=1.5,
+                          show=show, show_now=show_now, save_fig=False, verbose=verbose)
+
+    return lbp_surv
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True, verbose=True):
@@ -367,14 +371,14 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if smoothing:
         im = tools.smoothing(im)
 
-    # conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
+    # consp_int = conspicuity_intensity(im, mask=mask, type='hypo', use_sigmoid=True, show=show, show_now=False)
     # conspicuity_prob_models(im, mask, show=show, show_now=False)
-    # conspicuity_blobs(im, mask=mask, show=show, show_now=False)
-    conspicuity_circloids(im, mask=mask, show=show, show_now=False)
+    # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
+    # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
+    consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
 
     # TODO: tady vypocitat ruzne conspicuity
     # TODO: Conspicuity ... circloidy ND
-    # TODO: Conspicuity ... textura (LBP, LIP)
     # TODO: Conspicuity ... HEQ pipeline
     # TODO: Conspicuity ... fuzzy
 
