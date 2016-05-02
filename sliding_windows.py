@@ -146,7 +146,7 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
+    data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     slice_ind = 17

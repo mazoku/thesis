@@ -26,6 +26,7 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
         im_orig = image.copy()
         mean_v = int(image[np.nonzero(mask)].mean())
         image = np.where(mask, image, mean_v)
+    mask = mask.astype(np.uint8)
 
     if smoothing:
         image = tools.smoothing(image)

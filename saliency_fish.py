@@ -380,7 +380,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # TODO: tady vypocitat ruzne conspicuity
     # TODO: Conspicuity ... circloidy ND
     # TODO: Conspicuity ... HEQ pipeline
-    # TODO: Conspicuity ... fuzzy
+    # TODO: Conspicuity ... sliding window
 
     if show:
         plt.show()

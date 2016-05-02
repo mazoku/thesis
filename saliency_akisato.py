@@ -25,6 +25,7 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
         im_orig = image.copy()
         mean_v = int(image[np.nonzero(mask)].mean())
         image = np.where(mask, image, mean_v)
+    mask = mask.astype(np.uint8)
 
     if smoothing:
         image = tools.smoothing(image)
@@ -36,8 +37,8 @@ def run(image, mask=None, smoothing=False, show=False, show_now=True):
     sm = pySaliencyMap.pySaliencyMap(img_width, img_height)
     saliency_map = sm.SMGetSM(rgb_image)
 
-    saliency_map *= mask
-    im_orig *= mask
+    saliency_map *= mask.astype(np.uint8)
+    im_orig *= mask.astype(np.uint8)
 
     saliency_map = skiexp.rescale_intensity(saliency_map, out_range=(0, 1))
 
