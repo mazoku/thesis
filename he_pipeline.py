@@ -75,7 +75,7 @@ else:
 #     print tools.get_status_text('\tSaving figures', iter=-1, max_iter=len(imgs))
 
 
-def process_slice(img_o, mask_o, proc, disp=False, show=False, t=0.2):
+def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
     if not mask_o.any():
         return np.zeros_like(img_o), None
     n_rows, n_cols = [1, len(proc) + 1]
@@ -145,7 +145,7 @@ def process_slice(img_o, mask_o, proc, disp=False, show=False, t=0.2):
     # plt.subplot(122), plt.imshow(seg, 'gray'), plt.colorbar()
     # plt.show()
 
-    if disp:
+    if show:
         plt.figure()
         for i, (title, im) in enumerate(vis):
             plt.subplot(n_rows, n_cols, i + 1)
@@ -163,13 +163,13 @@ def process_slice(img_o, mask_o, proc, disp=False, show=False, t=0.2):
         #         plt.plot(contour[:, 1], contour[:, 0], linewidth=2)
         #     plt.axis('image')
 
-        if show:
+        if show_now:
             plt.show()
 
     return seg, vis
 
 
-def run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], disp=False, show=False):
+def run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=False, show_now=False):
     # data, mask = tools.crop_to_bbox(data, mask)
     segs = []
     vis = []
@@ -177,7 +177,8 @@ def run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], disp=False, show=Fals
     for i in range(data.shape[0]):
         # print 'Processing slice #%i/%i' % (i + 1, data.shape[0]),
         print tools.get_status_text('\tProcessing slices', iter=i, max_iter=data.shape[0]),
-        seg_s, vis_s = process_slice(data[i, :, :], mask[i, :, :], proc=['smo', 'equ', 'clo', 'con'], disp=disp, show=show)
+        seg_s, vis_s = process_slice(data[i, :, :], mask[i, :, :], proc=['smo', 'equ', 'clo', 'con'],
+                                     show=show, show_now=show_now)
         segs.append(seg_s)
         vis.append(vis_s)
         # print 'done'
@@ -197,4 +198,4 @@ if __name__ == '__main__':
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     print 'Processing file -- %s' % data_fname[data_fname.rfind('/') + 1:]
-    run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], disp=True, show=True)
+    run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=True, show_now=True)

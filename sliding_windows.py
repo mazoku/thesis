@@ -42,30 +42,29 @@ def calc_survival_fcn(imgs, masks, show=False, show_now=True):
     return surv_im# * mask
 
 
-def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
+def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, verbose=True):
     image = tools.smoothing(image)
 
     pyr_imgs = []
     outs = []
     pyr_masks = []
-    for im_pyr, mask_pyr in zip(tools.pyramid(image, scale=pyr_scale, inter=cv2.INTER_NEAREST),
-                                tools.pyramid(mask, scale=pyr_scale, inter=cv2.INTER_NEAREST)):
+    for im_pyr, mask_pyr in zip(tools.pyramid(image, scale=pyr_scale, min_size=(min_pyr_size, min_pyr_size), inter=cv2.INTER_NEAREST),
+                                tools.pyramid(mask, scale=pyr_scale, min_size=(min_pyr_size, min_pyr_size), inter=cv2.INTER_NEAREST)):
         im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
 
         hist, bins = skiexp.histogram(im_pyr[np.nonzero(mask_pyr)])
         liver_peak = bins[np.argmax(hist)]
 
-        # show=True
-        if show:
-            plt.figure()
-            plt.plot(bins, hist, 'b-', linewidth=3)
-            plt.xlim(0, 255)
-            plt.plot([bins[np.argmax(hist)],] * 2, [0, hist.max()], 'r-')
-            plt.plot(bins[np.argmax(hist)], hist.max(), 'ro')
-            plt.gca().annotate('peak', xy=(bins[np.argmax(hist)], hist.max()), xytext=(bins[np.argmax(hist)] + 20, hist.max() + 20),
-                               arrowprops=dict(facecolor='black', shrink=0.05))
-            if show_now:
-                plt.show()
+        # if show:
+        #     plt.figure()
+        #     plt.plot(bins, hist, 'b-', linewidth=3)
+        #     plt.xlim(0, 255)
+        #     plt.plot([bins[np.argmax(hist)],] * 2, [0, hist.max()], 'r-')
+        #     plt.plot(bins[np.argmax(hist)], hist.max(), 'ro')
+        #     plt.gca().annotate('peak', xy=(bins[np.argmax(hist)], hist.max()), xytext=(bins[np.argmax(hist)] + 20, hist.max() + 20),
+        #                        arrowprops=dict(facecolor='black', shrink=0.05))
+        #     if show_now:
+        #         plt.show()
 
         out = np.zeros(im_pyr.shape)
         win_w = 10
@@ -99,49 +98,22 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True):
     # survival image acros pyramid layers
     surv_im = calc_survival_fcn(outs, pyr_masks, show=False)
 
-        # plt.figure()
-        # plt.subplot(131)
-        # plt.imshow(image, 'gray', interpolation='nearest')
-        # sw = matpat.Rectangle((x, y), win.shape[1], win.shape[0], fill=False, edgecolor='m', linewidth=3)
-        # plt.gca().add_patch(sw)
-        #
-        # plt.subplot(132)
-        # plt.imshow(out, 'gray', interpolation='nearest')
-        # sw = matpat.Rectangle((x, y), win.shape[1], win.shape[0], fill=False, edgecolor='m', linewidth=3)
-        # plt.gca().add_patch(sw)
-        #
-        # plt.subplot(133)
-        # ax = plt.gca()
-        # ax.text(0.1, 0.9, 'liver_peak = %i' % liver_peak)
-        # ax.text(0.1, 0.8, 'win_mean = %.1f' % win_mean)
-        # ax.text(0.1, 0.7, 'out_val = %.1f' % out_val)
-        # plt.axis('off')
-        # plt.show()
+    if show:
+        n_layers = len(outs)
+        plt.figure()
+        plt.suptitle(suptitle)
+        for i, (im, out) in enumerate(zip(outs, pyr_imgs)):
+            plt.subplot(2, n_layers, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('inut at pyr. layer %i' % (i + 1))
+            plt.subplot(2, n_layers, i + 1 + n_layers), plt.imshow(out, 'gray', interpolation='nearest'), plt.title('output at pyr. layer %i' % (i + 1))
 
-    # for i, (res_gaus, res_lap) in enumerate(zip(skitra.pyramid_gaussian(image, downscale=pyr_scale), skitra.pyramid_laplacian(image, downscale=pyr_scale))):
-    #     # if the image is too small, break from the loop
-    #     if res_gaus.shape[0] < min_pyr_size or res_gaus.shape[1] < min_pyr_size:
-    #         break
-    #
-    #     plt.figure()
-    #     plt.subplot(121), plt.imshow(res_gaus, 'gray', interpolation='nearest'), plt.title('layer %i' % (i + 1))
-    #     plt.subplot(122), plt.imshow(res_lap, 'gray', interpolation='nearest')
+        plt.figure()
+        plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
+        plt.subplot(122), plt.imshow(surv_im, 'jet', interpolation='nearest')
 
-    # plt.figure()
-    # plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
-    # plt.subplot(122), plt.imshow(out, 'gray', interpolation='nearest')
-    # plt.show()
-    n_layers = len(outs)
-    plt.figure()
-    plt.suptitle(suptitle)
-    for i, (im, out) in enumerate(zip(outs, pyr_imgs)):
-        plt.subplot(2, n_layers, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('inut at pyr. layer %i' % (i + 1))
-        plt.subplot(2, n_layers, i + 1 + n_layers), plt.imshow(out, 'gray', interpolation='nearest'), plt.title('output at pyr. layer %i' % (i + 1))
+        if show_now:
+            plt.show()
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(surv_im, 'gray', interpolation='nearest')
-    plt.show()
+    return surv_im, pyr_imgs
 
 #-----------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------

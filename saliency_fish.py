@@ -23,6 +23,7 @@ import datetime
 import blobs
 import circloids
 import lbp
+import sliding_windows
 
 import sys
 if os.path.exists('../imtools/'):
@@ -350,6 +351,17 @@ def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
     return lbp_surv
 
 
+def conspicuity_sliding_window(im, mask, pyr_scale=2, min_pyr_size=20, show=False, show_now=True):
+    sliwin_surv, _ = sliding_windows.run(im, mask, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
+                                         show=show, show_now=show_now, verbose=verbose)
+
+    return sliwin_surv
+
+
+def cnospicuity_he_pipeline(im, mask):
+
+
+
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True, verbose=True):
     """
     im ... grayscale image
@@ -375,12 +387,13 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # conspicuity_prob_models(im, mask, show=show, show_now=False)
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
     # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
-    consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
+    # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
+    # consp_sliwin = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
+    consp_heep = conspicuity_he_pipeline(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
 
     # TODO: tady vypocitat ruzne conspicuity
-    # TODO: Conspicuity ... circloidy ND
+    # TODO: Conspicuity ... ND verze
     # TODO: Conspicuity ... HEQ pipeline
-    # TODO: Conspicuity ... sliding window
 
     if show:
         plt.show()
