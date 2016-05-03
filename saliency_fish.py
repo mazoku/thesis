@@ -24,6 +24,7 @@ import blobs
 import circloids
 import lbp
 import sliding_windows
+import he_pipeline
 
 import sys
 if os.path.exists('../imtools/'):
@@ -206,17 +207,6 @@ def save_figs(intensty, gabor, rg, by, cout, saliency, saliency_mark_max, base_n
 #     return clust, colors
 
 
-def sigmoid(image, mask=None, a=0.1, c=20, sigm_t = 0.2):
-    if mask is None:
-        mask = np.ones(image.shape)
-
-    im_sigm = (1. / (1 + (np.exp(-a * (image - c))))) * mask
-    im_sigm = im_sigm * (im_sigm > sigm_t)
-    im_res = im_sigm
-
-    return im_res
-
-
 def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
     _debug('Running intensity conspicuity calculation ...')
     sigm_t = 0.2
@@ -390,6 +380,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
     # consp_sliwin = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
     consp_heep = conspicuity_he_pipeline(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
+    # TODO: tools.sigmoid()
 
     # TODO: tady vypocitat ruzne conspicuity
     # TODO: Conspicuity ... ND verze

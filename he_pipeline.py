@@ -149,7 +149,7 @@ def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
         plt.figure()
         for i, (title, im) in enumerate(vis):
             plt.subplot(n_rows, n_cols, i + 1)
-            if title == 'contours':
+            if 'contours' in title:
                 plt.imshow(vis[0][1], 'gray', interpolation='nearest'), plt.title(title)
                 plt.hold(True)
                 for n, contour in enumerate(im):
@@ -190,7 +190,7 @@ def run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=False, show_now=
 #------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    data_fname = '/home/tomas/Data/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
+    data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     # data_fname = '/home/tomas/Data/liver_segmentation//org-exp_183_46324212_arterial_5.0_B30f-.pklz'
     # data_fname = '/home/tomas/Data/liver_segmentation/org-exp_180_49509315_venous_5.0_B30f-.pklz'
     config_fname = 'config.ini'
