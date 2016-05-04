@@ -341,15 +341,18 @@ def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
     return lbp_surv
 
 
-def conspicuity_sliding_window(im, mask, pyr_scale=2, min_pyr_size=20, show=False, show_now=True):
+def conspicuity_sliding_window(im, mask, pyr_scale=2, min_pyr_size=(20, 20), show=False, show_now=True):
     sliwin_surv, _ = sliding_windows.run(im, mask, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
                                          show=show, show_now=show_now, verbose=verbose)
 
     return sliwin_surv
 
 
-def cnospicuity_he_pipeline(im, mask):
+def conspicuity_he_pipeline(im, mask, proc, pyr_scale=1.5, min_pyr_size=(20, 20), show=False, show_now=True):
+    heep_surv = he_pipeline.run(im, mask, proc=proc, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
+                                show=show, show_now=show_now, verbose=verbose)
 
+    return heep_surv
 
 
 def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=False, show_now=True, verbose=True):
@@ -379,12 +382,10 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
     # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
     # consp_sliwin = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
-    consp_heep = conspicuity_he_pipeline(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
+    consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
     # TODO: tools.sigmoid()
 
-    # TODO: tady vypocitat ruzne conspicuity
     # TODO: Conspicuity ... ND verze
-    # TODO: Conspicuity ... HEQ pipeline
 
     if show:
         plt.show()

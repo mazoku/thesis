@@ -9,6 +9,8 @@ import skimage.exposure as skiexp
 import skimage.morphology as skimor
 import skimage.measure as skimea
 
+import cv2
+
 # import tools
 import os
 import sys
@@ -78,7 +80,6 @@ else:
 def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
     if not mask_o.any():
         return np.zeros_like(img_o), None
-    n_rows, n_cols = [1, len(proc) + 1]
 
     img_bbox, mask = tools.crop_to_bbox(img_o, mask_o)
 
@@ -94,9 +95,9 @@ def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
     seg = None  # final segmentation
 
     # saving input and input with liver borders
-    vis.append(('input', img_o))
-    liver_contours = skimea.find_contours(mask_o, 0.9)
-    vis.append(('liver contours', (img_o, liver_contours)))
+    # vis.append(('input', img_o))
+    # liver_contours = skimea.find_contours(mask_o, 0.9)
+    # vis.append(('liver contours', (img_o, liver_contours)))
 
     # smoothing
     if 'smo' in proc or 'smoothing' in proc:
@@ -146,13 +147,15 @@ def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
     # plt.show()
 
     if show:
+        n_rows, n_cols = [1, len(vis)]
         plt.figure()
         for i, (title, im) in enumerate(vis):
             plt.subplot(n_rows, n_cols, i + 1)
             if 'contours' in title:
-                plt.imshow(vis[0][1], 'gray', interpolation='nearest'), plt.title(title)
+                # plt.imshow(vis[0][1], 'gray', interpolation='nearest'), plt.title(title)
+                plt.imshow(im[0], 'gray', interpolation='nearest'), plt.title(title)
                 plt.hold(True)
-                for n, contour in enumerate(im):
+                for n, contour in enumerate(im[1]):
                     plt.plot(contour[:, 1], contour[:, 0], linewidth=2)
                 plt.axis('image')
             else:
@@ -169,22 +172,57 @@ def process_slice(img_o, mask_o, proc, show=False, show_now=False, t=0.2):
     return seg, vis
 
 
-def run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=False, show_now=False):
+def run(image, mask, proc=['smoo', 'equa', 'clos', 'cont'], pyr_scale=1.5, min_pyr_size=(30, 30),
+        show=False, show_now=False, save_fig=False, verbose=True):
     # data, mask = tools.crop_to_bbox(data, mask)
-    segs = []
+    pyr_segs = []
     vis = []
 
-    for i in range(data.shape[0]):
-        # print 'Processing slice #%i/%i' % (i + 1, data.shape[0]),
-        print tools.get_status_text('\tProcessing slices', iter=i, max_iter=data.shape[0]),
-        seg_s, vis_s = process_slice(data[i, :, :], mask[i, :, :], proc=['smo', 'equ', 'clo', 'con'],
-                                     show=show, show_now=show_now)
-        segs.append(seg_s)
-        vis.append(vis_s)
-        # print 'done'
-    print tools.get_status_text('\tProcessing slice', iter=-1, max_iter=data.shape[0])
+    image, mask = tools.crop_to_bbox(image, mask)
+    # for i in range(data.shape[0]):
+    #     # print 'Processing slice #%i/%i' % (i + 1, data.shape[0]),
+    #     print tools.get_status_text('\tProcessing slices', iter=i, max_iter=data.shape[0]),
+    #     seg_s, vis_s = process_slice(data[i, :, :], mask[i, :, :], proc=['smo', 'equ', 'clo', 'con'],
+    #                                  show=show, show_now=show_now)
+    #     segs.append(seg_s)
+    #     vis.append(vis_s)
+    #     # print 'done'
+    # print tools.get_status_text('\tProcessing slice', iter=-1, max_iter=data.shape[0])
 
-    return np.array(segs), vis
+    # pyr_scale = 1.5
+    pyr_imgs = []
+    pyr_masks = []
+    for layer_id, (im_pyr, mask_pyr) in enumerate(zip(tools.pyramid(image, scale=pyr_scale, min_size=min_pyr_size, inter=cv2.INTER_NEAREST),
+                                                      tools.pyramid(mask, scale=pyr_scale, min_size=min_pyr_size, inter=cv2.INTER_NEAREST))):
+        seg_s, vis_s = process_slice(im_pyr, mask_pyr, proc=proc, show=False, show_now=show_now)
+        heep = (vis_s[-2][1].max() - vis_s[-2][1]) * mask_pyr
+
+        pyr_segs.append(heep)
+        pyr_imgs.append(im_pyr)
+        pyr_masks.append(mask_pyr)
+
+    # survival overall
+    surv_overall = np.zeros(image.shape)
+    for survs_l in pyr_segs:
+        surv_overall += cv2.resize(survs_l, image.shape[::-1])
+
+    if show:
+        n_layers = len(pyr_segs)
+        imgs = [image, surv_overall] + pyr_segs
+        n_non_layers = len(imgs) - len(pyr_segs)
+        titles = ['input', 'surv'] + ['layer #%i' % (i + 1) for i in range(n_layers)]
+        # to_rgb = [0, 0] + n_layers * [1, ]
+        cmaps = ['gray', 'jet'] + n_layers * ['jet']
+        plt.figure()
+        # for i, (im, tit, cmap, conv) in enumerate(zip(imgs, titles, cmaps, to_rgb)):
+        for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
+            plt.subplot(1, n_layers + n_non_layers, i + 1)
+            plt.imshow(im, cmap, interpolation='nearest')
+            plt.title(tit)
+        if show_now:
+            plt.show()
+
+    return surv_overall
 
 
 #------------------------------------------------------------------------------------------------
@@ -198,4 +236,17 @@ if __name__ == '__main__':
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     print 'Processing file -- %s' % data_fname[data_fname.rfind('/') + 1:]
-    run(data, mask, proc=['smoo', 'equa', 'clos', 'cont'], show=True, show_now=True)
+
+    slice_ind = 18
+    data_s = data[slice_ind, :, :]
+    data_s = tools.windowing(data_s)
+    mask_s = mask[slice_ind, :, :]
+
+    show = True
+    show_now = True
+    save_fig = True
+    verbose = True
+    pyr_scale = 1.5
+    proc = ['smo', 'equ', 'clo', 'con']
+
+    run(data_s, mask_s, proc=proc, show=show, show_now=show_now, verbose=verbose)
