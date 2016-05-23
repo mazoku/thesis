@@ -27,6 +27,59 @@ else:
     print 'You need to import package dataviewers: https://github.com/mazoku/data_viewers'
     sys.exit(0)
 
+from skdata.mnist.views import OfficialVectorClassification
+from tqdm import tqdm
+
+
+def data2files(data_dir, cube_shape, step, shape=(50, 50)):
+    data_names = []
+    for (rootDir, dirNames, filenames) in os.walk(data_dir):
+        for filename in filenames:
+            if filename[-5:] == '.pklz':
+                data_names.append(filename)
+
+    for i, dirname in enumerate(data_names):
+        print 'Processing dir #%i/%i, %s:' % (i + 1, len(data_names), dirname),
+        data_path = os.path.join(data_dir, dirname)
+        print 'slicing ...',
+        data_cubes, label_cubes = slice_data(data_path, reshape=False, cube_shape=cube_shape, step=step)
+
+        print 'saving to list ...',
+        # data po rezech do listu
+        data_cubes_resh = []
+        for d in data_cubes:
+            # print d.shape
+            for s in d:
+                data_cubes_resh.append(misc.resize_to_shape(s, shape=shape))
+
+        # data po rezech do listu
+        label_cubes_resh = []
+        for d in label_cubes:
+            # print d.shape
+            for s in d:
+                label_cubes_resh.append(misc.resize_to_shape(s, shape=shape))
+
+        print 'done'
+
+    # data na disk
+    res_dir = '/home/tomas/Data/medical/dataset/gt/slicewise'
+    if not os.path.exists(res_dir):
+        os.mkdir(res_dir)
+
+    print 'Saving data file ...',
+    data_fname = os.path.join(res_dir, 'data.npz')
+    data_file = gzip.open(data_fname, 'wb', compresslevel=1)
+    np.save(data_file, np.array(data_cubes_resh))
+    data_file.close()
+    print 'done'
+
+    print 'Saving label file ...',
+    label_fname = os.path.join(res_dir, 'labels.npz')
+    label_file = gzip.open(label_fname, 'wb', compresslevel=1)
+    np.save(label_file, np.array(label_cubes_resh))
+    label_file.close()
+    print 'done'
+
 
 def slice_data(fname, reshape=True, cube_shape=(20, 20, 20), step=10):
     datap = tools.load_pickle_data(fname, return_datap=True)
@@ -40,11 +93,12 @@ def slice_data(fname, reshape=True, cube_shape=(20, 20, 20), step=10):
     # labels = 2 * np.ones((4, 10, 10))
 
     # resizing data to have same spacing
-    orig_shape = data3d.shape
-    n_slices = orig_shape[0] * (voxelsize_mm[0] / voxelsize_mm[1])
-    new_shape = (n_slices, orig_shape[1], orig_shape[2])
-    data3d = misc.resize_to_shape(data3d, shape=new_shape, order=1)
-    labels = misc.resize_to_shape(labels, shape=new_shape, order=0)
+    if reshape:
+        orig_shape = data3d.shape
+        n_slices = orig_shape[0] * (voxelsize_mm[0] / voxelsize_mm[1])
+        new_shape = (n_slices, orig_shape[1], orig_shape[2])
+        data3d = misc.resize_to_shape(data3d, shape=new_shape, order=1)
+        labels = misc.resize_to_shape(labels, shape=new_shape, order=0)
 
     # print [(x, (labels == x).sum()) for x in np.unique(labels)]
     lesion_lbl = 1
@@ -172,5 +226,10 @@ if __name__ == '__main__':
     #     print data_cube
         # seg_viewer.show(data_cube, 200 * label_cube, app=app)
 
-    cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes_50/180_venous'
-    check_data(cube_dir)
+    # cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes_50/180_venous'
+    # check_data(cube_dir)
+
+    cube_shape = (1, 50, 50)
+    step = 25
+    shape = (50, 50)
+    data2files(data_dir, cube_shape, step=(1, step, step), shape=shape)

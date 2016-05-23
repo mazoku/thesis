@@ -42,14 +42,14 @@ def calc_survival_fcn(imgs, masks, show=False, show_now=True):
     return surv_im# * mask
 
 
-def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, verbose=True):
+def run(image, mask, pyr_scale=1.5, min_pyr_size=(30, 30), show=False, show_now=True, verbose=True):
     image = tools.smoothing(image)
 
     pyr_imgs = []
     outs = []
     pyr_masks = []
-    for im_pyr, mask_pyr in zip(tools.pyramid(image, scale=pyr_scale, min_size=(min_pyr_size, min_pyr_size), inter=cv2.INTER_NEAREST),
-                                tools.pyramid(mask, scale=pyr_scale, min_size=(min_pyr_size, min_pyr_size), inter=cv2.INTER_NEAREST)):
+    for im_pyr, mask_pyr in zip(tools.pyramid(image, scale=pyr_scale, min_size=min_pyr_size, inter=cv2.INTER_NEAREST),
+                                tools.pyramid(mask, scale=pyr_scale, min_size=min_pyr_size, inter=cv2.INTER_NEAREST)):
         im_pyr, mask_pyr = tools.crop_to_bbox(im_pyr, mask_pyr)
 
         hist, bins = skiexp.histogram(im_pyr[np.nonzero(mask_pyr)])
@@ -102,8 +102,8 @@ def run(image, mask, pyr_scale=2., min_pyr_size=20, show=False, show_now=True, v
         n_layers = len(outs)
         plt.figure()
         plt.suptitle(suptitle)
-        for i, (im, out) in enumerate(zip(outs, pyr_imgs)):
-            plt.subplot(2, n_layers, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('inut at pyr. layer %i' % (i + 1))
+        for i, (im, out) in enumerate(zip(pyr_imgs, outs)):
+            plt.subplot(2, n_layers, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('input at pyr. layer %i' % (i + 1))
             plt.subplot(2, n_layers, i + 1 + n_layers), plt.imshow(out, 'gray', interpolation='nearest'), plt.title('output at pyr. layer %i' % (i + 1))
 
         plt.figure()

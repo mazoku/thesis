@@ -77,7 +77,7 @@ def cross_scale_diffs(image, channel, levels=9, start_size=(640,480), ):
     for l in xrange(levels - 1):
         logger.debug("scaling at level %d", l)
         new_s = tools.pyramid_down(scales[-1], smooth=True)
-        new_s = sigmoid(new_s)
+        new_s = tools.sigmoid(new_s)
         # new_s = cv2.pyrDown(src=scales[-1])
         if new_s is not None:
             scales.append(new_s)
@@ -221,7 +221,7 @@ def conspicuity_intensity(im, mask=None, type='both', use_sigmoid=True, morph_pr
         im_diff = np.abs(im - mean_v) * ((im - mean_v) > 0) * mask
 
     if use_sigmoid:
-        im_sigm = sigmoid(im_diff, mask, a=a, c=c, sigm_t=sigm_t)
+        im_sigm = tools.sigmoid(im_diff, mask, a=a, c=c, sigm_t=sigm_t)
         # im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
         # im_sigm = im_sigm * (im_sigm > sigm_t)
         im_res = im_sigm.copy()
@@ -341,7 +341,7 @@ def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
     return lbp_surv
 
 
-def conspicuity_sliding_window(im, mask, pyr_scale=2, min_pyr_size=(20, 20), show=False, show_now=True):
+def conspicuity_sliding_window(im, mask, pyr_scale=2., min_pyr_size=(20, 20), show=False, show_now=True):
     sliwin_surv, _ = sliding_windows.run(im, mask, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
                                          show=show, show_now=show_now, verbose=verbose)
 
@@ -381,9 +381,8 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
     # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
     # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
-    # consp_sliwin = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
-    consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
-    # TODO: tools.sigmoid()
+    consp_sliwin = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
+    # consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
 
     # TODO: Conspicuity ... ND verze
 
