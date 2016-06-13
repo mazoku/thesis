@@ -1,5 +1,7 @@
 from __future__ import division
 
+import numpy as np
+
 import progressbar
 import tensorflow as tf
 
@@ -126,5 +128,78 @@ def advanced_tf():
     print("test accuracy %g" % accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
 
 
+def read_and_decode_single_example(filename, data_size, labels_size):
+    # first construct a queue containing a list of filenames.
+    # this lets a user split up there dataset in multiple files to keep
+    # size down
+    filename_queue = tf.train.string_input_producer([filename],
+                                                    num_epochs=None)
+    # Unlike the TFRecordWriter, the TFRecordReader is symbolic
+    reader = tf.TFRecordReader()
+    # One can read a single serialized example from a filename
+    # serialized_example is a Tensor of type string.
+    _, serialized_example = reader.read(filename_queue)
+    # The serialized example is converted back to actual values.
+    # One needs to describe the format of the objects to be returned
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            # We know the length of both fields. If not the
+            # tf.VarLenFeature could be used
+            'label': tf.FixedLenFeature([labels_size], tf.int64),
+            'image': tf.FixedLenFeature([data_size], tf.int64)
+            # 'label': tf.VarLenFeature(tf.int64),
+            # 'image': tf.VarLenFeature(tf.int64)
+        })
+    # now return the converted data
+    label = features['label']
+    image = features['image']
+
+    # resizing if rewuired
+    # if resize_labels_fac != 0:
+    #     pass
+    return label, image
+
+
+def train_batches(tfrecords_path, data_shape, labels_shape):
+    data_size = np.prod(data_shape)
+    labels_size = np.prod(labels_shape)
+    # get single examples
+    label, image = read_and_decode_single_example(tfrecords_path, data_size, labels_size)
+    image = tf.cast(image, tf.float32) / 255.
+    # groups examples into batches randomly
+    images_batch, labels_batch = tf.train.shuffle_batch([image, label], batch_size=128, capacity=2000,
+                                                        min_after_dequeue=1000)
+
+    # simple model
+    w = tf.get_variable('w1', [data_size, labels_size])
+    y_pred = tf.matmul(images_batch, w)
+    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_pred, labels_batch)
+
+    # for monitoring
+    loss_mean = tf.reduce_mean(loss)
+
+    train_op = tf.train.AdamOptimizer().minimize(loss)
+
+    sess = tf.Session()
+    init = tf.initialize_all_variables()
+    sess.run(init)
+    tf.train.start_queue_runners(sess=sess)
+
+    it = 1
+    while True:
+        print 'iteration # %i' % it
+        # pass it in through the feed_dict
+        _, loss_val = sess.run([train_op, loss_mean])
+        print loss_val
+        it += 1
+
+# ------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
     advanced_tf()
+
+    tfrecords_path = '/home/tomas/Data/medical/dataset/gt/slicewise/data.tfrecords'
+    data_size = (60, 60)
+    labels_shape = (20, 20)
+    train_batches(tfrecords_path, data_size, labels_shape)

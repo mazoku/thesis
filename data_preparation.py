@@ -11,6 +11,11 @@ import numpy as np
 from PyQt4 import QtCore, QtGui
 import matplotlib.pyplot as plt
 
+import tensorflow as tf
+
+from skdata.mnist.views import OfficialVectorClassification
+from tqdm import tqdm
+
 if os.path.exists('../imtools/'):
     # sys.path.append('../imtools/')
     sys.path.insert(0, '../imtools/')
@@ -27,11 +32,8 @@ else:
     print 'You need to import package dataviewers: https://github.com/mazoku/data_viewers'
     sys.exit(0)
 
-from skdata.mnist.views import OfficialVectorClassification
-from tqdm import tqdm
 
-
-def data2files(data_dir, cube_shape, step, shape=(50, 50)):
+def data2files(data_dir, cube_shape, step, shape=(50, 50), resize_labels_fac=1):
     data_names = []
     for (rootDir, dirNames, filenames) in os.walk(data_dir):
         for filename in filenames:
@@ -52,13 +54,18 @@ def data2files(data_dir, cube_shape, step, shape=(50, 50)):
             for s in d:
                 data_cubes_resh.append(misc.resize_to_shape(s, shape=shape))
 
-        # data po rezech do listu
+        # labely po rezech do listu
         label_cubes_resh = []
         for d in label_cubes:
             # print d.shape
             for s in d:
-                label_cubes_resh.append(misc.resize_to_shape(s, shape=shape))
+                new_shape = tuple((x / resize_labels_fac for x in shape))
+                lab = misc.resize_to_shape(s, shape=new_shape)
+                label_cubes_resh.append(lab)
 
+        posit_flag = np.array(label_cubes_resh).sum(axis=1).sum(axis=1) > 0
+        perc_posit = 100 * (posit_flag).sum() / len(posit_flag)
+        print 'rel. posit. = %.1f%% ... ' % perc_posit,
         print 'done'
 
     # data na disk
@@ -78,6 +85,43 @@ def data2files(data_dir, cube_shape, step, shape=(50, 50)):
     label_file = gzip.open(label_fname, 'wb', compresslevel=1)
     np.save(label_file, np.array(label_cubes_resh))
     label_file.close()
+    print 'done'
+
+
+def data2TF_records(data, labels, tfrecords_path):
+    # data = OfficialVectorClassification()
+    # trIdx = data.sel_idxs[:]
+    trIdx = np.arange(labels.shape[0])
+
+    writer = tf.python_io.TFRecordWriter(tfrecords_path)
+    np.random.shuffle(trIdx)
+    print 'Saving tf records ...',
+    # iterate over each example
+    # wrap with tqdm for a progress bar
+    for example_idx in tqdm(trIdx):
+        features = data[example_idx, :, :][:].flatten()
+        label = labels[example_idx, :, :][:].flatten()
+
+        # features2 = data.all_vectors[example_idx]
+        # label2 = data.all_labels[example_idx]
+
+        # construct the Example proto boject
+        example = tf.train.Example(
+            # Example contains a Features proto object
+            features=tf.train.Features(
+                # Features contains a map of string to Feature proto objects
+                feature={
+                    # A Feature contains one of either a int64_list,
+                    # float_list, or bytes_list
+                    'label': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=label.astype("int64"))),
+                    'image': tf.train.Feature(
+                        int64_list=tf.train.Int64List(value=features.astype("int64"))),
+                }))
+        # use the proto object to serialize the example to a string
+        serialized = example.SerializeToString()
+        # write the serialized object to disk
+        writer.write(serialized)
     print 'done'
 
 
@@ -229,7 +273,24 @@ if __name__ == '__main__':
     # cube_dir = '/home/tomas/Data/medical/dataset/gt/cubes_50/180_venous'
     # check_data(cube_dir)
 
+    # slicing data to cubes and writing to file
     cube_shape = (1, 50, 50)
     step = 25
-    shape = (50, 50)
-    data2files(data_dir, cube_shape, step=(1, step, step), shape=shape)
+    shape = (60, 60)
+    resize_labels_fac = 3
+    data2files(data_dir, cube_shape, step=(1, step, step), shape=shape, resize_labels_fac=resize_labels_fac)
+
+    # serializing data to TFRecords format and writing to file
+    data_path = '/home/tomas/Data/medical/dataset/gt/slicewise/data.npz'
+    label_path = '/home/tomas/Data/medical/dataset/gt/slicewise/labels.npz'
+    tfrecords_path = '/home/tomas/Data/medical/dataset/gt/slicewise/data.tfrecords'
+
+    data_file = gzip.open(data_path, 'rb', compresslevel=1)
+    data = np.load(data_file)
+    data_file.close()
+
+    label_file = gzip.open(label_path, 'rb', compresslevel=1)
+    labels = np.load(label_file)
+    label_file.close()
+
+    data2TF_records(data, labels, tfrecords_path)
