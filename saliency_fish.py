@@ -28,7 +28,6 @@ import he_pipeline
 
 import sys
 if os.path.exists('../imtools/'):
-    # sys.path.append('../imtools/')
     sys.path.insert(0, '../imtools/')
     from imtools import tools, misc
 else:
