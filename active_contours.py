@@ -6,6 +6,9 @@ import sys
 import os
 
 import scipy.ndimage.filters as scindifil
+import skimage.transform as skitra
+
+import localized_level_sets as lls
 
 if os.path.exists('../imtools/'):
     # sys.path.append('../imtools/')
@@ -15,13 +18,14 @@ else:
     print 'You need to import package imtools: https://github.com/mjirik/imtools'
     sys.exit(0)
 
-if os.path.exists('../growcut/'):
-    # sys.path.append('../imtools/')
-    sys.path.insert(0, '../growcut/')
-    from growcut import growcut
-else:
-    print 'You need to import package growcut: https://github.com/mazoku/growcut'
-    sys.exit(0)
+# if os.path.exists('../growcut/'):
+#     # sys.path.append('../imtools/')
+#     sys.path.insert(0, '../growcut/')
+#     from growcut import growcut
+# else:
+#     print 'You need to import package growcut: https://github.com/mazoku/growcut'
+#     sys.exit(0)
+
 
 
 def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01):
@@ -44,10 +48,18 @@ def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01):
     return labs
 
 
-def run(im, mask=None, smoothing=False, show=False, show_now=True, verbose=True):
-    init = initialize(im, dens_min=10, dens_max=245)
+def localized_seg(im, mask):
+    im = skitra.rescale(im, scale=0.5, preserve_range=True)
+    mask = skitra.rescale(mask, scale=0.5, preserve_range=True).astype(np.bool)
+    lls.run(im, mask)
 
-    pass
+
+def run(im, mask=None, smoothing=False, show=False, show_now=True, save_fig=False, verbose=True):
+    init_mask = np.zeros(im.shape, dtype=np.bool)
+    init_mask[37:213, 89:227] = 1
+    localized_seg(im, init_mask)
+    # init = initialize(im, dens_min=10, dens_max=245)
+
 
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
