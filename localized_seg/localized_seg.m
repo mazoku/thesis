@@ -49,10 +49,10 @@ function seg = localized_seg(I,init_mask,max_its,rad,alpha,method,display)
   %-- Default localization radius is 1/10 of average length
   [dimy dimx] = size(I);
   if(~exist('rad','var')) 
-    rad = round((dimy+dimx)/(2*8)); 
-%     if(display>0) 
-%       disp(['localiztion radius is: ' num2str(rad) ' pixels']); 
-%     end
+    rad = round((dimy+dimx)/(2*8));
+    if(display>0)
+      disp(['localiztion radius is: ' num2str(rad) ' pixels']);
+    end
   end
   
   %-- Create a signed distance map (SDF) from mask

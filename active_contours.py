@@ -1,12 +1,14 @@
 from __future__ import division
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import sys
 import os
 
 import scipy.ndimage.filters as scindifil
 import skimage.transform as skitra
+from skimage import img_as_float
 
 import localized_level_sets as lls
 
@@ -15,21 +17,20 @@ if os.path.exists('../imtools/'):
     sys.path.insert(0, '../imtools/')
     from imtools import tools, misc
 else:
-    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    print 'Import error in active_contours.py. You need to import package imtools: https://github.com/mjirik/imtools'
     sys.exit(0)
 
-# if os.path.exists('../growcut/'):
-#     # sys.path.append('../imtools/')
-#     sys.path.insert(0, '../growcut/')
-#     from growcut import growcut
-# else:
-#     print 'You need to import package growcut: https://github.com/mazoku/growcut'
-#     sys.exit(0)
+if os.path.exists('../growcut/'):
+    # sys.path.append('../imtools/')
+    sys.path.insert(0, '../growcut/')
+    from growcut import growcut
+else:
+    print 'You need to import package growcut: https://github.com/mazoku/growcut'
+    sys.exit(0)
 
 
-
-def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01):
-    _, liver_rv = tools.dominant_class(data, dens_min=dens_min, dens_max=dens_max, show=False, show_now=False)
+def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01, show=False, show_now=True):
+    _, liver_rv = tools.dominant_class(data, dens_min=dens_min, dens_max=dens_max, show=show, show_now=show_now)
 
     liver_prob = liver_rv.pdf(data)
 
@@ -39,7 +40,13 @@ def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01):
     seeds2 = liver_prob <= (np.median(liver_prob) * prob_c_2)
     seeds = seeds1 + 2 * seeds2
 
-    gc = GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
+    plt.figure()
+    plt.subplot(131), plt.imshow(data, 'gray')
+    plt.subplot(132), plt.imshow(liver_prob, 'gray')
+    plt.subplot(133), plt.imshow(seeds, 'gray')
+    plt.show()
+
+    gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
     gc.run()
 
     labs = gc.get_labeled_im().astype(np.uint8)
@@ -55,9 +62,18 @@ def localized_seg(im, mask):
 
 
 def run(im, mask=None, smoothing=False, show=False, show_now=True, save_fig=False, verbose=True):
-    init_mask = np.zeros(im.shape, dtype=np.bool)
-    init_mask[37:213, 89:227] = 1
-    localized_seg(im, init_mask)
+    if smoothing:
+        im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
+    init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(im, 'gray')
+    plt.subplot(122), plt.imshow(init_mask, 'gray')
+    plt.show()
+
+    # init_mask = np.zeros(im.shape, dtype=np.bool)
+    # init_mask[37:213, 89:227] = 1
+    # localized_seg(im, init_mask)
     # init = initialize(im, dens_min=10, dens_max=245)
 
 
@@ -73,8 +89,39 @@ if __name__ == "__main__":
     data_s = tools.windowing(data_s)
     mask_s = mask[slice_ind, :, :]
 
-    data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
-    mean_v = int(data_s[np.nonzero(mask_s)].mean())
-    data_s = np.where(mask_s, data_s, mean_v)
-    data_s *= mask_s.astype(data_s.dtype)
+    #---
+    data = tools.windowing(data, sliceId=0)
+    data = tools.smoothing(data, sigmaSpace=10, sigmaColor=10, sliceId=0)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(data[slice_ind, ...], 'gray')
+    # plt.subplot(122), plt.imshow(data2[slice_ind, ...], 'gray')
+    # plt.show()
+    _, liver_rv = tools.dominant_class(data, dens_min=50, dens_max=220, show=True, show_now=False)
+    liver_prob = liver_rv.pdf(data)
+
+    prob_c = 0.2
+    prob_c_2 = 0.01
+    seeds1 = liver_prob > (liver_prob.max() * prob_c)
+    seeds2 = liver_prob <= (np.median(liver_prob) * prob_c_2)
+    seeds = seeds1 + 2 * seeds2
+
+    plt.figure()
+    plt.subplot(131), plt.imshow(data_s, 'gray')
+    plt.subplot(132), plt.imshow(liver_prob[slice_ind,...], 'gray')
+    plt.subplot(133), plt.imshow(seeds[slice_ind,...], 'gray')
+    plt.show()
+
+    gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7, maxits=4)
+    gc.run()
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(data_s, 'gray')
+    plt.subplot(122), plt.imshow(gc.get_labeled_im().astype(np.uint8)[slice_ind,...], 'gray')
+    plt.show()
+    #---
+
+    # data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
+    # mean_v = int(data_s[np.nonzero(mask_s)].mean())
+    # data_s = np.where(mask_s, data_s, mean_v)
+    # data_s *= mask_s.astype(data_s.dtype)
     run(data_s, mask=mask_s, smoothing=True, save_fig=False, show=True, verbose=verbose)
