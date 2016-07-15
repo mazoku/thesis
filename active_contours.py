@@ -10,8 +10,11 @@ import scipy.ndimage.filters as scindifil
 import skimage.transform as skitra
 import skimage.feature as skifea
 import skimage.morphology as skimor
+import skimage.measure as skimea
 import skimage.exposure as skiexp
 from skimage import img_as_float
+
+from collections import namedtuple
 
 import localized_level_sets as lls
 
@@ -84,9 +87,63 @@ def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 
 
     gcm_t = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
 
+    blobs = analyze_gcm(gcm_t)
+
     plt.figure()
     plt.imshow(gcm_t, 'gray')
     plt.show()
+
+
+def analyze_gcm(gcm, area_t=200, ecc_t=0.35):
+    labs_im = skimea.label(gcm, connectivity=2)
+    labels = np.unique(labs_im)
+    n_labs = labs_im.max() + 1
+
+    # areas = [(labs_im == l).sum() for l in labels]
+    areas = []
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(gcm, 'gray', interpolation='nearest')
+    # plt.subplot(122), plt.imshow(labs_im, 'jet', interpolation='nearest')
+    # plt.show()
+
+    blobs = describe_blob(labs_im, area_t=area_t, ecc_t=ecc_t)
+
+
+def describe_blob(labs_im, area_t=200, ecc_t=0.35):
+    props = skimea.regionprops(labs_im)
+    blobs = []
+    blob = namedtuple('blob', ['label', 'area', 'centroid', 'eccentricity'])
+    for i, prop in enumerate(props):
+        label = prop.label
+        area = int(prop.area)
+        centroid = map(int, prop.centroid)
+        major_axis = prop.major_axis_length
+        minor_axis = prop.minor_axis_length
+        # my_ecc = minor_axis / major_axis
+        try:
+            eccentricity = minor_axis / major_axis
+        except ZeroDivisionError:
+            eccentricity = 0
+        print '#{}: area={}, centroid={}, eccentricity={:.2f}'.format(i, area, centroid, eccentricity),
+
+        if (area > area_t) and (eccentricity > ecc_t):
+            blobs.append(blob(label, area, centroid, eccentricity))
+            print '... OK'
+        elif area <= area_t:
+            print '... TO SMALL - DISCARDING'
+        elif eccentricity <= ecc_t:
+            print '... SPLITTING'
+            blobs += split_blob(labs_im == label, prop)
+
+    return blobs
+
+
+def split_blob(im, prop):
+    centroid = map(int, prop.centroid)
+    major_axis = prop.major_axis_length
+    minor_axis = prop.minor_axis_length
+    
 
 
 def localized_seg(im, mask):
