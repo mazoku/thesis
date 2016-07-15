@@ -1,11 +1,14 @@
 from __future__ import division
 
 import numpy as np
+import scipy.stats as scista
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import sys
 import os
 
+import cv2
 import scipy.ndimage.filters as scindifil
 import skimage.transform as skitra
 import skimage.feature as skifea
@@ -65,8 +68,6 @@ def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 
     if scale != 1:
         data = tools.resize3D(data, scale, sliceId=0)
 
-    data = tools.smoothing(data, sigmaSpace=10, sigmaColor=10, sliceId=0)
-
     print 'Computing gray co-occurence matrix ...',
     gcm = skifea.greycomatrix(data, distances, angles, symmetric=symmetric)
     print 'done'
@@ -87,20 +88,93 @@ def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 
 
     gcm_t = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
 
-    blobs = analyze_gcm(gcm_t)
+    rvs = analyze_gcm(gcm_t)
+    n_rvs = len(rvs)
+
+    seeds = np.zeros(data.shape, dtype=np.uint8)
+    best_probs = np.zeros(data.shape)  # assign the most probable label if more than one are possible
+    for i, rv in enumerate(rvs):
+        probs = rv.pdf(data)
+        s = probs > probs.mean()  # probability threshold
+        s = np.where((probs * s) > (best_probs * s), i + 1, s)  # assign new label only if its probability is higher
+        best_probs = np.where(s, probs, best_probs)  # update best probs
+        seeds = np.where(s, i + 1, seeds)  # update seeds
+
+    # plt.figure()
+    # plt.subplot(121)
+    # plt.imshow(data, 'gray', interpolation='nearest')
+    # plt.title('input')
+    # plt.subplot(122)
+    # plt.imshow(seeds, 'jet', interpolation='nearest')
+    # divider = make_axes_locatable(plt.gca())
+    # cax = divider.append_axes('right', size='5%', pad=0.05)
+    # plt.colorbar(cax=cax, ticks=np.unique(seeds))
+    # plt.title('seeds')
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.subplot(200 + 10 * n_rvs + 1), plt.imshow(data, 'gray', interpolation='nearest')
+    # plt.title('input')
+    # for i, rv in enumerate(rvs):
+    #     im_prob = rv.pdf(data)
+    #     plt.subplot(200 + 10 * n_rvs + n_rvs + i + 1)
+    #     plt.imshow(im_prob, 'gray', interpolation='nearest')
+    #     plt.title('mean={:.1f}, std={:.1f}'.format(rv.mean(), rv.std()))
+    #
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.imshow(gcm_t, 'gray')
+    # plt.show()
+
+    gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
+    gc.run()
+
+    labs = gc.get_labeled_im().astype(np.uint8)[0,...]
+    labs_f = scindifil.median_filter(labs, size=5)
+
+    # plt.figure()
+    # plt.subplot(221)
+    # plt.imshow(data, 'gray', interpolation='nearest')
+    # plt.title('inut')
+    # plt.subplot(222)
+    # plt.imshow(seeds, 'jet', interpolation='nearest')
+    # plt.title('seeds')
+    # plt.subplot(223)
+    # plt.imshow(labs[0,...], 'jet', interpolation='nearest', vmin=0, vmax=seeds.max())
+    # plt.title('labels')
+    # plt.subplot(224)
+    # plt.imshow(labs_f[0,...], 'jet', interpolation='nearest', vmin=0, vmax=seeds.max())
+    # plt.title('filtered label')
+    # plt.show()
+
+    liver_blob = find_liver_blob(data, labs_f)
+
+    return liver_blob
+
+
+def find_liver_blob(data, labs_im, dens_min=120, dens_max=200):
+    lbls = np.unique(labs_im)
+    adepts = np.zeros_like(labs_im)
+    for l in lbls:
+        mask = labs_im == l
+        mean_int = data[np.nonzero(mask)].mean()
+        if not dens_min < mean_int < dens_max:
+            print 'mean value: {:.1f} - SKIPPING'.format(mean_int)
+            continue
+        else:
+            print 'mean value: {:.1f} - OK'.format(mean_int)
+            adepts += l * mask
 
     plt.figure()
-    plt.imshow(gcm_t, 'gray')
+    plt.subplot(121), plt.imshow(labs_im, 'jet')
+    plt.subplot(122), plt.imshow(adepts, 'jet', vmin=labs_im.min(), vmax=labs_im.max())
     plt.show()
+    pass
 
 
 def analyze_gcm(gcm, area_t=200, ecc_t=0.35):
     labs_im = skimea.label(gcm, connectivity=2)
-    labels = np.unique(labs_im)
-    n_labs = labs_im.max() + 1
-
-    # areas = [(labs_im == l).sum() for l in labels]
-    areas = []
 
     # plt.figure()
     # plt.subplot(121), plt.imshow(gcm, 'gray', interpolation='nearest')
@@ -108,9 +182,16 @@ def analyze_gcm(gcm, area_t=200, ecc_t=0.35):
     # plt.show()
 
     blobs = describe_blob(labs_im, area_t=area_t, ecc_t=ecc_t)
+    means = [np.array(b.centroid).mean() for b in blobs]
+    stds = 5 / np.array([b.eccentricity for b in blobs])
+
+    rvs = [scista.norm(m, s) for m, s in zip(means, stds)]
+
+    return rvs
 
 
-def describe_blob(labs_im, area_t=200, ecc_t=0.35):
+def describe_blob(labs_im, area_t=200, ecc_t=0.25):
+    # TODO: misto ecc kontrolovat jen major_axis?
     props = skimea.regionprops(labs_im)
     blobs = []
     blob = namedtuple('blob', ['label', 'area', 'centroid', 'eccentricity'])
@@ -134,16 +215,68 @@ def describe_blob(labs_im, area_t=200, ecc_t=0.35):
             print '... TO SMALL - DISCARDING'
         elif eccentricity <= ecc_t:
             print '... SPLITTING'
-            blobs += split_blob(labs_im == label, prop)
+            splitted = split_blob(labs_im == label, prop)
+            for spl in splitted:
+                spl_blob = describe_blob(spl)
+                blobs += spl_blob
+                pass
 
     return blobs
 
 
 def split_blob(im, prop):
-    centroid = map(int, prop.centroid)
-    major_axis = prop.major_axis_length
-    minor_axis = prop.minor_axis_length
-    
+    # blobs = []
+    # blob = namedtuple('blob', ['label', 'area', 'centroid', 'eccentricity'])
+    centroid = tuple(map(int, np.round(prop.centroid)))
+    major_axis = int(round(prop.major_axis_length / 2))
+    minor_axis = int(round(prop.minor_axis_length / 2))
+    angle = int(round(np.degrees(prop.orientation)))
+
+    c1 = centroid[1] + major_axis * np.cos(prop.orientation)
+    r1 = centroid[0] - major_axis * np.sin(prop.orientation)
+    c2 = centroid[1] + major_axis * np.cos(prop.orientation + np.pi)
+    r2 = centroid[0] - major_axis * np.sin(prop.orientation + np.pi)
+
+    new_cent1 = ((centroid[0] + r1) / 2, (centroid[1] + c1) / 2)
+    new_cent1 = tuple(map(int, map(round, new_cent1)))
+    new_cent2 = ((centroid[0] + r2) / 2, (centroid[1] + c2) / 2)
+    new_cent2 = tuple(map(int, map(round, new_cent2)))
+
+
+    # imv = cv2.cvtColor(255 * im.astype(np.uint8), cv2.COLOR_GRAY2RGB)
+    # cv2.ellipse(imv, centroid, (minor_axis, major_axis), angle, 0, 360, (0, 0, 255), thickness=2)
+    # cv2.ellipse(imv, new_cent1, (minor_axis, int(round(major_axis / 2))), angle, 0, 360, (255, 0, 0), thickness=2)
+    # cv2.ellipse(imv, new_cent2, (minor_axis, int(round(major_axis / 2))), angle, 0, 360, (255, 0, 0), thickness=2)
+    #
+    # plt.figure()
+    # plt.imshow(imv, 'gray', interpolation='nearest')
+    # plt.hold(True)
+    # plt.plot(centroid[0], centroid[1], 'ro')
+    # plt.plot(c1, r1, 'go')
+    # plt.plot(c2, r2, 'go')
+    # plt.plot(new_cent1[0], new_cent1[1], 'co')
+    # plt.plot(new_cent2[0], new_cent2[1], 'yo')
+    # plt.axis('image')
+    # plt.show()
+
+    im1 = np.zeros_like(im).astype(np.uint8)
+    cv2.ellipse(im1, new_cent1, (minor_axis, int(round(major_axis / 2))), angle, 0, 360, 1, thickness=-1)
+    im1 *= im
+
+    im2 = np.zeros_like(im).astype(np.uint8)
+    cv2.ellipse(im2, new_cent2, (minor_axis, int(round(major_axis / 2))), angle, 0, 360, 1, thickness=-1)
+    im2 *= im
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im1, 'gray')
+    # plt.subplot(122), plt.imshow(im2, 'gray')
+    # plt.show()
+    #
+    # blob1 = blob(prop.label, prop.area, new_cent1, 0.5)
+    # blob2 = blob(prop.label, prop.area, new_cent2, 0.5)
+
+    # return [blob1, blob2]
+    return (im1, im2)
 
 
 def localized_seg(im, mask):
@@ -152,10 +285,11 @@ def localized_seg(im, mask):
     lls.run(im, mask)
 
 
-def run(im, mask=None, smoothing=False, show=False, show_now=True, save_fig=False, verbose=True):
+def run(im, mask=None, smoothing=True, show=False, show_now=True, save_fig=False, verbose=True):
     if smoothing:
         im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
-    init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
+    # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
+    init_mask = initialize_graycom(im, [1, 2], scale=1)
 
     plt.figure()
     plt.subplot(121), plt.imshow(im, 'gray')
@@ -181,7 +315,7 @@ if __name__ == "__main__":
     mask_s = mask[slice_ind, :, :]
 
     # data_w = tools.windowing(data)
-    initialize_graycom(data_s, [1, 2], scale=1)
+    # initialize_graycom(data_s, [1, 2], scale=1)
 
     #---
     # data = tools.windowing(data, sliceId=0)
