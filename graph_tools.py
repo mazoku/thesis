@@ -9,6 +9,7 @@ import scipy.ndimage.morphology as scindimor
 import cv2
 import scipy.ndimage.measurements as scindimea
 
+
 def make_neighborhood_matrix(im, nghood=4, roi=None):
     im = np.array(im, ndmin=3)
     n_slices, n_rows, n_cols = im.shape

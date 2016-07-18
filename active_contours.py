@@ -14,12 +14,13 @@ import skimage.transform as skitra
 import skimage.feature as skifea
 import skimage.morphology as skimor
 import skimage.measure as skimea
+import skimage.segmentation as skiseg
 import skimage.exposure as skiexp
 from skimage import img_as_float
 
 from collections import namedtuple
 
-import localized_level_sets as lls
+import lankton_lls
 
 if os.path.exists('../imtools/'):
     # sys.path.append('../imtools/')
@@ -64,15 +65,31 @@ def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01, show=Fa
     return labs
 
 
-def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=True, c_t=5):
+def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=False, c_t=5,
+                       show=False, show_now=True):
     if scale != 1:
         data = tools.resize3D(data, scale, sliceId=0)
 
+    # computing gray co-occurence matrix
     print 'Computing gray co-occurence matrix ...',
-    gcm = skifea.greycomatrix(data, distances, angles, symmetric=symmetric)
+    # gcm = skifea.greycomatrix(data, distances, angles, symmetric=symmetric)
+    # summing over distances and directions
+    # gcm = gcm.sum(axis=3).sum(axis=2)
+    gcm = tools.graycomatrix_3D(data, connectivity=1)
     print 'done'
 
-    gcm = gcm.sum(axis=3).sum(axis=2)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(gcm, 'jet', vmax=10 * gcm.mean())
+    # plt.subplot(122), plt.imshow(gcm2, 'jet', vmax=10 * gcm.mean())
+    # plt.show()
+
+    # ----
+    # gcm2 = skifea.greycomatrix(data[10,...], distances, angles, symmetric=symmetric).sum(axis=3).sum(axis=2)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(gcm, 'jet', vmax=10 * gcm.mean()), plt.title('3D gcm')
+    # plt.subplot(122), plt.imshow(gcm2, 'jet', vmax=10 * gcm2.mean()), plt.title('gcm of a slice')
+    # plt.show()
+    # ----
 
     # plt.figure()
     # thresh = np.mean(gcm)
@@ -83,14 +100,18 @@ def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 
     #     plt.title('t = %i' % t)
     # plt.show()
 
+    # thresholding graycomatrix (GCM)
     thresh = c_t * np.mean(gcm)
     gcm_t = gcm > thresh
+    gcm_to = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
 
-    gcm_t = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
+    # find peaks in the GCM and return them as random variables
+    rvs = analyze_gcm(gcm_to)
 
-    rvs = analyze_gcm(gcm_t)
-    n_rvs = len(rvs)
+    if slice is not None:
+        data = data[slice,...]
 
+    # deriving seed points
     seeds = np.zeros(data.shape, dtype=np.uint8)
     best_probs = np.zeros(data.shape)  # assign the most probable label if more than one are possible
     for i, rv in enumerate(rvs):
@@ -100,60 +121,75 @@ def initialize_graycom(data, distances, scale=0.5, angles=[0, np.pi/4, np.pi/2, 
         best_probs = np.where(s, probs, best_probs)  # update best probs
         seeds = np.where(s, i + 1, seeds)  # update seeds
 
-    # plt.figure()
-    # plt.subplot(121)
-    # plt.imshow(data, 'gray', interpolation='nearest')
-    # plt.title('input')
-    # plt.subplot(122)
-    # plt.imshow(seeds, 'jet', interpolation='nearest')
-    # divider = make_axes_locatable(plt.gca())
-    # cax = divider.append_axes('right', size='5%', pad=0.05)
-    # plt.colorbar(cax=cax, ticks=np.unique(seeds))
-    # plt.title('seeds')
-    # plt.show()
-    #
-    # plt.figure()
-    # plt.subplot(200 + 10 * n_rvs + 1), plt.imshow(data, 'gray', interpolation='nearest')
-    # plt.title('input')
-    # for i, rv in enumerate(rvs):
-    #     im_prob = rv.pdf(data)
-    #     plt.subplot(200 + 10 * n_rvs + n_rvs + i + 1)
-    #     plt.imshow(im_prob, 'gray', interpolation='nearest')
-    #     plt.title('mean={:.1f}, std={:.1f}'.format(rv.mean(), rv.std()))
-    #
-    # plt.show()
-    #
-    # plt.figure()
-    # plt.imshow(gcm_t, 'gray')
-    # plt.show()
-
+    # running Grow cut
     gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
     gc.run()
 
+    # postprocessing labels
     labs = gc.get_labeled_im().astype(np.uint8)[0,...]
     labs_f = scindifil.median_filter(labs, size=5)
 
-    # plt.figure()
-    # plt.subplot(221)
-    # plt.imshow(data, 'gray', interpolation='nearest')
-    # plt.title('inut')
-    # plt.subplot(222)
-    # plt.imshow(seeds, 'jet', interpolation='nearest')
-    # plt.title('seeds')
-    # plt.subplot(223)
-    # plt.imshow(labs[0,...], 'jet', interpolation='nearest', vmin=0, vmax=seeds.max())
-    # plt.title('labels')
-    # plt.subplot(224)
-    # plt.imshow(labs_f[0,...], 'jet', interpolation='nearest', vmin=0, vmax=seeds.max())
-    # plt.title('filtered label')
-    # plt.show()
+    plt.figure()
+    plt.subplot(131), plt.imshow(gcm, 'gray', vmax=gcm.mean()), plt.title('gcm')
+    plt.subplot(132), plt.imshow(gcm_t, 'gray'), plt.title('thresholded')
+    plt.subplot(133), plt.imshow(gcm_to, 'gray'), plt.title('opened')
 
-    liver_blob = find_liver_blob(data, labs_f)
+    plt.figure()
+    plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
+    plt.subplot(122), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.title('seeds')
+    divider = make_axes_locatable(plt.gca())
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    plt.colorbar(cax=cax, ticks=np.unique(seeds))
 
-    return liver_blob
+    plt.figure()
+    plt.subplot(141), plt.imshow(data, 'gray'), plt.title('input')
+    plt.subplot(142), plt.imshow(labs_f, 'gray'), plt.title('labels')
+    # plt.subplot(143), plt.imshow(liver_blob, 'gray'), plt.title('liver blob')
+    # plt.subplot(144), plt.imshow(init_mask, 'gray'), plt.title('init mask')
+
+    # finding liver blob
+    liver_blob = find_liver_blob(data, labs_f, show=show, show_now=show_now)
+
+    # hole filling - adding (and then removing) a capsule of zeros, otherwise it'd fill holes touching image borders
+    init_mask = np.zeros([x + 2 for x in liver_blob.shape], dtype=np.uint8)
+    if liver_blob.ndim == 3:
+        for i, im in enumerate(liver_blob):
+            init_mask[i + 1, 1:-1, 1:-1] = im
+    else:
+        init_mask[1:-1, 1:-1] = liver_blob
+    init_mask = skimor.remove_small_holes(init_mask, min_size=0.1 * liver_blob.sum(), connectivity=2)
+    if liver_blob.ndim == 3:
+        init_mask = init_mask[1:-1, 1:-1, 1:-1]
+    else:
+        init_mask = init_mask[1:-1, 1:-1]
+
+    # visualization
+    if show:
+        plt.figure()
+        plt.subplot(131), plt.imshow(gcm, 'gray', vmax=gcm.mean()), plt.title('gcm')
+        plt.subplot(132), plt.imshow(gcm_t, 'gray'), plt.title('thresholded')
+        plt.subplot(133), plt.imshow(gcm_to, 'gray'), plt.title('opened')
+
+        plt.figure()
+        plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
+        plt.subplot(122), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.title('seeds')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax, ticks=np.unique(seeds))
+
+        plt.figure()
+        plt.subplot(141), plt.imshow(data, 'gray'), plt.title('input')
+        plt.subplot(142), plt.imshow(labs_f, 'gray'), plt.title('labels')
+        plt.subplot(143), plt.imshow(liver_blob, 'gray'), plt.title('liver blob')
+        plt.subplot(144), plt.imshow(init_mask, 'gray'), plt.title('init mask')
+
+        if show_now:
+            plt.show()
+
+    return init_mask
 
 
-def find_liver_blob(data, labs_im, dens_min=120, dens_max=200):
+def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, show=False, show_now=True):
     lbls = np.unique(labs_im)
     adepts = np.zeros_like(labs_im)
     for l in lbls:
@@ -166,11 +202,21 @@ def find_liver_blob(data, labs_im, dens_min=120, dens_max=200):
             print 'mean value: {:.1f} - OK'.format(mean_int)
             adepts += l * mask
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(labs_im, 'jet')
-    plt.subplot(122), plt.imshow(adepts, 'jet', vmin=labs_im.min(), vmax=labs_im.max())
-    plt.show()
-    pass
+    adepts = skimor.binary_opening(adepts > 0, selem=skimor.disk(3))
+
+    adepts_lbl, n_labels = skimea.label(adepts, connectivity=2, return_num=True)
+    areas = [(adepts_lbl == l).sum() for l in range(1, n_labels)]
+    winner = adepts_lbl == (np.argmax(areas) + 1)
+
+    if show:
+        plt.figure()
+        plt.subplot(131), plt.imshow(labs_im, 'jet'), plt.title('labs_im')
+        plt.subplot(132), plt.imshow(adepts_lbl, 'jet', vmax=labs_im.max()), plt.title('adepts')
+        plt.subplot(133), plt.imshow(winner, 'jet', vmax=labs_im.max()), plt.title('liver blob')
+        if show_now:
+            plt.show()
+
+    return winner
 
 
 def analyze_gcm(gcm, area_t=200, ecc_t=0.35):
@@ -279,22 +325,27 @@ def split_blob(im, prop):
     return (im1, im2)
 
 
-def localized_seg(im, mask):
+def lankton_ls(im, mask, method='sfm', max_iters=1000):
     im = skitra.rescale(im, scale=0.5, preserve_range=True)
     mask = skitra.rescale(mask, scale=0.5, preserve_range=True).astype(np.bool)
-    lls.run(im, mask)
+    lankton_lls.run(im, mask, method='sfm', max_iter=1000)
 
 
-def run(im, mask=None, smoothing=True, show=False, show_now=True, save_fig=False, verbose=True):
+def run(im, slice=None, mask=None, smoothing=True, show=False, show_now=True, save_fig=False, verbose=True):
     if smoothing:
         im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
-    init_mask = initialize_graycom(im, [1, 2], scale=1)
+    if mask is None:
+        # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
+        mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(im, 'gray')
-    plt.subplot(122), plt.imshow(init_mask, 'gray')
     plt.show()
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im, 'gray'), plt.title('input')
+    # plt.subplot(122), plt.imshow(mask, 'gray'), plt.title('init mask')
+    # plt.show()
+
+    lankton_ls(im, mask, method='sfm', max_iters=1000)
 
     # init_mask = np.zeros(im.shape, dtype=np.bool)
     # init_mask[37:213, 89:227] = 1
@@ -306,50 +357,18 @@ def run(im, mask=None, smoothing=True, show=False, show_now=True, save_fig=False
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     verbose = True
+    show = True
+    show_now = False
+
     data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
-    slice_ind = 17
-    data_s = data[slice_ind, :, :]
-    data_s = tools.windowing(data_s)
-    mask_s = mask[slice_ind, :, :]
+    # 2D
+    slice_ind = 10
+    # data = data[slice_ind, :, :]
+    # data = tools.windowing(data)
 
-    # data_w = tools.windowing(data)
-    # initialize_graycom(data_s, [1, 2], scale=1)
+    # 3D
+    data = tools.windowing(data)
 
-    #---
-    # data = tools.windowing(data, sliceId=0)
-    # data = tools.smoothing(data, sigmaSpace=10, sigmaColor=10, sliceId=0)
-    # # plt.figure()
-    # # plt.subplot(121), plt.imshow(data[slice_ind, ...], 'gray')
-    # # plt.subplot(122), plt.imshow(data2[slice_ind, ...], 'gray')
-    # # plt.show()
-    # _, liver_rv = tools.dominant_class(data, dens_min=50, dens_max=220, show=True, show_now=False)
-    # liver_prob = liver_rv.pdf(data)
-    #
-    # prob_c = 0.2
-    # prob_c_2 = 0.01
-    # seeds1 = liver_prob > (liver_prob.max() * prob_c)
-    # seeds2 = liver_prob <= (np.median(liver_prob) * prob_c_2)
-    # seeds = seeds1 + 2 * seeds2
-    #
-    # plt.figure()
-    # plt.subplot(131), plt.imshow(data_s, 'gray')
-    # plt.subplot(132), plt.imshow(liver_prob[slice_ind,...], 'gray')
-    # plt.subplot(133), plt.imshow(seeds[slice_ind,...], 'gray')
-    # plt.show()
-    #
-    # gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7, maxits=4)
-    # gc.run()
-    #
-    # plt.figure()
-    # plt.subplot(121), plt.imshow(data_s, 'gray')
-    # plt.subplot(122), plt.imshow(gc.get_labeled_im().astype(np.uint8)[slice_ind,...], 'gray')
-    # plt.show()
-    #---
-
-    # data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
-    # mean_v = int(data_s[np.nonzero(mask_s)].mean())
-    # data_s = np.where(mask_s, data_s, mean_v)
-    # data_s *= mask_s.astype(data_s.dtype)
-    run(data_s, mask=mask_s, smoothing=True, save_fig=False, show=True, verbose=verbose)
+    run(data, slice=slice_ind, mask=None, smoothing=True, save_fig=False, show=show, show_now=show_now, verbose=verbose)
