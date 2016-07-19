@@ -15,6 +15,7 @@ import skimage.feature as skifea
 import skimage.morphology as skimor
 import skimage.measure as skimea
 import skimage.segmentation as skiseg
+import skimage.color as skicol
 import skimage.exposure as skiexp
 from skimage import img_as_float
 
@@ -22,21 +23,23 @@ from collections import namedtuple
 
 import lankton_lls
 
-if os.path.exists('../imtools/'):
-    # sys.path.append('../imtools/')
-    sys.path.insert(0, '../imtools/')
+if os.path.exists('/home/tomas/projects/imtools/'):
+    sys.path.insert(0, '/home/tomas/projects/imtools/')
     from imtools import tools, misc
 else:
     print 'Import error in active_contours.py. You need to import package imtools: https://github.com/mjirik/imtools'
     sys.exit(0)
 
-if os.path.exists('../growcut/'):
+if os.path.exists('/home/tomas/projects/growcut/'):
     # sys.path.append('../imtools/')
-    sys.path.insert(0, '../growcut/')
+    sys.path.insert(0, '/home/tomas/projects/growcut/')
     from growcut import growcut
 else:
     print 'You need to import package growcut: https://github.com/mazoku/growcut'
     sys.exit(0)
+
+sys.path.append('/home/tomas/projects/morphsnakes/')
+import morphsnakes
 
 
 def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01, show=False, show_now=True):
@@ -340,16 +343,64 @@ def split_blob(im, prop):
     return (im1, im2)
 
 
-def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=1.):
+def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=1., show=False, show_now=True):
     if scale != 1:
         im = skitra.rescale(im, scale=scale, preserve_range=True).astype(np.uint8)
         mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
-    print 'Computing level sets ...',
-    lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha)
+    print 'Computing level sets: %s ...' % method,
+    seg = lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha, show=show, show_now=show_now)
     print 'done'
+    return seg
 
 
-def run(im, slice=None, mask=None, smoothing=True, rad=10, alpha=0.2, scale=1., show=False, show_now=True, save_fig=False, verbose=True):
+def morph_snakes(data, mask, alpha=2000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, maxiters=50, show=False, show_now=True):
+    gI = morphsnakes.gborders(data, alpha=alpha, sigma=sigma)
+    # Morphological GAC. Initialization of the level-set.
+    mgac = morphsnakes.MorphGAC(gI, smoothing=smoothing_ls, threshold=threshold, balloon=balloon)
+    mgac.levelset = mask
+    mgac.run(iterations=maxiters)
+
+    if show:
+        visualize_seg(data, mask, mgac.levelset, 'morph snakes', show_now)
+
+        # mask_bounds = skiseg.mark_boundaries(data, mask, color=(1, 0, 0), mode='thick')
+        # seg_over = skicol.label2rgb(mgac.levelset, data, colors=['red', 'green', 'blue'], bg_label=0)
+        # seg_bounds = skiseg.mark_boundaries(data, mgac.levelset, color=(1, 0, 0), mode='thick')
+        #
+        # plt.figure()
+        # plt.suptitle('morph snakes')
+        # plt.subplot(231), plt.imshow(data, 'gray'), plt.title('input')
+        # plt.subplot(232), plt.imshow(mask, 'gray'), plt.title('init mask')
+        # plt.subplot(233), plt.imshow(mask_bounds, 'gray'), plt.title('init mask')
+        # plt.subplot(234), plt.imshow(mgac.levelset, 'gray'), plt.title('segmentation')
+        # plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
+        # plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
+        # if show_now:
+        #     plt.show()
+    return mgac.levelset
+
+
+def visualize_seg(data, mask, seg, title='active contours', show_now=True):
+    mask_bounds = skiseg.mark_boundaries(data, mask, color=(1, 0, 0), mode='thick')
+    seg_over = skicol.label2rgb(seg, data, colors=['red', 'green', 'blue'], bg_label=0)
+    seg_bounds = skiseg.mark_boundaries(data, seg, color=(1, 0, 0), mode='thick')
+
+    plt.figure()
+    plt.suptitle(title)
+    plt.subplot(231), plt.imshow(data, 'gray'), plt.title('input')
+    plt.subplot(232), plt.imshow(mask, 'gray'), plt.title('init mask')
+    plt.subplot(233), plt.imshow(mask_bounds, 'gray'), plt.title('init mask')
+    plt.subplot(234), plt.imshow(seg, 'gray'), plt.title('segmentation')
+    plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
+    plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
+    if  show_now:
+        plt.show()
+
+
+def run(im, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
+        rad=10, alpha=0.2, scale=1.,
+        sigma=1, smoothing_ls=1, threshold=0.3, balloon=1,
+        show=False, show_now=True, save_fig=False, verbose=True):
     if smoothing:
         im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
@@ -357,7 +408,11 @@ def run(im, slice=None, mask=None, smoothing=True, rad=10, alpha=0.2, scale=1., 
         # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
         im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
 
-    lankton_ls(im_init, mask, method='sfm', max_iters=1000, rad=10, alpha=0.2, scale=scale)
+    if method == 'morphsnakes':
+        seg = morph_snakes(im_init, mask, show=show, show_now=show_now)
+    elif method in ['sfm', 'lls']:
+        seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale, show=show, show_now=show_now)
+    return im_init, mask, seg
 
 
 #---------------------------------------------------------------------------------------------
@@ -366,9 +421,8 @@ if __name__ == "__main__":
     verbose = True
     show = True
     show_now = False
-    scale = 0.5
-    rad = 10
-    alpha = 0.6
+    save_fig = False
+    smoothing = True
 
     data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
@@ -382,8 +436,12 @@ if __name__ == "__main__":
     # 3D
     # data = tools.windowing(data)
 
+    method = 'sfm'
+    params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'smoothing': smoothing,
+              'save_fig': save_fig, 'show':show, 'show_now': show_now, 'verbose': verbose}
     # run(data, slice=slice_ind, mask=None, smoothing=True, save_fig=False, show=show, show_now=show_now, verbose=verbose)
-    run(data, slice=None, mask=None, smoothing=True, rad=rad, alpha=alpha, scale=scale, save_fig=False, show=show, show_now=show_now, verbose=verbose)
+    im, mask, sfm = run(data, slice=None, mask=None, method=method, **params)
+
 
     if show_now == False:
         plt.show()
