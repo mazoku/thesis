@@ -32,7 +32,7 @@ import matlab.engine
 import matlab
 
 
-def run(im, init_mask, method, max_iter=1000, rad=20, alpha=0.1, energy_type=2, display=True, show=False, show_now=True):
+def run(im, init_mask, method, max_iter=1000, rad=20, alpha=0.1, energy_type=2, display=False, show=False, show_now=True):
     eng = matlab.engine.start_matlab()
 
     im_matlab = matlab.uint8(im.tolist())

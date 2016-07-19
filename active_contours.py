@@ -350,7 +350,7 @@ def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=
     print 'Computing level sets: %s ...' % method,
     seg = lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha, show=show, show_now=show_now)
     print 'done'
-    return seg
+    return im, mask, seg
 
 
 def morph_snakes(data, mask, alpha=2000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, maxiters=50, show=False, show_now=True):
@@ -393,7 +393,7 @@ def visualize_seg(data, mask, seg, title='active contours', show_now=True):
     plt.subplot(234), plt.imshow(seg, 'gray'), plt.title('segmentation')
     plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
     plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
-    if  show_now:
+    if show_now:
         plt.show()
 
 
@@ -406,13 +406,13 @@ def run(im, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
     if mask is None:
         # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
-        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
+        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=1, show=show, show_now=show_now)
 
     if method == 'morphsnakes':
         seg = morph_snakes(im_init, mask, show=show, show_now=show_now)
     elif method in ['sfm', 'lls']:
-        seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale, show=show, show_now=show_now)
-    return im_init, mask, seg
+        im, mask, seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale, show=show, show_now=show_now)
+    return im, mask, seg
 
 
 #---------------------------------------------------------------------------------------------
