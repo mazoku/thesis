@@ -72,10 +72,12 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
 
     # computing gray co-occurence matrix
     print 'Computing gray co-occurence matrix ...',
-    # gcm = skifea.greycomatrix(data, distances, angles, symmetric=symmetric)
-    # summing over distances and directions
-    # gcm = gcm.sum(axis=3).sum(axis=2)
-    gcm = tools.graycomatrix_3D(data, connectivity=1)
+    if data.ndim == 2:
+        gcm = skifea.greycomatrix(data, distances, angles, symmetric=symmetric)
+        # summing over distances and directions
+        gcm = gcm.sum(axis=3).sum(axis=2)
+    else:
+        gcm = tools.graycomatrix_3D(data, connectivity=1)
     print 'done'
 
     # plt.figure()
@@ -117,33 +119,41 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
     for i, rv in enumerate(rvs):
         probs = rv.pdf(data)
         s = probs > probs.mean()  # probability threshold
+        s = skimor.remove_small_holes(s, min_size=0.1 * s.sum(), connectivity=2)
+        # s = skimor.binary_opening(s, selem=skimor.disk(3))
+        # plt.figure()
+        # plt.subplot(131), plt.imshow(s, 'gray')
+        # plt.subplot(132), plt.imshow(sfh, 'gray')
+        # plt.subplot(133), plt.imshow(so, 'gray')
+        # plt.show()
         s = np.where((probs * s) > (best_probs * s), i + 1, s)  # assign new label only if its probability is higher
         best_probs = np.where(s, probs, best_probs)  # update best probs
         seeds = np.where(s, i + 1, seeds)  # update seeds
 
-    # running Grow cut
-    gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
-    gc.run()
-
+    # # running Grow cut
+    # gc = growcut.GrowCut(data, seeds, smooth_cell=False, enemies_T=0.7)
+    # gc.run()
+    #
     # postprocessing labels
-    labs = gc.get_labeled_im().astype(np.uint8)[0,...]
-    labs_f = scindifil.median_filter(labs, size=5)
+    # labs = gc.get_labeled_im().astype(np.uint8)[0,...]
+    # labs_f = scindifil.median_filter(labs, size=5)
+    labs_f = scindifil.median_filter(seeds, size=3)
 
-    plt.figure()
-    plt.subplot(131), plt.imshow(gcm, 'gray', vmax=gcm.mean()), plt.title('gcm')
-    plt.subplot(132), plt.imshow(gcm_t, 'gray'), plt.title('thresholded')
-    plt.subplot(133), plt.imshow(gcm_to, 'gray'), plt.title('opened')
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(gcm, 'gray', vmax=gcm.mean()), plt.title('gcm')
+    # plt.subplot(132), plt.imshow(gcm_t, 'gray'), plt.title('thresholded')
+    # plt.subplot(133), plt.imshow(gcm_to, 'gray'), plt.title('opened')
+    #
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
+    # plt.subplot(122), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.title('seeds')
+    # divider = make_axes_locatable(plt.gca())
+    # cax = divider.append_axes('right', size='5%', pad=0.05)
+    # plt.colorbar(cax=cax, ticks=np.unique(seeds))
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
-    plt.subplot(122), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.title('seeds')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax, ticks=np.unique(seeds))
-
-    plt.figure()
-    plt.subplot(141), plt.imshow(data, 'gray'), plt.title('input')
-    plt.subplot(142), plt.imshow(labs_f, 'gray'), plt.title('labels')
+    # plt.figure()
+    # plt.subplot(141), plt.imshow(data, 'gray'), plt.title('input')
+    # plt.subplot(142), plt.imshow(labs_f, 'gray'), plt.title('labels')
     # plt.subplot(143), plt.imshow(liver_blob, 'gray'), plt.title('liver blob')
     # plt.subplot(144), plt.imshow(init_mask, 'gray'), plt.title('init mask')
 
@@ -186,11 +196,11 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
         if show_now:
             plt.show()
 
-    return init_mask
+    return data, init_mask
 
 
 def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, show=False, show_now=True):
-    lbls = np.unique(labs_im)
+    lbls = [l for l in np.unique(labs_im) if l != 0]
     adepts = np.zeros_like(labs_im)
     for l in lbls:
         mask = labs_im == l
@@ -200,12 +210,17 @@ def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, show=False, show_
             continue
         else:
             print 'mean value: {:.1f} - OK'.format(mean_int)
-            adepts += l * mask
+            adepts += (l * mask).astype(np.uint8)
+        # plt.figure()
+        # plt.subplot(131), plt.imshow(labs_im, 'jet'), plt.title('labs_im')
+        # plt.subplot(132), plt.imshow(mask, 'gray'), plt.title('mask')
+        # plt.subplot(133), plt.imshow(adepts, 'jet', vmin=labs_im.min(), vmax=labs_im.max()), plt.title('adepts')
+        # plt.show()
 
     adepts = skimor.binary_opening(adepts > 0, selem=skimor.disk(3))
 
     adepts_lbl, n_labels = skimea.label(adepts, connectivity=2, return_num=True)
-    areas = [(adepts_lbl == l).sum() for l in range(1, n_labels)]
+    areas = [(adepts_lbl == l).sum() for l in range(1, n_labels + 1)]
     winner = adepts_lbl == (np.argmax(areas) + 1)
 
     if show:
@@ -325,32 +340,24 @@ def split_blob(im, prop):
     return (im1, im2)
 
 
-def lankton_ls(im, mask, method='sfm', max_iters=1000):
-    im = skitra.rescale(im, scale=0.5, preserve_range=True)
-    mask = skitra.rescale(mask, scale=0.5, preserve_range=True).astype(np.bool)
-    lankton_lls.run(im, mask, method='sfm', max_iter=1000)
+def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=1.):
+    if scale != 1:
+        im = skitra.rescale(im, scale=scale, preserve_range=True).astype(np.uint8)
+        mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+    print 'Computing level sets ...',
+    lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha)
+    print 'done'
 
 
-def run(im, slice=None, mask=None, smoothing=True, show=False, show_now=True, save_fig=False, verbose=True):
+def run(im, slice=None, mask=None, smoothing=True, rad=10, alpha=0.2, scale=1., show=False, show_now=True, save_fig=False, verbose=True):
     if smoothing:
         im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
     if mask is None:
         # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
-        mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
+        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
 
-    plt.show()
-    # plt.figure()
-    # plt.subplot(121), plt.imshow(im, 'gray'), plt.title('input')
-    # plt.subplot(122), plt.imshow(mask, 'gray'), plt.title('init mask')
-    # plt.show()
-
-    lankton_ls(im, mask, method='sfm', max_iters=1000)
-
-    # init_mask = np.zeros(im.shape, dtype=np.bool)
-    # init_mask[37:213, 89:227] = 1
-    # localized_seg(im, init_mask)
-    # init = initialize(im, dens_min=10, dens_max=245)
+    lankton_ls(im_init, mask, method='sfm', max_iters=1000, rad=10, alpha=0.2, scale=scale)
 
 
 #---------------------------------------------------------------------------------------------
@@ -359,16 +366,24 @@ if __name__ == "__main__":
     verbose = True
     show = True
     show_now = False
+    scale = 0.5
+    rad = 10
+    alpha = 0.6
 
     data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     # 2D
-    slice_ind = 10
-    # data = data[slice_ind, :, :]
-    # data = tools.windowing(data)
-
-    # 3D
+    # slice_ind = 17
+    slice_ind = 12
+    data = data[slice_ind, :, :]
     data = tools.windowing(data)
 
-    run(data, slice=slice_ind, mask=None, smoothing=True, save_fig=False, show=show, show_now=show_now, verbose=verbose)
+    # 3D
+    # data = tools.windowing(data)
+
+    # run(data, slice=slice_ind, mask=None, smoothing=True, save_fig=False, show=show, show_now=show_now, verbose=verbose)
+    run(data, slice=None, mask=None, smoothing=True, rad=rad, alpha=alpha, scale=scale, save_fig=False, show=show, show_now=show_now, verbose=verbose)
+
+    if show_now == False:
+        plt.show()
