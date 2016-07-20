@@ -122,12 +122,13 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
     for i, rv in enumerate(rvs):
         probs = rv.pdf(data)
         s = probs > probs.mean()  # probability threshold
-        s = skimor.remove_small_holes(s, min_size=0.1 * s.sum(), connectivity=2)
+        # sfh = skimor.remove_small_holes(s, min_size=0.1 * s.sum(), connectivity=2)
+        s = tools.fill_holes_watch_borders(s)
         # s = skimor.binary_opening(s, selem=skimor.disk(3))
         # plt.figure()
         # plt.subplot(131), plt.imshow(s, 'gray')
         # plt.subplot(132), plt.imshow(sfh, 'gray')
-        # plt.subplot(133), plt.imshow(so, 'gray')
+        # plt.subplot(133), plt.imshow(sfh2, 'gray')
         # plt.show()
         s = np.where((probs * s) > (best_probs * s), i + 1, s)  # assign new label only if its probability is higher
         best_probs = np.where(s, probs, best_probs)  # update best probs
@@ -164,17 +165,18 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
     liver_blob = find_liver_blob(data, labs_f, show=show, show_now=show_now)
 
     # hole filling - adding (and then removing) a capsule of zeros, otherwise it'd fill holes touching image borders
-    init_mask = np.zeros([x + 2 for x in liver_blob.shape], dtype=np.uint8)
-    if liver_blob.ndim == 3:
-        for i, im in enumerate(liver_blob):
-            init_mask[i + 1, 1:-1, 1:-1] = im
-    else:
-        init_mask[1:-1, 1:-1] = liver_blob
-    init_mask = skimor.remove_small_holes(init_mask, min_size=0.1 * liver_blob.sum(), connectivity=2)
-    if liver_blob.ndim == 3:
-        init_mask = init_mask[1:-1, 1:-1, 1:-1]
-    else:
-        init_mask = init_mask[1:-1, 1:-1]
+    init_mask = tools.fill_holes_watch_borders(liver_blob)
+    # init_mask = np.zeros([x + 2 for x in liver_blob.shape], dtype=np.uint8)
+    # if liver_blob.ndim == 3:
+    #     for i, im in enumerate(liver_blob):
+    #         init_mask[i + 1, 1:-1, 1:-1] = im
+    # else:
+    #     init_mask[1:-1, 1:-1] = liver_blob
+    # init_mask = skimor.remove_small_holes(init_mask, min_size=0.1 * liver_blob.sum(), connectivity=2)
+    # if liver_blob.ndim == 3:
+    #     init_mask = init_mask[1:-1, 1:-1, 1:-1]
+    # else:
+    #     init_mask = init_mask[1:-1, 1:-1]
 
     # visualization
     if show:
@@ -353,15 +355,19 @@ def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=
     return im, mask, seg
 
 
-def morph_snakes(data, mask, alpha=2000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, maxiters=50, show=False, show_now=True):
+def morph_snakes(data, mask, scale=0.5, alpha=1000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, max_iters=50, show=False, show_now=True):
+    if scale != 1:
+        data = skitra.rescale(data, scale=scale, preserve_range=True).astype(np.uint8)
+        mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+
     gI = morphsnakes.gborders(data, alpha=alpha, sigma=sigma)
     # Morphological GAC. Initialization of the level-set.
     mgac = morphsnakes.MorphGAC(gI, smoothing=smoothing_ls, threshold=threshold, balloon=balloon)
     mgac.levelset = mask
-    mgac.run(iterations=maxiters)
+    mgac.run(iterations=max_iters)
 
     if show:
-        visualize_seg(data, mask, mgac.levelset, 'morph snakes', show_now)
+        tools.visualize_seg(data, mask, mgac.levelset, 'morph snakes', show_now)
 
         # mask_bounds = skiseg.mark_boundaries(data, mask, color=(1, 0, 0), mode='thick')
         # seg_over = skicol.label2rgb(mgac.levelset, data, colors=['red', 'green', 'blue'], bg_label=0)
@@ -377,24 +383,7 @@ def morph_snakes(data, mask, alpha=2000, sigma=1, smoothing_ls=1, threshold=0.3,
         # plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
         # if show_now:
         #     plt.show()
-    return mgac.levelset
-
-
-def visualize_seg(data, mask, seg, title='active contours', show_now=True):
-    mask_bounds = skiseg.mark_boundaries(data, mask, color=(1, 0, 0), mode='thick')
-    seg_over = skicol.label2rgb(seg, data, colors=['red', 'green', 'blue'], bg_label=0)
-    seg_bounds = skiseg.mark_boundaries(data, seg, color=(1, 0, 0), mode='thick')
-
-    plt.figure()
-    plt.suptitle(title)
-    plt.subplot(231), plt.imshow(data, 'gray'), plt.title('input')
-    plt.subplot(232), plt.imshow(mask, 'gray'), plt.title('init mask')
-    plt.subplot(233), plt.imshow(mask_bounds, 'gray'), plt.title('init mask')
-    plt.subplot(234), plt.imshow(seg, 'gray'), plt.title('segmentation')
-    plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
-    plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
-    if show_now:
-        plt.show()
+    return data, mask, mgac.levelset
 
 
 def run(im, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
@@ -406,12 +395,17 @@ def run(im, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
     if mask is None:
         # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
-        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=1, show=show, show_now=show_now)
+        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
+    else:
+        im_init = im
 
     if method == 'morphsnakes':
-        seg = morph_snakes(im_init, mask, show=show, show_now=show_now)
+        im, mask, seg = morph_snakes(im_init, mask, scale=scale, alpha=int(alpha), sigma=sigma,
+                                     smoothing_ls=smoothing_ls, threshold=threshold, balloon=balloon,
+                                     max_iters=max_iters, show=show, show_now=show_now)
     elif method in ['sfm', 'lls']:
-        im, mask, seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale, show=show, show_now=show_now)
+        im, mask, seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale,
+                                   show=show, show_now=show_now)
     return im, mask, seg
 
 
