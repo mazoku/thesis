@@ -19,7 +19,7 @@ else:
 
 
 class LoReGro:
-    def __init__(self, im, seeds, im_path=None, energy=None, ball_r_out=1, ball_r=3, min_diff=0.1, alpha=1,
+    def __init__(self, im, seeds, im_path=None, energy=None, ball_r_out=1, ball_r=3, min_diff=0.1, alpha=1.,
                  scale=0.5, max_iters=1000, smoothing=True, show=False, show_now=True):
         if isinstance(im, str):
             self.im_path = im
@@ -48,6 +48,7 @@ class LoReGro:
 
         self.scale = scale
         self.orig_shape = self.im.shape
+        self.ndim = self.im.ndim
         self.ball_r_out = ball_r_out
         self.ball_r = ball_r
         self.min_diff = min_diff
@@ -56,7 +57,6 @@ class LoReGro:
         self.smoothing = smoothing
         self.show = show
         self.show_now = show_now
-
 
     def run_segmentation(self, display=False):
 
@@ -83,6 +83,12 @@ class LoReGro:
             self.im = tools.resize3D(self.im, self.scale, sliceId=0)
             self.seeds = tools.resize3D(self.seeds, self.scale, sliceId=0)
             self.segmentation = tools.resize3D(self.segmentation, self.scale, sliceId=0)
+
+        self.shape = self.im.shape
+
+        print 'Creating nghb matrix ...',
+        self.nghbm = self.create_balls_nghbm()
+        print 'done.'
 
         newbies = self.seeds.copy()
         curr_it = 0
@@ -116,6 +122,46 @@ class LoReGro:
             for i, im in enumerate(self.segmentation):
                 tmp[i,...] = cv2.resize(im.astype(np.uint8), (self.orig_shape[2], self.orig_shape[1]))
             self.segmentation = tmp
+
+    def create_balls_nghbm(self):
+
+        # creating ball mask
+        strel = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+                          [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+                          [[0, 0, 0], [0, 1, 0], [0, 0, 0]]])
+
+        tmp = np.zeros((2 * self.ball_r + 1,) * self.ndim)
+        tmp[(self.ball_r,) * self.ndim] = 1
+        ball_im = scindimor.binary_dilation(tmp, strel, self.ball_r - 1)
+        n_ball_pts = ball_im.sum()
+
+        coords = np.nonzero(ball_im)
+        center = (self.ball_r,) * self.ndim
+        # move the coords so that the center lies in 0
+        coords = tuple(coords[i] - center[i] for i in range(self.ndim))
+        coords = np.array(coords).T  # coords in array [npts, dim]
+
+        # creating nghb matrix [n_pts, n_nghbs = # of points in the ball]
+        n_pts = np.prod(self.shape)
+        neighbors_m = np.zeros((n_pts, n_ball_pts))
+        for i in range(n_pts):
+            s, r, c = np.unravel_index(i, self.shape)
+            for j in range(n_ball_pts):
+                s_ball, r_ball, c_ball = coords[j,:]
+                sn = s + s_ball
+                rn = r + r_ball
+                cn = c + c_ball
+
+                slice_ko = sn < 0 or sn > (self.shape[0] - 1)
+                row_ko = rn < 0 or rn > (self.shape[1] - 1)
+                col_ko = cn < 0 or cn > (self.shape[2] - 1)
+                if row_ko or col_ko or slice_ko:
+                    neighbors_m[i, j] = np.NaN
+                else:
+                    index = np.ravel_multi_index((sn, rn, cn), self.shape)
+                    neighbors_m[i, j] = index
+
+        return neighbors_m
 
     def iteration_IB(self, mask):
         dilm = np.zeros_like(mask)
@@ -168,16 +214,29 @@ class LoReGro:
         return mask, accepted, refused
 
     def mask_newbie(self, newbie, mask):
-        tmp = np.zeros_like(mask)
-        tmp[newbie] = 1
-        strel = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-                          [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
-                          [[0, 0, 0], [0, 1, 0], [0, 0, 0]]])
-        ball_im = scindimor.binary_dilation(tmp, strel, self.ball_r - 1)
-        # ball_im = cv2.circle(tmp, (newbie[0], newbie[2], newbie[1]), self.ball_r, 255, -1)
+        ball_pts = [int(x) for x in self.nghbm[np.ravel_multi_index(newbie, self.shape), :] if not np.isnan(x)]
+        # inners_ind = [x for x in ball_pts if mask[np.unravel_index(x, self.shape)]]
+        inners_ind = []
+        outers_ind = []
+        for i in ball_pts:
+            if mask[np.unravel_index(i, self.shape)]:
+                inners_ind.append(i)
+            else:
+                outers_ind.append(i)
 
-        inners = np.nonzero(ball_im * mask)
-        outers = np.nonzero(ball_im * np.logical_not(mask))
+        inners = np.unravel_index(inners_ind, self.shape)
+        outers = np.unravel_index(outers_ind, self.shape)
+
+        # tmp = np.zeros_like(mask)
+        # tmp[newbie] = 1
+        # strel = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+        #                   [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+        #                   [[0, 0, 0], [0, 1, 0], [0, 0, 0]]])
+        # ball_im = scindimor.binary_dilation(tmp, strel, self.ball_r - 1)
+        # # ball_im = cv2.circle(tmp, (newbie[0], newbie[2], newbie[1]), self.ball_r, 255, -1)
+        #
+        # inners = np.nonzero(ball_im * mask)
+        # outers = np.nonzero(ball_im * np.logical_not(mask))
 
         return inners, outers
 
@@ -214,7 +273,7 @@ if __name__ == '__main__':
     ball_r = 5
     min_diff = 1
     alpha = 0.9
-    scale = 0.5
+    scale = 0.25
     max_iters = 100
     smoothing = True
     show = True
@@ -227,7 +286,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.subplot(121), plt.imshow(data[slice_ind,...], 'gray')
     plt.subplot(122), plt.imshow(seeds[slice_ind,...], 'jet')
-    plt.show()
+    # plt.show()
 
     lrg = LoReGro(data, seeds, ball_r_out=ball_r_out, ball_r=ball_r, min_diff=min_diff, alpha=alpha,
                   scale=scale, max_iters=max_iters, smoothing=smoothing, show=show, show_now=show_now)
@@ -241,4 +300,5 @@ if __name__ == '__main__':
     # plt.subplot(132), plt.imshow(seeds, 'jet'), plt.title('seeds')
     # plt.subplot(133), plt.imshow(seg[0,...].astype(np.uint8), 'gray'), plt.title('segmentation')
     # plt.show()
-    tools.visualize_seg(data, seg[0,...], mask=seeds, title='loregro')
+    # tools.visualize_seg(data, seg[0,...], mask=seeds, title='loregro')
+    tools.visualize_seg(data, seg, mask=seeds, slice=slice_ind, title='loregro')
