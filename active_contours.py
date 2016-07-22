@@ -2,11 +2,17 @@ from __future__ import division
 
 import numpy as np
 import scipy.stats as scista
+import scipy.ndimage.morphology as scindimor
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import sys
 import os
+import itertools
+
+import pickle
+import gzip
+import xlsxwriter
 
 import cv2
 import scipy.ndimage.filters as scindifil
@@ -68,7 +74,7 @@ def initialize(data, dens_min=0, dens_max=255, prob_c=0.2, prob_c2=0.01, show=Fa
     return labs
 
 
-def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=False, c_t=5,
+def initialize_graycom_deprecated(data, slice=None, distances=[1,], scale=0.5, angles=[0, np.pi/4, np.pi/2, 3*np.pi/4], symmetric=False, c_t=5,
                        show=False, show_now=True):
     if scale != 1:
         data = tools.resize3D(data, scale, sliceId=0)
@@ -162,7 +168,7 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
     # plt.subplot(144), plt.imshow(init_mask, 'gray'), plt.title('init mask')
 
     # finding liver blob
-    liver_blob = find_liver_blob(data, labs_f, show=show, show_now=show_now)
+    liver_blob = find_liver_blob(data, labs_f, slice=slice, show=show, show_now=show_now)
 
     # hole filling - adding (and then removing) a capsule of zeros, otherwise it'd fill holes touching image borders
     init_mask = tools.fill_holes_watch_borders(liver_blob)
@@ -180,23 +186,31 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
 
     # visualization
     if show:
+        if slice is None:
+            slice = 0
+        data_vis = data if data.ndim == 2 else data[slice,...]
+        seeds_vis = seeds if data.ndim == 2 else seeds[slice, ...]
+        labs_f_vis = labs_f if data.ndim == 2 else labs_f[slice,...]
+        liver_blob_vis = liver_blob if data.ndim == 2 else liver_blob[slice,...]
+        init_mask_vis = init_mask if data.ndim == 2 else init_mask[slice,...]
+
         plt.figure()
         plt.subplot(131), plt.imshow(gcm, 'gray', vmax=gcm.mean()), plt.title('gcm')
         plt.subplot(132), plt.imshow(gcm_t, 'gray'), plt.title('thresholded')
         plt.subplot(133), plt.imshow(gcm_to, 'gray'), plt.title('opened')
 
         plt.figure()
-        plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.title('input')
-        plt.subplot(122), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.title('seeds')
+        plt.subplot(121), plt.imshow(data_vis, 'gray', interpolation='nearest'), plt.title('input')
+        plt.subplot(122), plt.imshow(seeds_vis, 'jet', interpolation='nearest'), plt.title('seeds')
         divider = make_axes_locatable(plt.gca())
         cax = divider.append_axes('right', size='5%', pad=0.05)
         plt.colorbar(cax=cax, ticks=np.unique(seeds))
 
         plt.figure()
-        plt.subplot(141), plt.imshow(data, 'gray'), plt.title('input')
-        plt.subplot(142), plt.imshow(labs_f, 'gray'), plt.title('labels')
-        plt.subplot(143), plt.imshow(liver_blob, 'gray'), plt.title('liver blob')
-        plt.subplot(144), plt.imshow(init_mask, 'gray'), plt.title('init mask')
+        plt.subplot(141), plt.imshow(data_vis, 'gray'), plt.title('input')
+        plt.subplot(142), plt.imshow(labs_f_vis, 'gray'), plt.title('labels')
+        plt.subplot(143), plt.imshow(liver_blob_vis, 'gray'), plt.title('liver blob')
+        plt.subplot(144), plt.imshow(init_mask_vis, 'gray'), plt.title('init mask')
 
         if show_now:
             plt.show()
@@ -204,7 +218,7 @@ def initialize_graycom(data, slice=None, distances=[1,], scale=0.5, angles=[0, n
     return data, init_mask
 
 
-def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, show=False, show_now=True):
+def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, slice=None, show=False, show_now=True):
     lbls = [l for l in np.unique(labs_im) if l != 0]
     adepts = np.zeros_like(labs_im)
     for l in lbls:
@@ -222,17 +236,28 @@ def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, show=False, show_
         # plt.subplot(133), plt.imshow(adepts, 'jet', vmin=labs_im.min(), vmax=labs_im.max()), plt.title('adepts')
         # plt.show()
 
-    adepts = skimor.binary_opening(adepts > 0, selem=skimor.disk(3))
+    # adepts = skimor.binary_opening(adepts > 0, selem=skimor.disk(3))
+    adepts = tools.morph_ND(adepts > 0, 'erosion', selem=skimor.disk(3))
 
     adepts_lbl, n_labels = skimea.label(adepts, connectivity=2, return_num=True)
     areas = [(adepts_lbl == l).sum() for l in range(1, n_labels + 1)]
     winner = adepts_lbl == (np.argmax(areas) + 1)
 
     if show:
+        if data.ndim == 3:
+            if slice is None:
+                slice = 0
+            labs_vis = labs_im[slice,...]
+            adepts_vis = adepts_lbl[slice,...]
+            winner_vis = winner[slice,...]
+        else:
+            labs_vis = labs_im
+            adepts_vis = adepts_lbl
+            winner_vis = winner
         plt.figure()
-        plt.subplot(131), plt.imshow(labs_im, 'jet'), plt.title('labs_im')
-        plt.subplot(132), plt.imshow(adepts_lbl, 'jet', vmax=labs_im.max()), plt.title('adepts')
-        plt.subplot(133), plt.imshow(winner, 'jet', vmax=labs_im.max()), plt.title('liver blob')
+        plt.subplot(131), plt.imshow(labs_vis, 'jet'), plt.title('labs_im')
+        plt.subplot(132), plt.imshow(adepts_vis, 'jet', vmax=labs_im.max()), plt.title('adepts')
+        plt.subplot(133), plt.imshow(winner_vis, 'jet', vmax=labs_im.max()), plt.title('liver blob')
         if show_now:
             plt.show()
 
@@ -345,68 +370,130 @@ def split_blob(im, prop):
     return (im1, im2)
 
 
-def lankton_ls(im, mask, method='sfm', max_iters=1000, rad=10, alpha=0.1, scale=1., show=False, show_now=True):
+def lankton_ls(im, mask, method='sfm', slice=None, max_iters=1000, rad=10, alpha=0.1, scale=1., show=False, show_now=True):
     if scale != 1:
         im = skitra.rescale(im, scale=scale, preserve_range=True).astype(np.uint8)
         mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
-    print 'Computing level sets: %s ...' % method,
+
     seg = lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha, show=show, show_now=show_now)
-    print 'done'
+
+    if show:
+        tools.visualize_seg(data, mask, seg, slice=slice, title='morph snakes', show_now=show_now)
     return im, mask, seg
 
 
-def morph_snakes(data, mask, scale=0.5, alpha=1000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, max_iters=50, show=False, show_now=True):
+def morph_snakes(data, mask, slice=None, scale=0.5, alpha=1000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, max_iters=50, show=False, show_now=True):
     if scale != 1:
-        data = skitra.rescale(data, scale=scale, preserve_range=True).astype(np.uint8)
-        mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+        # data = skitra.rescale(data, scale=scale, preserve_range=True).astype(np.uint8)
+        # mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+        data = tools.resize3D(data, scale, sliceId=0)
+        mask = tools.resize3D(mask, scale, sliceId=0)
 
     gI = morphsnakes.gborders(data, alpha=alpha, sigma=sigma)
     # Morphological GAC. Initialization of the level-set.
     mgac = morphsnakes.MorphGAC(gI, smoothing=smoothing_ls, threshold=threshold, balloon=balloon)
     mgac.levelset = mask
     mgac.run(iterations=max_iters)
+    seg = mgac.levelset
 
     if show:
-        tools.visualize_seg(data, mask, mgac.levelset, 'morph snakes', show_now)
-
-        # mask_bounds = skiseg.mark_boundaries(data, mask, color=(1, 0, 0), mode='thick')
-        # seg_over = skicol.label2rgb(mgac.levelset, data, colors=['red', 'green', 'blue'], bg_label=0)
-        # seg_bounds = skiseg.mark_boundaries(data, mgac.levelset, color=(1, 0, 0), mode='thick')
-        #
-        # plt.figure()
-        # plt.suptitle('morph snakes')
-        # plt.subplot(231), plt.imshow(data, 'gray'), plt.title('input')
-        # plt.subplot(232), plt.imshow(mask, 'gray'), plt.title('init mask')
-        # plt.subplot(233), plt.imshow(mask_bounds, 'gray'), plt.title('init mask')
-        # plt.subplot(234), plt.imshow(mgac.levelset, 'gray'), plt.title('segmentation')
-        # plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
-        # plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
-        # if show_now:
-        #     plt.show()
-    return data, mask, mgac.levelset
+        tools.visualize_seg(data, seg, mask, slice=slice, title='morph snakes', show_now=show_now)
+    return data, mask, seg
 
 
-def run(im, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
-        rad=10, alpha=0.2, scale=1.,
+def run(im_in, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
+        rad=10, alpha=0.2, scale=1., init_scale=0.5,
         sigma=1, smoothing_ls=1, threshold=0.3, balloon=1,
         show=False, show_now=True, save_fig=False, verbose=True):
+    im = im_in.copy()
     if smoothing:
         im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
     # init_mask = initialize(im, dens_min=50, dens_max=200, show=True, show_now=False)[0,...]
     if mask is None:
         # mask = initialize_graycom(im, [1, 2], scale=1, show=show, show_now=show_now)
-        im_init, mask = initialize_graycom(im, slice, distances=[1,], scale=0.5, show=show, show_now=show_now)
-    else:
-        im_init = im
+        mask = tools.initialize_graycom(im, slice, distances=[1,], scale=init_scale, show=show, show_now=show_now)
+    # else:
+    #     im_init = im
 
     if method == 'morphsnakes':
-        im, mask, seg = morph_snakes(im_init, mask, scale=scale, alpha=int(alpha), sigma=sigma,
-                                     smoothing_ls=smoothing_ls, threshold=threshold, balloon=balloon,
-                                     max_iters=max_iters, show=show, show_now=show_now)
+        print ' Morph snakes ...',
+        im, mask, seg = morph_snakes(im, mask, scale=scale, alpha=int(alpha), sigma=sigma, smoothing_ls=smoothing_ls,
+                                     threshold=threshold, balloon=balloon, max_iters=max_iters,
+                                     slice=slice, show=show, show_now=show_now)
+        print 'done'
     elif method in ['sfm', 'lls']:
-        im, mask, seg = lankton_ls(im_init, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale,
-                                   show=show, show_now=show_now)
+        print 'SFM ...',
+        im, mask, seg = lankton_ls(im, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale,
+                                   slice=slice, show=show, show_now=show_now)
+        print 'done'
     return im, mask, seg
+
+
+def run_param_tuning(im, gt_mask, smoothing=True, init_scale=0.5):
+    if smoothing:
+        im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
+    mask_init = tools.initialize_graycom(im, slice, distances=[1, ], scale=init_scale)
+
+    # parameters tuning ---------------------------------------------------------------
+    alpha_v = (10, 100, 500)
+    sigma_v = (1, 5)
+    threshold_v = (0.1, 0.5, 0.9)
+    balloon_v = (1, 2, 4)
+
+    method = 'morphsnakes'
+    # create workbook for saving the resulting pracision, recall and f-measure
+    workbook = xlsxwriter.Workbook('morph_snakes.xlsx')
+    worksheet = workbook.add_worksheet()
+    # Add a bold format to use to highlight cells.
+    bold = workbook.add_format({'bold': True})
+    # green = workbook.add_format({'bg_color': '#C6EFCE'})
+    worksheet.write(0, 0, 'F-MEASURE',bold)
+    worksheet.write(0, 1, 'PRECISION', bold)
+    worksheet.write(0, 2, 'RECALL', bold)
+    worksheet.write(0, 4, 'alpha', bold)
+    worksheet.write(0, 5, 'sigma', bold)
+    worksheet.write(0, 6, 'threshold', bold)
+    worksheet.write(0, 7, 'ballon', bold)
+    worksheet.write(0, 8, 'scale', bold)
+    worksheet.write(0, 9, 'scale_init', bold)
+
+    for i, (alpha, sigma, threshold, balloon) in enumerate(itertools.product(alpha_v, sigma_v, threshold_v, balloon_v)):
+        print '\n  --  it #%i/%i  --' % (i + 1, len(alpha_v) * len(sigma_v) * len(threshold_v) * len(balloon_v))
+        print 'Working with alpha=%i, sigma=%i, threshold=%.1f, balloon=%i' % (alpha, sigma, threshold, balloon)
+        params = {'alpha': alpha, 'sigma': sigma, 'smoothing_ls': 1, 'threshold': threshold, 'balloon': balloon,
+                  'max_iters': 1000, 'scale': 0.5, 'init_scale': 0.25,
+                  'smoothing': smoothing, 'save_fig': False, 'show': True, 'show_now': False}
+        im, mask, seg = run(data, slice=slice_ind, mask=mask_init, method=method, **params)
+
+        if mask.shape != gt_mask.shape:
+            mask = tools.resize_ND(mask, shape=gt_mask.shape)
+
+        # calculating precision, recall and f_measure
+        precision = 100 * (mask * gt_mask).sum() / mask.sum()  # how many selected items are relevant
+        recall = 100 * (mask * gt_mask).sum() / gt_mask.sum()  # how many relevant items are selected
+        f_measure = 2 * precision * recall / (precision + recall)
+
+        # saving data
+        datap = {'im': im, 'mask': mask, 'seg': seg, 'params': params}
+        dirname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/morph_snakes/'
+        dataname = 'morph_snakes_al%i_si%i_th%s_ba%i.png' % (alpha, sigma, str(threshold).replace('.', ''), balloon)
+        f = gzip.open(os.path.join(dirname, dataname))
+        pickle.dump(datap, f)
+        f.close()
+
+        # saving results
+        items = (f_measure, precision, recall, alpha, sigma, threshold, balloon, params['scale'], params['init_scale'])
+        for j, it in enumerate(items):
+            worksheet.write(i + 1, j + 4, it)
+
+        # creating visualization
+        fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title='morph snakes', for_save=True, show_now=False)
+        fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/morph_snakes_al%i_si%i_th%s_ba%i.png' \
+                % (alpha, sigma, str(threshold).replace('.', ''), balloon)
+        fig.savefig(fname)
+
+    workbook.close()
+    plt.show()
 
 
 #---------------------------------------------------------------------------------------------
@@ -423,18 +510,28 @@ if __name__ == "__main__":
 
     # 2D
     # slice_ind = 17
-    slice_ind = 12
-    data = data[slice_ind, :, :]
+    slice_ind = 15
+    # data = data[slice_ind, :, :]
     data = tools.windowing(data)
 
     # 3D
     # data = tools.windowing(data)
 
-    method = 'sfm'
-    params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'smoothing': smoothing,
-              'save_fig': save_fig, 'show':show, 'show_now': show_now, 'verbose': verbose}
-    # run(data, slice=slice_ind, mask=None, smoothing=True, save_fig=False, show=show, show_now=show_now, verbose=verbose)
-    im, mask, sfm = run(data, slice=None, mask=None, method=method, **params)
+    # SFM  ----
+    # print 'SFM ...',
+    # method = 'sfm'
+    # params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'init_scale': 0.5, 'smoothing': smoothing,
+    #           'save_fig': save_fig, 'show':show, 'show_now': show_now, 'verbose': verbose}
+    # im, mask, seg = run(data, slice=None, mask=None, method=method, **params)
+    # print 'done'
+
+    # MORPH SNAKES  ----
+    method = 'morphsnakes'
+    # params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.6, 'balloon': 1, 'max_iters': 1000,
+    #           'scale': 0.5, 'init_scale': 0.25,
+    #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
+    # im, mask, seg = run(data, slice=slice_ind, mask=None, method=method, **params)
+    run_param_tuning(data, mask, smoothing=smoothing, init_scale=0.25)
 
 
     if show_now == False:

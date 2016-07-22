@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     # 2D
     # slice_ind = 17
-    slice_ind = 10
+    slice_ind = 17
     data = data[slice_ind, :, :]
     data = tools.windowing(data)
     mask = mask[slice_ind, :, :]
@@ -79,13 +79,14 @@ if __name__ == "__main__":
 
     # SFM  ----
     method = 'sfm'
-    params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'smoothing': smoothing, 'max_iters': 1000,
+    params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'init_scale': 0.5, 'smoothing': smoothing, 'max_iters': 1000,
               'save_fig': save_fig, 'show': show, 'show_now': show_now, 'verbose': verbose}
     data_sfm, mask_sfm, sfm = ac.run(data, slice=None, mask=None, method=method, **params)
 
     # MORPH SNAKES  ----
     method = 'morphsnakes'
-    params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.3, 'balloon': 1, 'max_iters': 1000, 'scale': 0.5,
+    params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.3, 'balloon': 1, 'max_iters': 1000,
+              'scale': 0.5, 'init_scale': 0.5,
               'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
     data_morph, mask_morph, morph = ac.run(data, slice=None, mask=None, method=method, **params)
 
@@ -105,11 +106,11 @@ if __name__ == "__main__":
     # tp_sfm = 100
     # tp_morph = 100
 
-    tools.visualize_seg(data, mask, mask, 'ground thruth', False)
-    tools.visualize_seg(data_sfm, mask_sfm, sfm, 'sfm, TP=%.1f, TN=%.1f, FP=%.1f, FN=%.1f' %
-                        (stats_sfm.tp, stats_sfm.tn, stats_sfm.fp, stats_sfm.fn), False)
-    tools.visualize_seg(data_morph, mask_morph, morph, 'morph_snakes, TP=%.1f, TN=%.1f, FP=%.1f, FN=%.1f' %
-                        (stats_morph.tp, stats_morph.tn, stats_morph.fp, stats_morph.fn), False)
+    tools.visualize_seg(data, mask, mask, slice=None, title='ground thruth', show_now=False)
+    tools.visualize_seg(data_sfm, mask_sfm, sfm, slice=None, title='sfm, TP=%.1f, TN=%.1f, FP=%.1f, FN=%.1f' %
+                        (stats_sfm.tp, stats_sfm.tn, stats_sfm.fp, stats_sfm.fn), show_now=False)
+    tools.visualize_seg(data_morph, mask_morph, morph, slice=None, title='morph_snakes, TP=%.1f, TN=%.1f, FP=%.1f, FN=%.1f' %
+                        (stats_morph.tp, stats_morph.tn, stats_morph.fp, stats_morph.fn), show_now=False)
     plt.show()
 
     # if show_now == False:

@@ -272,8 +272,8 @@ if __name__ == '__main__':
     ball_r_out = 1
     ball_r = 5
     min_diff = 1
-    alpha = 0.9
-    scale = 0.25
+    alpha = 0.6
+    scale = 0.5
     max_iters = 100
     smoothing = True
     show = True
