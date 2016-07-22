@@ -429,9 +429,11 @@ def run(im_in, slice=None, mask=None, smoothing=True, method='sfm', max_iters=10
     return im, mask, seg
 
 
-def run_param_tuning(im, gt_mask, smoothing=True, init_scale=0.5):
+def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_scale=0.5):
     if smoothing:
-        im = tools.smoothing(im, sigmaSpace=10, sigmaColor=10, sliceId=0)
+        im_in = tools.smoothing(im_in, sigmaSpace=10, sigmaColor=10, sliceId=0)
+
+    im = im_in.copy()
     mask_init = tools.initialize_graycom(im, slice, distances=[1, ], scale=init_scale)
 
     # parameters tuning ---------------------------------------------------------------
@@ -457,16 +459,25 @@ def run_param_tuning(im, gt_mask, smoothing=True, init_scale=0.5):
     worksheet.write(0, 8, 'scale', bold)
     worksheet.write(0, 9, 'scale_init', bold)
 
-    for i, (alpha, sigma, threshold, balloon) in enumerate(itertools.product(alpha_v, sigma_v, threshold_v, balloon_v)):
-        print '\n  --  it #%i/%i  --' % (i + 1, len(alpha_v) * len(sigma_v) * len(threshold_v) * len(balloon_v))
+    params_tune = []
+    for p in itertools.product(alpha_v, sigma_v, threshold_v, balloon_v):
+        params_tune.append(p)
+    # for i, (alpha, sigma, threshold, balloon) in enumerate(itertools.product(alpha_v, sigma_v, threshold_v, balloon_v)):
+    for i in range(len(params_tune)):
+        alpha, sigma, threshold, balloon = params_tune[i]
+        print '\n  --  it #%i/%i  --' % (i + 1, len(params_tune))
         print 'Working with alpha=%i, sigma=%i, threshold=%.1f, balloon=%i' % (alpha, sigma, threshold, balloon)
         params = {'alpha': alpha, 'sigma': sigma, 'smoothing_ls': 1, 'threshold': threshold, 'balloon': balloon,
-                  'max_iters': 1000, 'scale': 0.5, 'init_scale': 0.25,
+                  'max_iters': 1000, 'scale': scale, 'init_scale': init_scale,
                   'smoothing': smoothing, 'save_fig': False, 'show': True, 'show_now': False}
-        im, mask, seg = run(data, slice=slice_ind, mask=mask_init, method=method, **params)
+        im, mask, seg = run(im_in, slice=slice_ind, mask=mask_init, method=method, **params)
 
+        if im.shape != im_in.shape:
+            im = tools.resize_ND(im, shape=im_in.shape)
         if mask.shape != gt_mask.shape:
             mask = tools.resize_ND(mask, shape=gt_mask.shape)
+        if seg.shape != im_in.shape:
+            seg = tools.resize_ND(seg, shape=im_in.shape)
 
         # calculating precision, recall and f_measure
         precision = 100 * (mask * gt_mask).sum() / mask.sum()  # how many selected items are relevant
@@ -475,9 +486,9 @@ def run_param_tuning(im, gt_mask, smoothing=True, init_scale=0.5):
 
         # saving data
         datap = {'im': im, 'mask': mask, 'seg': seg, 'params': params}
-        dirname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/morph_snakes/'
-        dataname = 'morph_snakes_al%i_si%i_th%s_ba%i.png' % (alpha, sigma, str(threshold).replace('.', ''), balloon)
-        f = gzip.open(os.path.join(dirname, dataname))
+        dirname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/'
+        dataname = 'morph_snakes_al%i_si%i_th%s_ba%i.pklz' % (alpha, sigma, str(threshold).replace('.', ''), balloon)
+        f = gzip.open(os.path.join(dirname, dataname), 'w')
         pickle.dump(datap, f)
         f.close()
 
@@ -488,7 +499,7 @@ def run_param_tuning(im, gt_mask, smoothing=True, init_scale=0.5):
 
         # creating visualization
         fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title='morph snakes', for_save=True, show_now=False)
-        fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/morph_snakes_al%i_si%i_th%s_ba%i.png' \
+        fname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes_al%i_si%i_th%s_ba%i.png' \
                 % (alpha, sigma, str(threshold).replace('.', ''), balloon)
         fig.savefig(fname)
 
@@ -504,6 +515,8 @@ if __name__ == "__main__":
     show_now = False
     save_fig = False
     smoothing = True
+    init_scale = 0.25
+    scale = 0.5
 
     data_fname = '/home/tomas/Data/medical/liver_segmentation/org-exp_183_46324212_venous_5.0_B30f-.pklz'
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
@@ -531,7 +544,7 @@ if __name__ == "__main__":
     #           'scale': 0.5, 'init_scale': 0.25,
     #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
     # im, mask, seg = run(data, slice=slice_ind, mask=None, method=method, **params)
-    run_param_tuning(data, mask, smoothing=smoothing, init_scale=0.25)
+    run_param_tuning(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
 
 
     if show_now == False:
