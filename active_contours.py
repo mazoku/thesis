@@ -444,7 +444,7 @@ def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_
 
     method = 'morphsnakes'
     # create workbook for saving the resulting pracision, recall and f-measure
-    workbook = xlsxwriter.Workbook('morph_snakes.xlsx')
+    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes.xlsx')
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True})
@@ -480,8 +480,8 @@ def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_
             seg = tools.resize_ND(seg, shape=im_in.shape)
 
         # calculating precision, recall and f_measure
-        precision = 100 * (mask * gt_mask).sum() / mask.sum()  # how many selected items are relevant
-        recall = 100 * (mask * gt_mask).sum() / gt_mask.sum()  # how many relevant items are selected
+        precision = 100 * (seg * gt_mask).sum() / mask.sum()  # how many selected items are relevant
+        recall = 100 * (seg * gt_mask).sum() / gt_mask.sum()  # how many relevant items are selected
         f_measure = 2 * precision * recall / (precision + recall)
 
         # saving data
@@ -495,16 +495,17 @@ def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_
         # saving results
         items = (f_measure, precision, recall, alpha, sigma, threshold, balloon, params['scale'], params['init_scale'])
         for j, it in enumerate(items):
-            worksheet.write(i + 1, j + 4, it)
+            worksheet.write(i + 1, j, it)
 
         # creating visualization
         fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title='morph snakes', for_save=True, show_now=False)
         fname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes_al%i_si%i_th%s_ba%i.png' \
                 % (alpha, sigma, str(threshold).replace('.', ''), balloon)
         fig.savefig(fname)
+        fig.close()
 
     workbook.close()
-    plt.show()
+    # plt.show()
 
 
 #---------------------------------------------------------------------------------------------
