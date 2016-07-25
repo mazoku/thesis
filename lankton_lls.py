@@ -32,7 +32,7 @@ import matlab.engine
 import matlab
 
 
-def run(im, init_mask, method, max_iter=1000, rad=20, alpha=0.1, energy_type=2, display=False, show=False, show_now=True):
+def run(im, init_mask, method, slice=0, max_iter=1000, rad=20, alpha=0.1, energy_type=2, display=False, show=False, show_now=True):
     eng = matlab.engine.start_matlab()
 
     im_matlab = matlab.uint8(im.tolist())
@@ -58,15 +58,18 @@ def run(im, init_mask, method, max_iter=1000, rad=20, alpha=0.1, energy_type=2, 
     eng.quit()
 
     if show:
-        mask_bounds = skiseg.mark_boundaries(im, init_mask, color=(1, 0, 0), mode='thick')
-        seg_over = skicol.label2rgb(seg, im, colors=['red', 'green', 'blue'], bg_label=0)
-        seg_bounds = skiseg.mark_boundaries(im, seg, color=(1, 0, 0), mode='thick')
+        im_vis = im if im.ndim ==2 else im[slice,...]
+        init_mask_vis = init_mask if init_mask.ndim ==2 else init_mask[slice,...]
+        seg_vis = seg if seg.ndim == 2 else seg[slice,...]
+        mask_bounds = skiseg.mark_boundaries(im_vis, init_mask_vis, color=(1, 0, 0), mode='thick')
+        seg_over = skicol.label2rgb(seg_vis, im_vis, colors=['red', 'green', 'blue'], bg_label=0)
+        seg_bounds = skiseg.mark_boundaries(im_vis, seg_vis, color=(1, 0, 0), mode='thick')
 
         plt.figure()
-        plt.subplot(231), plt.imshow(im, 'gray'), plt.title('input')
-        plt.subplot(232), plt.imshow(init_mask, 'gray'), plt.title('init mask')
+        plt.subplot(231), plt.imshow(im_vis, 'gray'), plt.title('input')
+        plt.subplot(232), plt.imshow(init_mask_vis, 'gray'), plt.title('init mask')
         plt.subplot(233), plt.imshow(mask_bounds, 'gray'), plt.title('init mask')
-        plt.subplot(234), plt.imshow(seg, 'gray'), plt.title('segmentation')
+        plt.subplot(234), plt.imshow(seg_vis, 'gray'), plt.title('segmentation')
         plt.subplot(235), plt.imshow(seg_over, 'gray'), plt.title('segmentation')
         plt.subplot(236), plt.imshow(seg_bounds, 'gray'), plt.title('segmentation')
 

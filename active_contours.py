@@ -8,6 +8,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import sys
 import os
+import glob
 import itertools
 
 import pickle
@@ -372,10 +373,14 @@ def split_blob(im, prop):
 
 def lankton_ls(im, mask, method='sfm', slice=None, max_iters=1000, rad=10, alpha=0.1, scale=1., show=False, show_now=True):
     if scale != 1:
-        im = skitra.rescale(im, scale=scale, preserve_range=True).astype(np.uint8)
-        mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+        # im = skitra.rescale(im, scale=scale, preserve_range=True).astype(np.uint8)
+        # mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
+        im = tools.resize_ND(im, scale=scale).astype(np.uint8)
+        mask = tools.resize_ND(mask, scale=scale).astype(np.bool)
 
-    seg = lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha, show=show, show_now=show_now)
+    seg = lankton_lls.run(im, mask, method='sfm', max_iter=1000, rad=rad, alpha=alpha,
+                          # slice=slice, show=show, show_now=show_now)
+                          slice=slice, show=True, show_now=True)
 
     if show:
         tools.visualize_seg(data, mask, seg, slice=slice, title='morph snakes', show_now=show_now)
@@ -399,6 +404,63 @@ def morph_snakes(data, mask, slice=None, scale=0.5, alpha=1000, sigma=1, smoothi
     if show:
         tools.visualize_seg(data, seg, mask, slice=slice, title='morph snakes', show_now=show_now)
     return data, mask, seg
+
+
+def calc_statistics(mask, gt):
+    if mask.shape != gt.shape:
+        mask = tools.resize_ND(mask, shape=gt.shape)
+    precision = 100 * (mask * gt).sum() / mask.sum()  # how many selected items are relevant
+    recall = 100 * (mask * gt).sum() / gt.sum()  # how many relevant items are selected
+    f_measure = 2 * precision * recall / (precision + recall)
+
+    return precision, recall, f_measure
+
+
+def load_count_write(dir, gt_mask, xlsx_fname):
+    files = glob.glob(os.path.join(dir, '*.pklz'))
+    items = []
+    print 'Calculating statistics ...',
+    for f in files:
+        f = gzip.open(f)
+        datap = pickle.load(f)
+        seg = datap['seg']
+        params = datap['params']
+
+        precision, recall, f_measure = calc_statistics(seg, gt_mask)
+        elements = (f_measure, precision, recall, params['alpha'], params['sigma'], params['threshold'],
+                 params['balloon'], params['scale'], params['init_scale'])
+        items.append(elements)
+        f.close()
+    print 'done'
+
+    print 'Writing the results to file ...',
+    write_to_xlsx(xlsx_fname, items)
+    print 'done'
+
+
+def write_to_xlsx(fname, items):
+    # fname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes.xlsx'
+    workbook = xlsxwriter.Workbook(fname)
+    worksheet = workbook.add_worksheet()
+    # Add a bold format to use to highlight cells.
+    bold = workbook.add_format({'bold': True})
+    # green = workbook.add_format({'bg_color': '#C6EFCE'})
+    worksheet.write(0, 0, 'F-MEASURE', bold)
+    worksheet.write(0, 1, 'PRECISION', bold)
+    worksheet.write(0, 2, 'RECALL', bold)
+    worksheet.write(0, 4, 'alpha', bold)
+    worksheet.write(0, 5, 'sigma', bold)
+    worksheet.write(0, 6, 'threshold', bold)
+    worksheet.write(0, 7, 'ballon', bold)
+    worksheet.write(0, 8, 'scale', bold)
+    worksheet.write(0, 9, 'scale_init', bold)
+    cols = [0, 1, 2, 4, 5, 6, 7, 8, 9]  # to be able to simply skip a column
+
+    # saving results
+    for i, item in enumerate(items):
+        # item = (f_measure, precision, recall, alpha, sigma, threshold, balloon, params['scale'], params['init_scale'])
+        for j, it in enumerate(item):
+            worksheet.write(i + 1, cols[j], it)
 
 
 def run(im_in, slice=None, mask=None, smoothing=True, method='sfm', max_iters=1000,
@@ -429,7 +491,85 @@ def run(im_in, slice=None, mask=None, smoothing=True, method='sfm', max_iters=10
     return im, mask, seg
 
 
-def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_scale=0.5):
+def run_param_tuning_sfm(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_scale=0.5):
+    if smoothing:
+        im_in = tools.smoothing(im_in, sigmaSpace=10, sigmaColor=10, sliceId=0)
+
+    im = im_in.copy()
+    mask_init = tools.initialize_graycom(im, slice, distances=[1, ], scale=init_scale)
+
+    # parameters tuning ---------------------------------------------------------------
+    alpha_v = (0.1, 0.3, 0.5, 0.8)
+    rad_v = (1, 10, 20, 30)
+
+    method = 'sfm'
+    # create workbook for saving the resulting pracision, recall and f-measure
+    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/%s/%s.xlsx' % (method, method))
+    worksheet = workbook.add_worksheet()
+    # Add a bold format to use to highlight cells.
+    bold = workbook.add_format({'bold': True})
+    # green = workbook.add_format({'bg_color': '#C6EFCE'})
+    worksheet.write(0, 0, 'F-MEASURE',bold)
+    worksheet.write(0, 1, 'PRECISION', bold)
+    worksheet.write(0, 2, 'RECALL', bold)
+    worksheet.write(0, 4, 'alpha', bold)
+    worksheet.write(0, 5, 'rad', bold)
+    worksheet.write(0, 6, 'scale', bold)
+    worksheet.write(0, 7, 'scale_init', bold)
+
+    params_tune = []
+    for p in itertools.product(alpha_v, rad_v):
+        params_tune.append(p)
+    # for i, (alpha, sigma, threshold, balloon) in enumerate(itertools.product(alpha_v, sigma_v, threshold_v, balloon_v)):
+    for i in range(len(params_tune)):
+        alpha, rad = params_tune[i]
+        # threshold = 0.9
+        # balloon = 4
+        print '\n  --  it #%i/%i  --' % (i + 1, len(params_tune))
+        print 'Working with alpha=%.1f, rad=%i' % (alpha, rad)
+        params = {'alpha': alpha, 'rad': rad, 'max_iters': 1000, 'scale': scale, 'init_scale': init_scale,
+                  'smoothing': False, 'save_fig': False, 'show': True, 'show_now': False}
+        im, mask, seg = run(im_in, slice=slice_ind, mask=mask_init, method=method, **params)
+
+        # print 'shapes 1: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
+        if im.shape != im_in.shape:
+            im = tools.resize_ND(im, shape=im_in.shape)
+        if mask.shape != gt_mask.shape:
+            mask = tools.resize_ND(mask, shape=gt_mask.shape)
+        if seg.shape != gt_mask.shape:
+            seg = tools.resize_ND(seg, shape=gt_mask.shape)
+        # print 'shapes 2: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
+
+        # calculating precision, recall and f_measure
+        precision, recall, f_measure = calc_statistics(seg, gt_mask)
+        # print 'shapes 3: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
+
+        # saving data
+        datap = {'im': im, 'mask': mask, 'seg': seg, 'params': params}
+        dirname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/' % method
+        dataname = '%s_al%s_rad%i.pklz' % (method, str(alpha).replace('.', ''), rad)
+        f = gzip.open(os.path.join(dirname, dataname), 'w')
+        pickle.dump(datap, f)
+        f.close()
+
+        # saving results
+        cols = [0, 1, 2, 4, 5, 6, 7]
+        items = (f_measure, precision, recall, alpha, rad, params['scale'], params['init_scale'])
+        for j, it in enumerate(items):
+            worksheet.write(i + 1, cols[j], it)
+
+        # creating visualization
+        fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title=method, for_save=True, show_now=False)
+        fname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/%s_al%s_rad%i.png' \
+                % (method, method, str(alpha).replace('.', ''), rad)
+        fig.savefig(fname)
+        plt.close('all')
+
+    workbook.close()
+    # plt.show()
+
+
+def run_param_tuning_morphsnakes(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_scale=0.5):
     if smoothing:
         im_in = tools.smoothing(im_in, sigmaSpace=10, sigmaColor=10, sliceId=0)
 
@@ -444,7 +584,7 @@ def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_
 
     method = 'morphsnakes'
     # create workbook for saving the resulting pracision, recall and f-measure
-    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes.xlsx')
+    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/%s/%s.xlsx' % (method, method))
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True})
@@ -465,48 +605,51 @@ def run_param_tuning(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_
     # for i, (alpha, sigma, threshold, balloon) in enumerate(itertools.product(alpha_v, sigma_v, threshold_v, balloon_v)):
     for i in range(len(params_tune)):
         alpha, sigma, threshold, balloon = params_tune[i]
+        # threshold = 0.9
+        # balloon = 4
         print '\n  --  it #%i/%i  --' % (i + 1, len(params_tune))
         print 'Working with alpha=%i, sigma=%i, threshold=%.1f, balloon=%i' % (alpha, sigma, threshold, balloon)
         params = {'alpha': alpha, 'sigma': sigma, 'smoothing_ls': 1, 'threshold': threshold, 'balloon': balloon,
                   'max_iters': 1000, 'scale': scale, 'init_scale': init_scale,
-                  'smoothing': smoothing, 'save_fig': False, 'show': True, 'show_now': False}
+                  'smoothing': False, 'save_fig': False, 'show': True, 'show_now': False}
         im, mask, seg = run(im_in, slice=slice_ind, mask=mask_init, method=method, **params)
 
+        # print 'shapes 1: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
         if im.shape != im_in.shape:
             im = tools.resize_ND(im, shape=im_in.shape)
         if mask.shape != gt_mask.shape:
             mask = tools.resize_ND(mask, shape=gt_mask.shape)
-        if seg.shape != im_in.shape:
-            seg = tools.resize_ND(seg, shape=im_in.shape)
+        if seg.shape != gt_mask.shape:
+            seg = tools.resize_ND(seg, shape=gt_mask.shape)
+        # print 'shapes 2: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
 
         # calculating precision, recall and f_measure
-        precision = 100 * (seg * gt_mask).sum() / mask.sum()  # how many selected items are relevant
-        recall = 100 * (seg * gt_mask).sum() / gt_mask.sum()  # how many relevant items are selected
-        f_measure = 2 * precision * recall / (precision + recall)
+        precision, recall, f_measure = calc_statistics(seg, gt_mask)
+        # print 'shapes 3: im={}, mask={}, seg={}'.format(im.shape, mask.shape, seg.shape)
 
         # saving data
         datap = {'im': im, 'mask': mask, 'seg': seg, 'params': params}
-        dirname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/'
-        dataname = 'morph_snakes_al%i_si%i_th%s_ba%i.pklz' % (alpha, sigma, str(threshold).replace('.', ''), balloon)
+        dirname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/' % method
+        dataname = '%s_al%i_si%i_th%s_ba%i.pklz' % (method, alpha, sigma, str(threshold).replace('.', ''), balloon)
         f = gzip.open(os.path.join(dirname, dataname), 'w')
         pickle.dump(datap, f)
         f.close()
 
         # saving results
+        cols = [0, 1, 2, 4, 5, 6, 7, 8, 9]
         items = (f_measure, precision, recall, alpha, sigma, threshold, balloon, params['scale'], params['init_scale'])
         for j, it in enumerate(items):
-            worksheet.write(i + 1, j, it)
+            worksheet.write(i + 1, cols[j], it)
 
         # creating visualization
-        fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title='morph snakes', for_save=True, show_now=False)
-        fname = '/home/tomas/Dropbox/Data/liver_segmentation/morph_snakes/morph_snakes_al%i_si%i_th%s_ba%i.png' \
-                % (alpha, sigma, str(threshold).replace('.', ''), balloon)
+        fig = tools.visualize_seg(im, seg, mask, slice=slice_ind, title=method, for_save=True, show_now=False)
+        fname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/%s_al%i_si%i_th%s_ba%i.png' \
+                % (method, method, alpha, sigma, str(threshold).replace('.', ''), balloon)
         fig.savefig(fname)
-        fig.close()
+        plt.close('all')
 
     workbook.close()
     # plt.show()
-
 
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
@@ -533,20 +676,31 @@ if __name__ == "__main__":
 
     # SFM  ----
     # print 'SFM ...',
-    # method = 'sfm'
+    method = 'sfm'
     # params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'init_scale': 0.5, 'smoothing': smoothing,
     #           'save_fig': save_fig, 'show':show, 'show_now': show_now, 'verbose': verbose}
     # im, mask, seg = run(data, slice=None, mask=None, method=method, **params)
     # print 'done'
 
     # MORPH SNAKES  ----
-    method = 'morphsnakes'
+    # method = 'morphsnakes'
     # params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.6, 'balloon': 1, 'max_iters': 1000,
     #           'scale': 0.5, 'init_scale': 0.25,
     #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
+    # params = {'alpha': 10, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.9, 'balloon': 4, 'max_iters': 1000,
+    #           'scale': scale, 'init_scale': init_scale,
+    #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
     # im, mask, seg = run(data, slice=slice_ind, mask=None, method=method, **params)
-    run_param_tuning(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
 
+    # PARAM TUNING  ----
+    if method == 'morphsnakes':
+        run_param_tuning_morphsnakes(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
+    else:
+        run_param_tuning_sfm(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
 
-    if show_now == False:
-        plt.show()
+    # CALCULATE STATISTICS FROM FILES  ----
+    # xlsx_fname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/%s.xlsx' % (method, method)
+    # load_count_write('/home/tomas/Dropbox/Data/liver_segmentation/%s' % method, mask, xlsx_fname)
+
+    # if show_now == False:
+    #     plt.show()
