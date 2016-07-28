@@ -35,6 +35,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import skimage.exposure as skiexp
 import skimage.morphology as skimor
+import skimage.filters as skifil
+from skimage import img_as_float
 
 import os.path
 import sys
@@ -161,6 +163,11 @@ def rgConspicuity(image):
     """
     def rg(image):
         r,g,_,__ = cv2.split(image)
+        # plt.figure()
+        # plt.subplot(131), plt.imshow(r, 'gray')
+        # plt.subplot(132), plt.imshow(g, 'gray')
+        # plt.subplot(133), plt.imshow(cv2.absdiff(r,g), 'gray')
+        # plt.show()
         return cv2.absdiff(r,g)
     fs = features(image = image, channel = rg)
     return sumNormalizedFeatures(fs)
@@ -201,10 +208,13 @@ def sumNormalizedFeatures(features, levels=9, startSize=(640,480)):
     commonHeight = startSize[1] / 2**(levels/2 - 1)
     commonSize = commonWidth, commonHeight
     logger.info("Size of conspicuity map: %s", commonSize)
-    consp = N(cv2.resize(features[0][1], commonSize))
+    # consp = N(cv2.resize(features[0][1], commonSize))
+    consp = N_DOG(cv2.resize(features[0][1], commonSize))
     for f in features[1:]:
-        resized = N(cv2.resize(f[1], commonSize))
+        # resized = N(cv2.resize(f[1], commonSize))
+        resized = N_DOG(cv2.resize(f[1], commonSize))
         consp = cv2.add(consp, resized)
+
     return consp
 
 
@@ -227,6 +237,32 @@ def N(image):
     mbar = float(maxima.sum()) / mnum
     logger.debug("Average of local maxima: %f.  Global maximum: %f", mbar, M)
     return image * (M-mbar)**2
+
+
+# def N_DOG(img, n_iters=10, c_ex=0.5, c_in=1.5, sig_ex_perc=0.02, sig_in_perc=0.25):
+def N_DOG(img, n_iters=10, c_ex=5, c_in=1.5, sig_ex_perc=0.001, sig_in_perc=0.4):
+    """
+        Normalization function as per Itti et al. (2000).
+        returns a normalized feature map image.
+    """
+    sig_ex = sig_ex_perc * img.shape[1]
+    sig_in = sig_in_perc * img.shape[1]
+
+    img = skiexp.rescale_intensity(img.astype(np.float), out_range=np.float32)
+
+    imgs = [img.copy(),]
+    for i in range(n_iters):
+        img = c_ex * skifil.gaussian(img, sigma=sig_ex) - c_in * skifil.gaussian(img, sigma=sig_in)
+        imgs.append(img.copy())
+
+    # plt.figure()
+    # plt.suptitle('DoG normalization')
+    # for i, im in enumerate(imgs):
+    #     plt.subplot(200 + 10 * (np.ceil(n_iters / 2) + 1) + i + 1)
+    #     plt.imshow(im, 'gray', interpolation='nearest')
+    # plt.show()
+
+    return img
 
 
 def makeNormalizedColorChannels(image, thresholdRatio=10.):
@@ -316,7 +352,13 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     if smoothing:
         im = tools.smoothing(im)
 
+    # img = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
+    # im *= im < np.median(im)
+
+    # img = cv2.resize(img, (intensty.shape[1], intensty.shape[0]))
     intensty = intensityConspicuity(im)
+    # intensty *= img < np.median(img)
+    # intensty2 = intensty * (img < np.median(img))
     gabor = gaborConspicuity(im, 4)
 
     im = makeNormalizedColorChannels(im)
@@ -400,7 +442,7 @@ if __name__ == "__main__":
     data_s, mask_s = tools.crop_to_bbox(data_s, mask_s)
     mean_v = int(data_s[np.nonzero(mask_s)].mean())
     data_s = np.where(mask_s, data_s, mean_v)
-    # data_s *= mask_s
+    # data_s *= mask_s.astype(data_s.dtype)
     im = cv2.cvtColor(data_s, cv2.COLOR_BAYER_GR2RGB)
 
     # run(im, save_fig=False, show=True, show_now=False)
