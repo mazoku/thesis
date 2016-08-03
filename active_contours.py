@@ -118,7 +118,7 @@ def initialize_graycom_deprecated(data, slice=None, distances=[1,], scale=0.5, a
     gcm_to = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
 
     # find peaks in the GCM and return them as random variables
-    rvs = analyze_gcm(gcm_to)
+    rvs = analyze_glcm(gcm_to)
 
     if slice is not None:
         data = data[slice,...]
@@ -265,7 +265,7 @@ def find_liver_blob(data, labs_im, dens_min=120, dens_max=200, slice=None, show=
     return winner
 
 
-def analyze_gcm(gcm, area_t=200, ecc_t=0.35):
+def analyze_glcm(gcm, area_t=200, ecc_t=0.35):
     labs_im = skimea.label(gcm, connectivity=2)
 
     # plt.figure()

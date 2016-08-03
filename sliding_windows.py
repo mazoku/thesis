@@ -43,7 +43,7 @@ def calc_survival_fcn(imgs, masks, show=False, show_now=True):
 
 
 def run(image, mask, pyr_scale=1.5, min_pyr_size=(30, 30), show=False, show_now=True, verbose=True):
-    image = tools.smoothing(image)
+    # image = tools.smoothing(image)
 
     pyr_imgs = []
     outs = []
@@ -104,11 +104,15 @@ def run(image, mask, pyr_scale=1.5, min_pyr_size=(30, 30), show=False, show_now=
         plt.suptitle(suptitle)
         for i, (im, out) in enumerate(zip(pyr_imgs, outs)):
             plt.subplot(2, n_layers, i + 1), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('input at pyr. layer %i' % (i + 1))
-            plt.subplot(2, n_layers, i + 1 + n_layers), plt.imshow(out, 'gray', interpolation='nearest'), plt.title('output at pyr. layer %i' % (i + 1))
+            plt.axis('off')
+            plt.subplot(2, n_layers, i + 1 + n_layers), plt.imshow(out, 'jet', interpolation='nearest'), plt.title('output at pyr. layer %i' % (i + 1))
+            plt.axis('off')
 
         plt.figure()
         plt.subplot(121), plt.imshow(image, 'gray', interpolation='nearest')
+        plt.axis('off')
         plt.subplot(122), plt.imshow(surv_im, 'jet', interpolation='nearest')
+        plt.axis('off')
 
         if show_now:
             plt.show()

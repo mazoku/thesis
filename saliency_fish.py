@@ -240,6 +240,12 @@ def conspicuity_int_diff(im, mask=None, use_sigmoid=False, morph_proc=True, type
         mask = np.ones_like(im)
 
     mean_v = im[np.nonzero(mask)].mean()
+    # hist, bins = skiexp.histogram(im[np.nonzero(mask)])
+    # hist = tools.hist_smoothing(bins, hist, sigma=10)
+    # max_peak_idx = hist.argmax()
+    # mean_v = bins[max_peak_idx]
+    # print 'mean = {:.2f}, peak = {:.2f}'.format(im[np.nonzero(mask)].mean(), mean_v)
+
     if type == 'both':
         im_int = np.abs(im - mean_v) * mask
     elif type == 'hypo':
@@ -279,9 +285,28 @@ def conspicuity_int_hist(im, mask=None, use_sigmoid=False, morph_proc=True, type
     field = skimor.binary_closing(class1, selem=skimor.disk(3))
     field = skimor.binary_opening(field, selem=skimor.disk(3))
     field = (1 - field) * mask
-    im_int = scindimor.distance_transform_edt(field, return_distances=True)
-    mean_v = rv.mean()
+    dist = scindimor.distance_transform_edt(field, return_distances=True)
+    diff = abs(im - rv.mean())
+    im_int = dist * diff
 
+    # plt.figure()
+    # i = cv2.resize(255*(class1 > 0).astype(np.uint8), (115, 215))
+    # plt.imshow(i, 'gray'), plt.axis('off')
+    # plt.show()
+
+    # plt.figure()
+    # plt.subplot(141), plt.imshow(cv2.resize(im, (115, 215)), 'gray'), plt.axis('off')
+    # plt.subplot(142), plt.imshow(cv2.resize(dist, (115, 215)), 'jet'), plt.axis('off')
+    # plt.subplot(143), plt.imshow(cv2.resize(diff, (115, 215)), 'jet'), plt.axis('off')
+    # plt.subplot(144), plt.imshow(cv2.resize(im_int, (115, 215)), 'jet'), plt.axis('off')
+    # plt.show()
+
+    # im_int = skiexp.rescale_intensity(1 - rv.pdf(im), out_range=(0, 1))
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im_int, 'gray')
+    # plt.subplot(122), plt.imshow(im_int2, 'gray'), plt.colorbar()
+    # plt.show()
+    mean_v = rv.mean()
 
     # plt.figure()
     # plt.subplot(141), plt.imshow(im, 'gray'), plt.title('input')
@@ -329,7 +354,7 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
     gcm_t = gcm > thresh
     gcm_to = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
 
-    rvs = tools.analyze_gcm(gcm_to)
+    rvs = tools.analyze_glcm(gcm_to)
 
     # filtering
     rvs = sorted(rvs, key=lambda rv: rv.mean())
@@ -339,6 +364,12 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
 
     # rescaling to <0, 1>
     im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
+
+    plt.figure()
+    plt.subplot(131), plt.imshow(cv2.resize((im * mask).astype(np.float32), (115, 215)), 'gray'), plt.axis('off')
+    plt.subplot(132), plt.imshow(gcm_to, 'gray'), plt.axis('off')
+    plt.subplot(133), plt.imshow(cv2.resize(im_int.astype(np.float32), (115, 215)), 'jet'), plt.axis('off')
+    plt.show()
 
     # using sigmoid
     sigm_t = 0.2
@@ -714,9 +745,10 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
     n_cols = np.ceil(len(features) / 2)
     for i, f in enumerate(features):
         plt.subplot(200 + 10 * n_cols + i + 1)
-        plt.imshow(cv2.resize(f[1], img.shape[::-1]), 'gray')
-        plt.title('{}'.format(f[0]))
-    plt.show()
+        plt.imshow(cv2.resize(f[1], img.shape[::-1]), 'jet')
+        plt.axis('off')
+        # plt.title('{}'.format(f[0]))
+    # plt.show()
 
     # plt.figure()
     # n_cols = np.ceil(len(im_pyramid) / 2.)
@@ -736,11 +768,14 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
     consp_map = sumNormalizedFeatures(features, levels=n_levels)
     consp_map = cv2.resize(consp_map, img.shape[::-1]) * mask
     consp_map = np.where(consp_map < 0, 0, consp_map)
+    consp_map = skiexp.rescale_intensity(consp_map, out_range=(0, 1))
 
     if show:
         plt.figure()
-        plt.subplot(121), plt.imshow(img, 'gray'), plt.title('input')
+        plt.subplot(121), plt.imshow(img * mask, 'gray'), plt.title('input')
+        plt.axis('off')
         plt.subplot(122), plt.imshow(consp_map, 'jet'), plt.title('conspicuity map')
+        plt.axis('off')
         divider = make_axes_locatable(plt.gca())
         cax = divider.append_axes('right', size='5%', pad=0.05)
         plt.colorbar(cax=cax)
@@ -768,6 +803,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
         im, mask = tools.crop_to_bbox(im, mask)
         mean_v = int(im[np.nonzero(mask)].mean())
         im = np.where(mask, im, mean_v)
+        # im = np.where(mask, im, 255)
 
     im_orig = im.copy()
     orig_shape = im_orig.shape[:-1]
@@ -788,9 +824,8 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # plt.show()
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_diff, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_hist, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    # isw = conspicuity_sliding_window(im, mask=mask, pyr_scale=1.5, show=show, show_now=False)
-    isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    # isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
 
     # blobs
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
