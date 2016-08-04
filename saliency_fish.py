@@ -394,15 +394,30 @@ def conspicuity_int_sliwin(im, mask=None, use_sigmoid=False, morph_proc=True, ty
     if mask is None:
         mask = np.ones_like(im)
 
-    hist, bins = skiexp.histogram(im[np.nonzero(mask)])
-    liver_peak = bins[np.argmax(hist)]
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(im, 'gray')
+    # plt.subplot(122), plt.imshow(im[270:360, 250:360], 'gray')
+    # plt.show()
+    # im = im[270:380, 250:360]
+    # mask = mask[270:380, 250:360]
+
+    # hist, bins = skiexp.histogram(im[np.nonzero(mask)])
+    # hist = tools.hist_smoothing(bins, hist)
+    # liver_peak = bins[np.argmax(hist)]
+    liver_peak = im[np.nonzero(mask)].mean()
 
     im_int = np.zeros(im.shape)
-    win_w = 10
+    win_w = 10 #20
     win_h = 10
     win_size = (win_w, win_h)
-    step_size = 4
-    for (x, y, win_mask, win) in tools.sliding_window(im, window_size=win_size, step_size=step_size):
+    step_size = int(0.4 * win_w)# / 2
+
+    # its = [22, 68, 86]
+    # wins = []
+    # win_masks = []
+    # ms = []
+    # out_vals = []
+    for i, (x, y, win_mask, win) in enumerate(tools.sliding_window(im, window_size=win_size, step_size=step_size)):
         # win_mean = win.mean()
 
         # abs of diff
@@ -416,10 +431,30 @@ def conspicuity_int_sliwin(im, mask=None, use_sigmoid=False, morph_proc=True, ty
 
         # procent. zastoupeni hypo + bin. open
         m = win < liver_peak
-        m = skimor.binary_opening(m, skimor.disk(3))
+        # m = skimor.binary_opening(m, skimor.disk(3))
         out_val = np.float(m.sum()) / (win_w * win_h)
+        im_int[np.nonzero(win_mask)] += out_val
 
-        im_int[np.nonzero(win_mask)] = out_val
+        # if i in its:
+        #     wins.append(win)
+        #     win_masks.append(win_mask)
+        #     ms.append(m)
+        #     out_vals.append(out_val)
+
+    # # visualization --
+    # colors = [(255, 0, 0), (0, 255, 0), (0, 0, 200)]
+    # im_in = cv2.cvtColor((255 * im.copy()).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+    # plt.figure()
+    # for i, (win, win_mask, m) in enumerate(zip(wins, win_masks, ms)):
+    #     rs, cs = np.nonzero(win_mask)
+    #     cv2.rectangle(im_in, (cs.min(), rs.min()), (cs.max(), rs.max()), colors[i], thickness=2)
+    #
+    #     plt.subplot(150 + i + 3), plt.imshow(m, 'gray', interpolation='nearest', vmin=0, vmax=1), plt.axis('off')
+    # # plt.subplot(151), plt.imshow(im_in, vmin=0, vmax=1), plt.axis('off')
+    # plt.subplot(151), plt.imshow(im_in, vmin=100, vmax=100), plt.axis('off')
+    # plt.subplot(152), plt.imshow(im_int * mask, 'jet', interpolation='nearest'), plt.axis('off')
+    # plt.show()
+
     im_int *= mask
 
     # plt.figure()
@@ -824,7 +859,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # plt.show()
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_diff, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_hist, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
 
     # blobs
@@ -834,7 +869,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
 
     # texture
-    # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
+    consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
 
     # consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
 
