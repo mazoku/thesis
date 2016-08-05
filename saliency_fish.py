@@ -15,6 +15,7 @@ import numpy as np
 import skimage.exposure as skiexp
 import skimage.morphology as skimor
 import skimage.filters as skifil
+import skimage.feature as skifea
 from skimage import img_as_float
 from sklearn.cluster import KMeans
 import sklearn.mixture as sklmix
@@ -253,26 +254,8 @@ def conspicuity_int_diff(im, mask=None, use_sigmoid=False, morph_proc=True, type
     else:  # type == 'hyper'
         im_int = np.abs(im - mean_v) * ((im - mean_v) > 0) * mask
 
-    # rescaling to <0, 1>
-    im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
-
-    # using sigmoid
-    sigm_t = 0.2
-    if use_sigmoid:
-        c = mean_v
-        im_sigm = tools.sigmoid(im_int, mask, a=a, c=c, sigm_t=sigm_t)
-        # im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
-        # im_sigm = im_sigm * (im_sigm > sigm_t)
-        im_res = im_sigm.copy()
-    else:
-        im_res = im_int.copy()
-
-    # morphological postprocessing
-    if morph_proc:
-        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(3)))
-        im_res = im_morph.copy()
-
-    im_res = skiexp.rescale_intensity(im_res.astype(np.float), out_range=np.float32)
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=mean_v, sigm_t=0.2,
+                                   use_morph=morph_proc, radius=3)
 
     return im_res
 
@@ -315,26 +298,8 @@ def conspicuity_int_hist(im, mask=None, use_sigmoid=False, morph_proc=True, type
     # plt.subplot(144), plt.imshow(im_int, 'gray'), plt.title('dist')
     # plt.show()
 
-    # rescaling to <0, 1>
-    im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
-
-    # using sigmoid
-    sigm_t = 0.2
-    if use_sigmoid:
-        c = mean_v
-        im_sigm = tools.sigmoid(im_int, mask, a=a, c=c, sigm_t=sigm_t)
-        # im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
-        # im_sigm = im_sigm * (im_sigm > sigm_t)
-        im_res = im_sigm.copy()
-    else:
-        im_res = im_int.copy()
-
-    # morphological postprocessing
-    if morph_proc:
-        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(3)))
-        im_res = im_morph.copy()
-
-    im_res = skiexp.rescale_intensity(im_res.astype(np.float), out_range=np.float32)
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=mean_v, sigm_t=0.2,
+                                   use_morph=morph_proc, radius=3)
 
     return im_res
 
@@ -360,32 +325,11 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
     rvs = sorted(rvs, key=lambda rv: rv.mean())
     im_int = rvs[0].pdf(im)
     mean_v = rvs[0].mean()
+
     a = 20
-
-    # rescaling to <0, 1>
-    im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
-
-    plt.figure()
-    plt.subplot(131), plt.imshow(cv2.resize((im * mask).astype(np.float32), (115, 215)), 'gray'), plt.axis('off')
-    plt.subplot(132), plt.imshow(gcm_to, 'gray'), plt.axis('off')
-    plt.subplot(133), plt.imshow(cv2.resize(im_int.astype(np.float32), (115, 215)), 'jet'), plt.axis('off')
-    plt.show()
-
-    # using sigmoid
-    sigm_t = 0.2
-    if use_sigmoid:
-        c = mean_v / 255
-        im_sigm = tools.sigmoid(im_int, mask, a=a, c=c, sigm_t=sigm_t)
-        im_res = im_sigm.copy()
-    else:
-        im_res = im_int.copy()
-
-    # morphological postprocessing
-    if morph_proc:
-        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(3)))
-        im_res = im_morph.copy()
-
-    im_res = skiexp.rescale_intensity(im_res.astype(np.float), out_range=np.float32)
+    c = mean_v / 255
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
+                                   use_morph=morph_proc, radius=3)
 
     return im_res
 
@@ -457,165 +401,11 @@ def conspicuity_int_sliwin(im, mask=None, use_sigmoid=False, morph_proc=True, ty
 
     im_int *= mask
 
-    # plt.figure()
-    # plt.imshow(im_int, 'gray')
-    # plt.show()
-
-    # rescaling to <0, 1>
-    im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
-
-    # using sigmoid
-    sigm_t = 0.2
-    if use_sigmoid:
-        c = mean_v / 255
-        im_sigm = tools.sigmoid(im_int, mask, a=a, c=c, sigm_t=sigm_t)
-        im_res = im_sigm.copy()
-    else:
-        im_res = im_int.copy()
-
-    # morphological postprocessing
-    if morph_proc:
-        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(3)))
-        im_res = im_morph.copy()
-
-    im_res = skiexp.rescale_intensity(im_res.astype(np.float), out_range=np.float32)
+    c = mean_v / 255
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
+                                   use_morph=morph_proc, radius=3)
 
     return im_res
-
-
-def conspicuity_intensity(im, mask=None, type='both', int_type='diff', use_sigmoid=True, morph_proc=True, a=0.1, c=20, show=False, show_now=True):
-    _debug('Running intensity conspicuity calculation, type %s ...' % int_type)
-
-    sigm_t = 0.2
-
-    # intensity difference
-    if int_type == 'diff':
-        if mask is None:
-            mask = np.ones_like(im)
-        mean_v = im[np.nonzero(mask)].mean()
-        if type == 'both':
-            im_int = np.abs(im - mean_v) * mask
-        elif type == 'hypo':
-            im_int = np.abs(im - mean_v) * ((im - mean_v) < 0) * mask
-        else:  # type == 'hyper'
-            im_int = np.abs(im - mean_v) * ((im - mean_v) > 0) * mask
-        a = 3
-
-    # hist analysis
-    elif int_type == 'hist':
-        class1, rv = tools.dominant_class(im, roi=mask)
-        field = skimor.binary_closing(class1, selem=skimor.disk(3))
-        field = skimor.binary_opening(field, selem=skimor.disk(3))
-        field = (1 - field) * mask
-        im_int = scindimor.distance_transform_edt(field, return_distances=True)
-        mean_v = rv.mean()
-        a = 3
-
-        # if show:
-        #     plt.figure()
-        #     plt.subplot(141), plt.imshow(im, 'gray'), plt.title('input')
-        #     plt.subplot(142), plt.imshow(class1, 'gray'), plt.title('class1')
-        #     plt.subplot(143), plt.imshow(field, 'gray'), plt.title('field')
-        #     plt.subplot(144), plt.imshow(im_int, 'gray'), plt.title('dist')
-        #     if show_now:
-        #         plt.show()
-
-    # GLCM analysis
-    elif int_type == 'glcm':
-        gcm = tools.graycomatrix_3D(im, mask=mask)
-
-        # thresholding graycomatrix (GCM)
-        c_t = 5
-        thresh = c_t * np.mean(gcm)
-        gcm_t = gcm > thresh
-        gcm_to = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
-
-        # plt.figure()
-        # plt.subplot(131), plt.imshow(gcm, 'gray')
-        # plt.subplot(132), plt.imshow(gcm_t, 'gray')
-        # plt.subplot(133), plt.imshow(gcm_to, 'gray')
-        #
-        # plt.figure()
-        # plt.subplot(121), plt.imshow(im, 'gray')
-        # plt.subplot(122)
-        # plt.imshow(gcm, 'gray', vmax=100)
-        plt.show()
-        rvs = tools.analyze_gcm(gcm_to)
-
-        # filtering
-        rvs = sorted(rvs, key=lambda rv: rv.mean())
-        im_int = rvs[0].pdf(im)
-        mean_v = rvs[0].mean()
-        a = 20
-
-        # visualization of RV
-        # probs = []
-        # for rv in rvs:
-        #     tmp = rv.pdf(im)
-        #     probs.append(tmp)
-        # plt.figure()
-        # plt.subplot(100 + 10 * (len(probs) + 1) + 1)
-        # plt.imshow(im, 'gray'), plt.title('input')
-        # for i, im in enumerate(probs):
-        #     plt.subplot(100 + 10 * (len(probs) + 1) + i + 2)
-        #     plt.imshow(im, 'gray')
-        #     plt.title('rv #%i' % (i + 1))
-        # plt.show()
-    elif int_type == 'sliwin':
-        pass
-    else:
-        raise ValueError('Wrong type of intensity conspicuity.')
-
-    # POSTPROCESSING
-    im_int = skiexp.rescale_intensity(im_int.astype(np.float), out_range=(0, 1))
-
-    if use_sigmoid:
-        c = mean_v / 255
-        im_sigm = tools.sigmoid(im_int, mask, a=a, c=c, sigm_t=sigm_t)
-        # im_sigm = (1. / (1 + (np.exp(-a * (im_diff - c))))) * mask
-        # im_sigm = im_sigm * (im_sigm > sigm_t)
-        im_res = im_sigm.copy()
-    else:
-        im_res = im_int.copy()
-
-    if morph_proc:
-        im_morph = skimor.closing(skimor.opening(im_res, selem=skimor.disk(1)))
-        im_res = im_morph.copy()
-
-    im_res = skiexp.rescale_intensity(im_res.astype(np.float), out_range=np.float32)
-    features, levels = cross_scale_diffs(im_res, channel=None)
-    consp_int = cv2.resize(sumNormalizedFeatures(features, levels=levels), dsize=im.shape[::-1])
-
-    plt.figure()
-    n_cols = np.ceil(len(features) / 2)
-    for i, f in enumerate(features):
-        plt.subplot(200 + 10 * n_cols + i + 1)
-        plt.imshow(cv2.resize(f[1], im.shape[::-1]), 'gray')
-        plt.title('{}'.format(f[0]))
-    plt.show()
-
-    if show:
-        imgs = [im, im_int, im_res, consp_int]
-        titles = ['input', 'int %s' % int_type, 'result im', 'conspicuity']
-        if morph_proc:
-            imgs.insert(2, im_morph)
-            titles.insert(2, 'morphology')
-        if use_sigmoid:
-            imgs.insert(2, im_sigm)
-            titles.insert(2, 'sigmoid')
-        n_imgs = len(imgs)
-        plt.figure()
-        for i, (im, tit) in enumerate(zip(imgs, titles)):
-            plt.subplot(1, n_imgs, i + 1)
-            plt.imshow(im, 'gray', interpolation='nearest')
-            plt.title(tit)
-            divider = make_axes_locatable(plt.gca())
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            plt.colorbar(cax=cax)
-        if show_now:
-            plt.show()
-
-    return consp_int#, im_int
 
 
 # def conspicuity_prob_models(im, mask, type='both', show=False, show_now=True):
@@ -648,6 +438,57 @@ def conspicuity_intensity(im, mask=None, type='both', int_type='diff', use_sigmo
 #         plt.axis('tight')
 #     if show_now:
 #         plt.show()
+
+
+def conspicuity_texture(im, mask, p=24, r=3, lbp_type='flat', use_sigmoid=False, morph_proc=True, type='hypo'):
+    lbp_res = skifea.local_binary_pattern(im, p, r, 'uniform')
+    w = r - 1
+
+    im_int = find_prototypes(im, mask, lbp_res, lbp_type, type, w, p, k=1)
+
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, sigm_t=0.2, use_morph=morph_proc, radius=3)
+
+    # flat_labels = list(range(0, w + 1)) + list(range(p - w, p + 2))
+    # plt.figure()
+    # counts, _, bars = plt.hist(lbp_res.ravel(), normed=True, bins=lbp_res.max() + 1, range=(0, lbp_res.max() + 1),
+    #                            facecolor='0.5')
+    # for i in flat_labels:
+    #     bars[i].set_facecolor('r')
+    # plt.gca().set_ylim(ymax=np.max(counts[:-1]))
+    # plt.gca().set_xlim(xmax=p + 2)
+    # plt.title('lbp hist with highlighted flat prototypes')
+    # plt.figure()
+    # plt.imshow(cv2.resize(im_int.astype(np.uint8), (115, 215)), 'gray'), plt.title('flat hypo')
+    # plt.show()
+
+    return im_res
+
+
+def find_prototypes(im, mask, lbp, lbp_type, blob_type, w, n_points, k=1):
+    if lbp_type == 'edge':
+        labels = range(n_points // 2 - w, n_points // 2 + w + 1)
+    elif lbp_type == 'flat':
+        labels = list(range(0, w + 1)) + list(range(n_points - w, n_points + 2))
+    elif lbp_type == 'corner':
+        i_14 = n_points // 4  # 1/4th of the histogram
+        i_34 = 3 * (n_points // 4)      # 3/4th of the histogram
+        labels = (list(range(i_14 - w, i_14 + w + 1)) + list(range(i_34 - w, i_34 + w + 1)))
+    else:
+        raise IOError('Wrong prototype value.')
+
+    t = k * im[np.nonzero(mask)].mean()
+    if blob_type == 'hypo':
+        blob_m = (im < t) * mask
+    elif blob_type == 'hyper':
+        blob_m = (im > t) * mask
+    elif blob_type == 'both':
+        blob_m = im * mask
+    else:
+        raise IOError('Wrong blobtype value.')
+    lbp_m = np.logical_or.reduce([lbp == each for each in labels])
+    lbp_prototype = np.logical_and(blob_m, lbp_m)
+
+    return lbp_prototype
 
 
 def conspicuity_blobs(im, mask, pyr_scale=2, show=False, show_now=True):
@@ -693,25 +534,28 @@ def conspicuity_circloids(im, mask, pyr_scale=2, show=False, show_now=True):
     return circ_surv
 
 
-def conspicuity_texture(im, mask, pyr_scale=2, show=False, show_now=True):
-    lbp_surv, _ = lbp.run(im, mask, n_points=24, radius=3, lbp_type='flat', blob_type='hypo', pyr_scale=1.5,
-                          show=show, show_now=show_now, save_fig=False, verbose=verbose)
-
-    return lbp_surv
-
-
-def conspicuity_sliding_window(im, mask, pyr_scale=2., min_pyr_size=(20, 20), show=False, show_now=True):
-    sliwin_surv, _ = sliding_windows.run(im, mask, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
-                                         show=show, show_now=show_now, verbose=verbose)
-
-    return sliwin_surv
-
-
 def conspicuity_he_pipeline(im, mask, proc, pyr_scale=1.5, min_pyr_size=(20, 20), show=False, show_now=True):
     heep_surv = he_pipeline.run(im, mask, proc=proc, pyr_scale=pyr_scale, min_pyr_size=min_pyr_size,
                                 show=show, show_now=show_now, verbose=verbose)
 
     return heep_surv
+
+
+def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2, use_morph=False, radius=3):
+    # rescaling to <0, 1>
+    map = skiexp.rescale_intensity(map.astype(np.float), out_range=(0, 1))
+
+    # using sigmoid
+    if use_sigmoid:
+        map = tools.sigmoid(map, mask, a=a, c=c, sigm_t=sigm_t)
+
+    # morphological postprocessing
+    if use_morph:
+        map = skimor.closing(skimor.opening(map, selem=skimor.disk(radius)))
+
+    map = skiexp.rescale_intensity(map.astype(np.float), out_range=np.float32)
+
+    return map
 
 
 def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigmoid=False, morph_proc=True,
@@ -861,6 +705,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_hist, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
+    it = conspicuity_calculation(im, consp_fcn=conspicuity_texture, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
 
     # blobs
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
@@ -869,7 +714,7 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
 
     # texture
-    consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
+    # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
 
     # consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
 
