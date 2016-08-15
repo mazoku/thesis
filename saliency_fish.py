@@ -491,47 +491,106 @@ def find_prototypes(im, mask, lbp, lbp_type, blob_type, w, n_points, k=1):
     return lbp_prototype
 
 
-def conspicuity_blobs(im, mask, pyr_scale=2, show=False, show_now=True):
-    # _debug('Running blob response conspicuity calculation ...')
-    blob_surv, survs = blobs.run_all(im, mask, pyr_scale=pyr_scale, show=False, show_now=False, verbose=verbose)
+def conspicuity_blobs(im, mask, use_sigmoid=False, a=3, morph_proc=True, type='hypo', show=False, show_now=True):
+    _debug('Running blob response conspicuity calculation ...')
 
-    if show:
-        imgs = [im, blob_surv] + [s[0] for s in survs]
-        titles = ['input', 'blob surv'] + [s[2] for s in survs]
-        n_imgs = len(imgs)
-        cmaps = ['gray'] + (n_imgs - 1) * ['jet']
-        for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
-            plt.subplot(1, n_imgs, i + 1)
-            plt.imshow(im, cmap=cmap, interpolation='nearest')
-            plt.title(tit)
-            divider = make_axes_locatable(plt.gca())
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            plt.colorbar(cax=cax)
-        if show_now:
-            plt.show()
+    blob_types = blobs.BLOB_ALL
+    for blob_type in blob_types:
+        blobs_res, survs_res, titles, params = blobs.detect_blobs(im, mask, blob_type, layer_id=0,
+                                                                  show=show, show_now=show_now)
 
-    return blob_surv
+    # survival overall
+    surv = survs_res[0]
+    # blob_surv, survs = blobs.run_all(im, mask, pyr_scale=pyr_scale, show=False, show_now=False, verbose=verbose)
+
+    # if show:
+    #     imgs = [im, blob_surv] + [s[0] for s in survs]
+    #     titles = ['input', 'blob surv'] + [s[2] for s in survs]
+    #     n_imgs = len(imgs)
+    #     cmaps = ['gray'] + (n_imgs - 1) * ['jet']
+    #     for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
+    #         plt.subplot(1, n_imgs, i + 1)
+    #         plt.imshow(im, cmap=cmap, interpolation='nearest')
+    #         plt.title(tit)
+    #         divider = make_axes_locatable(plt.gca())
+    #         cax = divider.append_axes('right', size='5%', pad=0.05)
+    #         plt.colorbar(cax=cax)
+    #     if show_now:
+    #         plt.show()
+
+    return surv
 
 
-def conspicuity_circloids(im, mask, pyr_scale=2, show=False, show_now=True):
-    circ_surv, circ_surv_layers, circ_surv_masks = circloids.run(im, mask, pyr_scale=pyr_scale, show=False, show_now=False, verbose=verbose)
+def conspicuity_circloids(im, mask, use_sigmoid=False, a=3, morph_proc=True, type='hypo', show=False, show_now=True):
+    _debug('Creating masks...')
+    mask_shapes = [(15, 15, 0), (29, 15, 0), (29, 15, 45), (29, 15, 90), (29, 15, 135)]
+    # mask_shapes = [(30, 30, 0), (58, 30, 0), (58, 30, 45), (58, 30, 90), (58, 30, 135)]
+    # n_masks = len(mask_shapes)
+    border_width = 1
+    masks, elipses = circloids.create_masks(mask_shapes, border_width=border_width, show=False, show_masks=False)
 
-    if show:
-        imgs = [im, circ_surv] + circ_surv_masks
-        titles = ['input', 'circ surv'] + ['mask #%i' % (i+1) for i in range(len(circ_surv_masks))]
-        n_imgs = len(imgs)
-        cmaps = ['gray'] + (n_imgs - 1) * ['jet']
-        for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
-            plt.subplot(1, n_imgs, i + 1)
-            plt.imshow(im, cmap=cmap, interpolation='nearest')
-            plt.title(tit)
-            divider = make_axes_locatable(plt.gca())
-            cax = divider.append_axes('right', size='5%', pad=0.05)
-            plt.colorbar(cax=cax)
-        if show_now:
-            plt.show()
+    hist, bins = skiexp.histogram(im[np.nonzero(mask)])
+    liver_peak = bins[np.argmax(hist)]
 
-    return circ_surv
+    # setting up values outside mask to better suppress responses on the border of the mask
+    if type == 'dark':
+        im = np.where(mask, im, 0)
+    else:
+        im = np.where(mask, im, 1)
+
+    # layer_positives = []  # list of candidates for current layer and all masks
+    # layer_outs = []
+
+    _debug('Calculating responses...')
+    overall_positives = []
+    masks_resp = []
+    for mask_id, (m, e) in enumerate(zip(masks, elipses)):
+        mask_positives = []
+        win_size = m[0].shape[::-1]
+        # step_size = 4
+        step_size = 8
+        for (x, y, win_mask, win) in tools.sliding_window(im, window_size=win_size, step_size=step_size, mask=mask):
+            resp, m_resps = circloids.masks_response(win, m, offset=10./255, type=type, mean_val=liver_peak, show=False)
+            if resp:
+                # positives.append(((x, y), (x + win_size[0], y + win_size[1])))
+                elip = ((e[0][0] + x, e[0][1] + y), e[1], e[2])
+                mask_positives.append(elip)
+                overall_positives.append(elip)
+        masks_resp.append(mask_positives)
+
+    # creating output image
+    im_int = np.zeros(im.shape)
+    for i in overall_positives:
+        tmp = np.zeros(im.shape)
+        cv2.ellipse(tmp, i[0], i[1], i[2], 0, 360, 1, thickness=-1)
+        im_int += tmp
+
+    # # creating mask response images
+    # masks_survs = []
+    # for m in masks_resp:
+    #     surv = np.zeros(im.shape)
+    #     for i in m:
+    #         tmp = np.zeros_like(surv)
+    #         cv2.ellipse(tmp, i[0], i[1], i[2], 0, 360, 1, thickness=-1)
+    #         surv += tmp
+    #     masks_survs.append(surv.copy())
+
+    im_int *= mask
+
+    c = mean_v / 255
+    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
+                                    use_morph=morph_proc, radius=3)
+
+    # plt.figure()
+    # for i, im in enumerate(masks_survs):
+    #     plt.subplot(151 + i)
+    #     plt.imshow(im, 'jet')
+    # plt.show()
+
+    # return im_res, masks_survs
+    return im_res
+
+
 
 
 def conspicuity_he_pipeline(im, mask, proc, pyr_scale=1.5, min_pyr_size=(20, 20), show=False, show_now=True):
@@ -573,6 +632,7 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
     im_pyramid = []
     mask_pyramid = []
     consp_pyramid = []
+    # survs = []
 
     im_p = img_0
     mask_p = mask_0
@@ -583,6 +643,9 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
             consp_map = consp_fcn(im_p, **params)
         else:
             consp_map = im_p.copy()
+
+        # survs.append(consp_map[1])
+        # consp_map = consp_map[0]
 
         # append data to pyramids
         im_pyramid.append(im_p)
@@ -597,6 +660,18 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
         # break the loop if the image can't be scaled down any further
         if im_p is None:
             break
+
+    # masks_survs = []
+    # for i in range(len(survs[0])):
+    #     tmp = np.zeros_like(img)
+    #     for j in range(len(survs)):
+    #         tmp += cv2.resize(survs[j][i], img.shape[::-1])
+    #     masks_survs.append(tmp.copy())
+    # plt.figure()
+    # for i, m in enumerate(masks_survs):
+    #     plt.subplot(151 + i)
+    #     plt.imshow(m, 'jet')
+    # plt.show()
 
     if calc_features:
         n_levels = len(consp_pyramid)
@@ -705,7 +780,9 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_hist, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
     # isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
-    it = conspicuity_calculation(im, consp_fcn=conspicuity_texture, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
+    # it = conspicuity_calculation(im, consp_fcn=conspicuity_texture, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
+    # circ = conspicuity_calculation(im, consp_fcn=conspicuity_circloids, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
+    blobs = conspicuity_calculation(im, consp_fcn=conspicuity_blobs, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
 
     # blobs
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)

@@ -25,6 +25,7 @@ BLOB_DOG = 'dog'
 BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'openCV'
+BLOB_ALL = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
 
 verbose = True
 

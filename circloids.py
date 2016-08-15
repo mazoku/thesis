@@ -150,6 +150,8 @@ def create_masks(shapes, border_width=1, show=False, show_masks=False, show_now=
 
         masks.append(masks_sh)
         elipses.append(((c_x, c_y), (axes_x, axes_y), sh[2]))
+    # show = True
+    # show_now = True
     if show:
         for masks_sh in masks:
             mask = np.zeros(masks_sh[0].shape, dtype=np.byte)
@@ -158,6 +160,8 @@ def create_masks(shapes, border_width=1, show=False, show_masks=False, show_now=
             plt.figure()
             plt.subplot(231)
             plt.imshow(mask, interpolation='nearest'), plt.colorbar()
+            plt.axis('equal')
+            plt.axis('off')
             for i, m in enumerate(masks_sh):
                 plt.subplot(2, 3, i + 2)
                 plt.imshow(m, 'gray', interpolation='nearest')
@@ -178,17 +182,17 @@ def masks_response(image, masks, type='dark', mean_val=None, offset=10, show=Fal
     center = resps[0]
     corners = np.array(resps[1:])
 
-    #TODO: zakodovat ala LBP
-    if type in ['dark', 'black']:
+    #TODO: zakodovat ala LBP?
+    if type in ['dark', 'black', 'hypo']:
         final_resp = (center[0] < corners[:, 0]).all()
         if mean_val is not None:
             final_resp = final_resp and center[0] < (mean_val - offset)
-    elif type in ['bright', 'white']:
+    elif type in ['bright', 'white', 'hyper']:
         final_resp = (center[0] > corners[:, 0]).all()
         if mean_val is not None:
             final_resp = final_resp and center[0] > (mean_val + offset)
     else:
-        raise ValueError('Unknown type provided. Possible types are: dark, black, bright, white.')
+        raise ValueError('Unknown type provided. Possible types are: dark, black, hypo, bright, white, hyper.')
 
     if show:
         plt.figure()
