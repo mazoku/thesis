@@ -25,7 +25,7 @@ BLOB_DOG = 'dog'
 BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'openCV'
-BLOB_ALL = [BLOB_DOG, BLOB_LOG, BLOB_DOH, BLOB_CV]
+BLOB_ALL = [BLOB_DOH, BLOB_DOG, BLOB_LOG, BLOB_CV]
 
 verbose = True
 
@@ -63,7 +63,7 @@ def get_blob_mean_value(blobs, image, mask):
     for blob in blobs:
         y, x, r = blob
         b_mask = np.zeros(image.shape)
-        cv2.circle(b_mask, (x, y), r, color=1, thickness=-1)
+        cv2.circle(b_mask, (int(round(x)), int(round(y))), int(round(r)), color=1, thickness=-1)
         b_mask *= mask
         pts = image[np.nonzero(b_mask)]
         mean_vals.append(pts.mean())
@@ -89,10 +89,10 @@ def dog(image, mask=None, intensity='dark', min_sigma=1, max_sigma=50, sigma_rat
                                 threshold=threshold, overlap=overlap)
     except:
         return []
-    blobs = [x for x in blobs if mask[x[0], x[1]]]
-    blobs = np.array(blobs)
     if len(blobs) > 0:
         blobs[:, 2] = blobs[:, 2] * math.sqrt(2)
+        blobs = np.round(blobs).astype(np.int)
+        blobs = [x for x in blobs if mask[x[0], x[1]]]
     return blobs
 
 
@@ -105,10 +105,10 @@ def log(image, mask=None, intensity='dark', min_sigma=1, max_sigma=50, num_sigma
                                 threshold=threshold, overlap=overlap, log_scale=log_scale)
     except:
         return []
-    blobs = [x for x in blobs if mask[x[0], x[1]]]
-    blobs = np.array(blobs)
     if len(blobs) > 0:
         blobs[:, 2] = blobs[:, 2] * math.sqrt(2)
+        blobs = np.round(blobs).astype(np.int)
+        blobs = [x for x in blobs if mask[x[0], x[1]]]
     return blobs
 
 
@@ -129,6 +129,7 @@ def doh(image, mask=None, intensity='dark', min_sigma=1, max_sigma=30, num_sigma
                                 threshold=threshold, overlap=overlap, log_scale=log_scale)
     except:
         return []
+    blobs = np.round(blobs).astype(np.int)
     blobs = [x for x in blobs if mask[x[0], x[1]]]
     blob_means = get_blob_mean_value(blobs, image, mask)
     liver_mean = image[np.nonzero(mask)].mean()
@@ -136,7 +137,8 @@ def doh(image, mask=None, intensity='dark', min_sigma=1, max_sigma=30, num_sigma
         blobs = [b for b, bm in zip(blobs, blob_means) if bm < (liver_mean - offset)]
     elif intensity in ['bright', 'light', 'white']:
         blobs = [b for b, bm in zip(blobs, blob_means) if bm > (liver_mean + offset)]
-    blobs = np.array(blobs)
+
+    # blobs = np.array(blobs)
     # if len(blobs) > 0:
     #     blobs[:, 2] = blobs[:, 2]# * math.sqrt(2)
     return blobs
@@ -238,7 +240,10 @@ def calc_survival_fcn(blobs, mask, show=False, show_now=True):
         for y, x, r in b_im:
             tmp = np.zeros_like(surv_im)
             # cv2.circle(tmp, (x, y), r, color=(1, 1, 1), thickness=-1)
-            cv2.circle(tmp, (x, y), r, color=1, thickness=-1)
+            try:
+                cv2.circle(tmp, (int(round(x)), int(round(y))), int(round(r)), color=1, thickness=-1)
+            except:
+                pass
             tmp *= surv_k
             surv_im += tmp
 
@@ -267,6 +272,7 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
     # SIGMA RATIO  ----------------------------------------------------
     dogs_sr = []
     for i in sigma_ratios:
+        # _debug('Sigma ratio = %.1f' % i)
         blobs = dog(image, mask=mask, intensity='dark', sigma_ratio=i)
         dogs_sr.append(blobs)
         dogs.append(blobs)
@@ -274,6 +280,7 @@ def detect_dog(image, mask, sigma_ratios, thresholds, overlaps):
     # THRESHOLD  ------------------------------------------------------
     dogs_t = []
     for i in thresholds:
+        # _debug('Threshold = %.1f' % i)
         blobs = dog(image, mask=mask, intensity='dark', threshold=i)
         dogs_t.append(blobs)
         dogs.append(blobs)
@@ -328,6 +335,7 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     # NUMBER OF SIGMAS  ----------------------------------------------------
     dohs_ns = []
     for i in num_sigmas:
+        _debug('Num sigmas: %i' % i)
         blobs = doh(image, mask=mask, intensity='dark', num_sigma=i)
         # blobs = doh(image, mask=mask, intensity='bright', num_sigma=i)
         dohs_ns.append(blobs)
@@ -336,6 +344,7 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     # THRESHOLD  ------------------------------------------------------
     dohs_t = []
     for i in thresholds:
+        _debug('Threshold: %.3f' % i)
         blobs = doh(image, mask=mask, intensity='dark', threshold=i)
         # blobs = doh(image, mask=mask, intensity='bright', threshold=i)
         dohs_t.append(blobs)
@@ -351,6 +360,7 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     # LOG SCALE  -------------------------------------------------------
     dohs_ls = []
     for i in log_scales:
+        _debug('Log scale: %i' % int(i))
         blobs = doh(image, mask=mask, intensity='dark', log_scale=i)
         dohs_ls.append(blobs)
         dohs.append(blobs)
@@ -406,7 +416,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         _debug('DOG detection ...')
         params = ('sigma_ratio', 'threshold')
         sigma_ratios = np.arange(0.6, 2, 0.2)
-        thresholds = np.arange(0, 1, 0.1)
+        thresholds = np.arange(0.1, 1, 0.1)
         overlaps = np.arange(0, 1, 0.2)
         blobs, blobs_sr, blobs_t = detect_dog(image, mask, sigma_ratios, thresholds, overlaps)
         blobs_sr_surv = calc_survival_fcn(blobs_sr, mask)

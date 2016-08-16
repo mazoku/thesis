@@ -637,6 +637,7 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
     im_p = img_0
     mask_p = mask_0
     for l in xrange(n_levels - 1):
+        _debug('Pyramid level %i' % (l + 1))
         params = {'mask': mask_p, 'use_sigmoid': use_sigmoid, 'morph_proc': morph_proc, 'type': type}
         # calculating conspicuity map if a consp_fcn was provided
         if consp_fcn is not None:
