@@ -495,28 +495,18 @@ def conspicuity_blobs(im, mask, use_sigmoid=False, a=3, morph_proc=True, type='h
     _debug('Running blob response conspicuity calculation ...')
 
     blob_types = blobs.BLOB_ALL
+    # blob_types = [blobs.BLOB_CV,]
+    # blobs_survs = []
+    surv_overall = np.zeros_like(im)
     for blob_type in blob_types:
         blobs_res, survs_res, titles, params = blobs.detect_blobs(im, mask, blob_type, layer_id=0,
                                                                   show=show, show_now=show_now)
+        # blobs_survs.append(survs_res[0])
+        surv_overall += survs_res[0]
 
     # survival overall
-    surv = survs_res[0]
-    # blob_surv, survs = blobs.run_all(im, mask, pyr_scale=pyr_scale, show=False, show_now=False, verbose=verbose)
-
-    # if show:
-    #     imgs = [im, blob_surv] + [s[0] for s in survs]
-    #     titles = ['input', 'blob surv'] + [s[2] for s in survs]
-    #     n_imgs = len(imgs)
-    #     cmaps = ['gray'] + (n_imgs - 1) * ['jet']
-    #     for i, (im, tit, cmap) in enumerate(zip(imgs, titles, cmaps)):
-    #         plt.subplot(1, n_imgs, i + 1)
-    #         plt.imshow(im, cmap=cmap, interpolation='nearest')
-    #         plt.title(tit)
-    #         divider = make_axes_locatable(plt.gca())
-    #         cax = divider.append_axes('right', size='5%', pad=0.05)
-    #         plt.colorbar(cax=cax)
-    #     if show_now:
-    #         plt.show()
+    surv = surv_overall
+    # surv = blobs_survs
 
     return surv
 
@@ -624,8 +614,20 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
         mask = np.ones_like(img)
     mask = mask.astype(np.float)
 
-    img_0 = cv2.resize(img, (640, 480))
-    mask_0 = cv2.resize(mask, (640, 480))
+    n_rows, n_cols = img.shape
+    if n_rows < n_cols:
+        scale = 480 / n_rows
+    else:
+        scale = 480 / n_cols
+    # img_0 = cv2.resize(img, (640, 480))
+    # mask_0 = cv2.resize(mask, (640, 480))
+    img_0 = cv2.resize(img, (0, 0), fx=scale, fy=scale)
+    mask_0 = cv2.resize(mask, (0, 0), fx=scale, fy=scale)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(img_0, 'gray')
+    # plt.subplot(122), plt.imshow(img_1, 'gray')
+    # plt.show()
 
     # im_pyramid = [img_0,]
     # mask_pyramid = [mask_0, ]
@@ -645,7 +647,7 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
         else:
             consp_map = im_p.copy()
 
-        # survs.append(consp_map[1])
+        # survs.append(consp_map)
         # consp_map = consp_map[0]
 
         # append data to pyramids
@@ -662,16 +664,19 @@ def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigm
         if im_p is None:
             break
 
-    # masks_survs = []
-    # for i in range(len(survs[0])):
-    #     tmp = np.zeros_like(img)
-    #     for j in range(len(survs)):
-    #         tmp += cv2.resize(survs[j][i], img.shape[::-1])
-    #     masks_survs.append(tmp.copy())
+    # blobs_survs = [cv2.resize(x, img.shape[::-1]) for x in survs[0]]
+    # for pyr_lvl in range(1, len(survs)):
+    #     for j in range(len(survs[pyr_lvl])):
+    #         blobs_survs[j] += cv2.resize(survs[pyr_lvl][j], img.shape[::-1])
     # plt.figure()
-    # for i, m in enumerate(masks_survs):
-    #     plt.subplot(151 + i)
-    #     plt.imshow(m, 'jet')
+    # n_rows = len(blobs_survs)
+    # for i, im in enumerate(blobs_survs):
+    #     plt.subplot(101 + 10 * n_rows + i)
+    #     plt.imshow(im)
+    #     plt.axis('off')
+    #     divider = make_axes_locatable(plt.gca())
+    #     cax = divider.append_axes('right', size='5%', pad=0.05)
+    #     plt.colorbar(cax=cax)
     # plt.show()
 
     if calc_features:

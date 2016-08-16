@@ -25,7 +25,7 @@ BLOB_DOG = 'dog'
 BLOB_LOG = 'log'
 BLOB_DOH = 'doh'
 BLOB_CV = 'openCV'
-BLOB_ALL = [BLOB_DOH, BLOB_DOG, BLOB_LOG, BLOB_CV]
+BLOB_ALL = [BLOB_CV, BLOB_DOH, BLOB_DOG, BLOB_LOG]
 
 verbose = True
 
@@ -144,7 +144,7 @@ def doh(image, mask=None, intensity='dark', min_sigma=1, max_sigma=30, num_sigma
     return blobs
 
 
-def cv_blobs(image, mask=None, intensity='dark', min_threshold=10, max_threshold=255, min_area=1, max_area=1000,
+def cv_blobs(image, mask=None, intensity='dark', min_threshold=10, max_threshold=255, min_area=100, max_area=50000,
              min_circularity=0.2, min_convexity=0.2, min_inertia=0.2, offset=10):
     if mask is None:
         mask = np.ones_like(image)
@@ -332,10 +332,13 @@ def detect_log(image, mask, num_sigmas, thresholds, overlaps, log_scales):
 def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     dohs = []
 
+    if image.dtype.type in (np.float, np.float32, np.float64) and image.max() <= 1:
+        image = (255 * image).astype(np.uint8)
+
     # NUMBER OF SIGMAS  ----------------------------------------------------
     dohs_ns = []
     for i in num_sigmas:
-        _debug('Num sigmas: %i' % i)
+        # _debug('Num sigmas: %i' % i)
         blobs = doh(image, mask=mask, intensity='dark', num_sigma=i)
         # blobs = doh(image, mask=mask, intensity='bright', num_sigma=i)
         dohs_ns.append(blobs)
@@ -344,7 +347,7 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
     # THRESHOLD  ------------------------------------------------------
     dohs_t = []
     for i in thresholds:
-        _debug('Threshold: %.3f' % i)
+        # _debug('Threshold: %.3f' % i)
         blobs = doh(image, mask=mask, intensity='dark', threshold=i)
         # blobs = doh(image, mask=mask, intensity='bright', threshold=i)
         dohs_t.append(blobs)
@@ -359,17 +362,19 @@ def detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales):
 
     # LOG SCALE  -------------------------------------------------------
     dohs_ls = []
-    for i in log_scales:
-        _debug('Log scale: %i' % int(i))
-        blobs = doh(image, mask=mask, intensity='dark', log_scale=i)
-        dohs_ls.append(blobs)
-        dohs.append(blobs)
+    # for i in log_scales:
+    #     _debug('Log scale: %i' % int(i))
+    #     blobs = doh(image, mask=mask, intensity='dark', log_scale=i)
+    #     dohs_ls.append(blobs)
+    #     dohs.append(blobs)
 
     return dohs, dohs_ns, dohs_t, dohs_ls
 
 
 def detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias, save_fig=False):
     blobs_all = []
+    if image.dtype.type in (np.float, np.float32, np.float64) and image.max() <= 1:
+        image = (255 * image).astype(np.uint8)
 
     # MIN THRESHOLDS -------------------------------------------------
     blobs_mt = []
@@ -456,7 +461,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         blobs, blobs_ns, blobs_t, blobs_ls = detect_doh(image, mask, num_sigmas, thresholds, overlaps, log_scales)
         blobs_ns_surv = calc_survival_fcn(blobs_ns, mask, show=False)
         blobs_t_surv = calc_survival_fcn(blobs_t, mask, show=False)
-        blobs_ls_surv = calc_survival_fcn(blobs_ls, mask, show=False)
+        # blobs_ls_surv = calc_survival_fcn(blobs_ls, mask, show=False)
         blobs_surv_overall = calc_survival_fcn(blobs, mask)
         # print 'done'
 
@@ -468,13 +473,17 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         # min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
         min_thresholds = [10, 30, 50, 80, 100, 150, 200]
         # min_areas = [1, 5, 10, 30, 50, 80, 100, 150]
-        min_areas = [10, 30, 50, 80, 100, 150]
+        # min_areas = [10, 30, 50, 80, 100, 150]
+        min_areas = [400, 600, 1000]
         # min_circularities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
         min_circularities = [0.3, 0.5, 0.6, 0.8]
         # min_convexities = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
         min_convexities = [0.3, 0.5, 0.6, 0.8]
         # min_inertias = [0, 0.1, 0.3, 0.5, 0.6, 0.8]
         min_inertias = [0.3, 0.5, 0.6, 0.8]
+        # plt.figure()
+        # plt.imshow(image, 'gray')
+        # plt.show()
         blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi = \
             detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias)
         blobs_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
@@ -488,6 +497,9 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     else:
         raise ValueError('Unknown blob type.')
 
+    # rescaling intensity
+    blobs_surv_overall = skiexp.rescale_intensity(blobs_surv_overall.astype(np.float), out_range=(0, 1))
+
     if blob_type == BLOB_DOG:
         survival_imgs = (blobs_surv_overall, blobs_sr_surv, blobs_t_surv)
         blobs = (blobs, blobs_sr, blobs_t)
@@ -499,10 +511,10 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, num sigmas' % (layer_id + 1),
                   'layer #%i, threshold' % (layer_id + 1), 'layer #%i, log scale' % (layer_id + 1))
     elif blob_type == BLOB_DOH:
-        survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv, blobs_ls_surv)
-        blobs = (blobs, blobs_ns, blobs_t, blobs_ls)
+        survival_imgs = (blobs_surv_overall, blobs_ns_surv, blobs_t_surv)#, blobs_ls_surv)
+        blobs = (blobs, blobs_ns, blobs_t)#, blobs_ls)
         titles = ('layer #%i, overall' % (layer_id + 1), 'layer #%i, num sigma' % (layer_id + 1),
-                  'layer #%i, threshold' % (layer_id + 1), 'layer #%i, log scale' % (layer_id + 1))
+                  'layer #%i, threshold' % (layer_id + 1))#, 'layer #%i, log scale' % (layer_id + 1))
     elif blob_type == BLOB_CV:
         survival_imgs = (blobs_surv_overall, blobs_mt_surv, blobs_ma_surv, blobs_mcir_surv, blobs_mcon_surv, blobs_mi_surv)
         blobs = (blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi)
