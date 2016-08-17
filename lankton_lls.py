@@ -33,6 +33,7 @@ import matlab
 
 
 def run(im, init_mask, method, slice=0, max_iter=1000, rad=20, alpha=0.1, energy_type=2, display=False, show=False, show_now=True):
+    # print 'starting matlab engine ...',
     eng = matlab.engine.start_matlab()
 
     im_matlab = matlab.uint8(im.tolist())
@@ -45,6 +46,7 @@ def run(im, init_mask, method, slice=0, max_iter=1000, rad=20, alpha=0.1, energy
     # plt.subplot(224), plt.imshow(mask_matlab, 'gray')
     # plt.show()
 
+    # print 'segmenting ...',
     if method == 'lls':
         eng.addpath('localized_seg')
         seg = eng.localized_seg(im_matlab, mask_matlab, max_iter, float(rad), alpha, energy_type, display, nargout=1)
