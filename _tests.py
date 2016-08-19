@@ -10,8 +10,10 @@ import skimage.filters as skifil
 import skimage.morphology as skimor
 import skimage.measure as skimea
 import skimage.feature as skifea
+import scipy.ndimage.filters as scindifil
 
 from sklearn import mixture
+from sklearn.cluster import MeanShift, estimate_bandwidth
 
 import cv2
 
@@ -24,8 +26,70 @@ else:
 
 
 def deriving_seeds_for_growcut(img):
-    tools.seeds_from_hist(img, show=True, show_now=False, verbose=True, min_int=5, max_int=250)
-    tools.seeds_from_glcm(img, show=True, show_now=False, verbose=True)
+    # tools.seeds_from_hist(img, show=True, show_now=False, verbose=True, min_int=5, max_int=250, seed_area_width=10)
+    # tools.seeds_from_glcm(img, show=True, show_now=False, verbose=True)
+    tools.seeds_from_glcm_mesh(img, show=True, show_now=False, verbose=True)
+
+    plt.show()
+
+
+def glcm_meanshift(glcm):
+    print 'calculating glcm ...',
+    mask = (img > 0) * (img < 255)
+    glcm = tools.graycomatrix_3D(img, mask=mask)
+    print 'done'
+
+    print 'preparing data ...',
+    data = data_from_glcm(glcm)
+    print 'done'
+
+    print 'estimating bandwidth ...',
+    bandwidth = estimate_bandwidth(data, quantile=0.08, n_samples=2000)
+    print 'done'
+
+    print 'fitting mean shift ...',
+    ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
+    # ms = MeanShift()
+    ms.fit(data)
+    labels = ms.labels_
+    cluster_centers = ms.cluster_centers_
+    print 'done'
+
+    labels_unique = np.unique(labels)
+    n_clusters_ = len(labels_unique)
+
+    print 'number of estimated clusters : %d' % n_clusters_
+    print 'cluster centers :', cluster_centers
+
+    # deriving seeds
+    int_labels = []
+    for x in range(256):
+        int_labels.append(ms.predict((x, x)))
+    seeds = np.array(int_labels)[img.flatten()].reshape(img.shape)
+    seeds_f = scindifil.median_filter(seeds, size=3)
+
+    # visualization
+    plt.figure()
+    plt.subplot(131), plt.imshow(img, 'gray'), plt.axis('off')
+    plt.subplot(132), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(133), plt.imshow(seeds_f, 'jet', interpolation='nearest'), plt.axis('off')
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(glcm, 'jet')
+    for c in cluster_centers:
+        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    plt.axis('image')
+    plt.axis('off')
+    plt.subplot(122), plt.imshow(glcm, 'jet')
+    colors = itertools.cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
+    for k, col in zip(range(n_clusters_), colors):
+        my_members = labels == k
+        cluster_center = cluster_centers[k]
+        plt.plot(data[my_members, 0], data[my_members, 1], col + '.')
+        plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    plt.title('Estimated number of clusters: %d' % n_clusters_)
+    plt.axis('image')
+    plt.axis('off')
 
     plt.show()
 
@@ -86,85 +150,6 @@ def fit_mixture(glcm, n_components, max_components=4, type='gmm'):
     plt.show()
 
 
-def glcm_mesh_anal(glcm):
-    inds = skifea.peak_local_max(np.triu(glcm), min_distance=20, exclude_border=False, indices=True, num_peaks=6)
-    inds = np.array([int(round(np.mean(x))) for x in inds])
-    print inds
-
-    glcm_c = skimor.closing(glcm, selem=skimor.disk(3))
-    min_coo = -1
-    peaks_str = np.array([glcm[x, x] for x in inds])
-    sorted_idxs = np.argsort(peaks_str)[::-1]
-    inds = inds[sorted_idxs]
-    class_vals = [[] for i in range(len(inds))]
-    labels = []
-    for x in range(256):
-        if glcm_c[x, x] > min_coo:
-            dists = abs(inds - x)
-            idx = np.argmin(dists)
-            labels.append(idx)
-            class_vals[idx].append(x)
-        else:
-            labels.append(-1)
-    # print class_vals
-    ellipses = []
-    trans = []
-    for i, c in zip(inds, class_vals):
-        if c:
-            c = np.array(c)
-            trans.append(c.max())
-            i = int(round((c.max() + c.min()) / 2.))
-            cent = [i, i]
-            major_axis = ((c.max() - c.min() ) + 1) / 0.7071# / 2
-            ellipses.append((cent, major_axis))
-
-    # TODO: urci seedy
-
-    # vizualizace
-    plt.figure()
-    plt.subplot(121), plt.imshow(glcm)
-    plt.subplot(122), plt.imshow(glcm_c)
-
-    plt.figure()
-    plt.subplot(121), plt.imshow(glcm, 'jet')
-    plt.axis('off')
-    plt.subplot(122), plt.imshow(glcm, 'jet')
-    plt.hold(True)
-    for i in inds:
-        plt.plot(i, i, 'ko')  # , markersize=14)
-    plt.axis('image')
-    plt.axis('off')
-    #
-    # plt.figure()
-    # plt.imshow(glcm_c)
-    # plt.hold(True)
-    # colors = 5 * 'kwgcmy'
-    # for x in range(256):
-    #     if labels[x] != -1:
-    #         plt.plot(x, x, colors[labels[x]] + 'o')
-    # plt.axis('image')
-    # plt.axis('off')
-
-    # plt.figure()
-    # tmp = cv2.cvtColor(glcm_c.copy().astype(np.uint8), cv2.COLOR_GRAY2RGB)
-    # colors = 5 * 'kwgcmy'
-    # for e in ellipses:
-    #     cv2.ellipse(tmp, (e[0], e[0]), (e[1], 5), 45, 0, 360, (255, 0, 255), thickness=2)
-    # plt.imshow(tmp)
-    plt.figure()
-    plt.imshow(glcm)
-    ax = plt.gca()
-    for e in ellipses:
-        ell = Ellipse(xy=e[0], width=e[1], height=15, angle=45, color='m', ec='k', lw=4)
-        ax.add_artist(ell)
-    for i in trans:
-        plt.plot((2 * i + 1, 0), (0, 2 * i + 1), 'k-', lw=4)
-    plt.axis('image')
-    plt.axis('off')
-    plt.axis([0, 255, 255, 0])
-    plt.show()
-
-
 def glcm_dpgmm(img):
     # deriving glcm
     mask = (img > 0) * (img < 255)
@@ -176,19 +161,17 @@ def glcm_dpgmm(img):
     # glcm_gc = skimor.closing(glcm, selem=skimor.disk(1))
     # glcm_go = skimor.opening(glcm, selem=skimor.disk(1))
 
-    glcm_mesh_anal(glcm)
-
     # plt.figure()
     # plt.subplot(131), plt.imshow(glcm, 'gray', interpolation='nearest'), plt.title('glcm')
     # plt.subplot(132), plt.imshow(glcm_gc, 'gray', interpolation='nearest'), plt.title('glcm_gc')
     # plt.subplot(133), plt.imshow(glcm_go, 'gray', interpolation='nearest'), plt.title('glcm_go')
 
     # thresholding glcm
-    # c_t = 4
-    # thresh = c_t * np.mean(glcm)
-    # glcm_t = glcm > thresh
-    # glcm_to = skimor.binary_closing(glcm_t, selem=skimor.disk(3))
-    # glcm_to = skimor.binary_opening(glcm_to, selem=skimor.disk(3))
+    c_t = 4
+    thresh = c_t * np.mean(glcm)
+    glcm_t = glcm > thresh
+    glcm_to = skimor.binary_closing(glcm_t, selem=skimor.disk(3))
+    glcm_to = skimor.binary_opening(glcm_to, selem=skimor.disk(3))
     # tools.blob_from_gcm(glcm_to, img, return_rvs=True, show=True, show_now=False)
     #
     # labs_im, num = skimea.label(glcm_to, return_num=True)
@@ -209,6 +192,7 @@ def glcm_dpgmm(img):
     #                  [0,0,0,0,1,2,0,0]])
 
     # dpgmm
+    glcm_o = glcm.copy()
     # glcm = glcm_go * glcm_to
     # glcm = glcm_go
     # glcm = glcm_gc
@@ -262,7 +246,7 @@ def glcm_dpgmm(img):
     # plt.title('scores')
 
     print 'fitting DPGMM ...',
-    # dpgmm = mixture.GMM(n_components=5, covariance_type='tied')
+    # dpgmm = mixture.GMM(n_components=6, covariance_type='tied')
     dpgmm = mixture.DPGMM(n_components=6, covariance_type='tied', alpha=1.)
     dpgmm.fit(data)
     print 'done'
@@ -281,6 +265,7 @@ def glcm_dpgmm(img):
 
     # predicting DPGMM
     print 'predicting DPGMM ...',
+    data = data_from_glcm(glcm_o)
     y_pred = dpgmm.predict(data)
     glcm_labs = np.zeros(glcm.shape)
     for x, y in zip(data, y_pred):
@@ -288,9 +273,12 @@ def glcm_dpgmm(img):
     print 'done'
 
     plt.figure()
-    plt.subplot(121), plt.imshow(glcm, 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(glcm_labs, 'jet', interpolation='nearest')
-    plt.show()
+    plt.subplot(121), plt.imshow(glcm_o, 'jet', interpolation='nearest'), plt.axis('off')
+    for c in dpgmm.means_:
+        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
+    plt.subplot(122), plt.imshow(glcm_labs, 'jet', interpolation='nearest'), plt.axis('off')
+    for c in dpgmm.means_:
+        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
 
     plt.show()
 
@@ -304,3 +292,5 @@ if __name__ == "__main__":
     # deriving_seeds_for_growcut(img)
 
     glcm_dpgmm(img)
+
+    # glcm_meanshift(img)
