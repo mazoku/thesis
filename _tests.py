@@ -5,7 +5,6 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
-
 import skimage.exposure as skiexp
 import skimage.filters as skifil
 import skimage.morphology as skimor
@@ -93,7 +92,7 @@ def glcm_mesh_anal(glcm):
     print inds
 
     glcm_c = skimor.closing(glcm, selem=skimor.disk(3))
-    min_coo = 10
+    min_coo = -1
     peaks_str = np.array([glcm[x, x] for x in inds])
     sorted_idxs = np.argsort(peaks_str)[::-1]
     inds = inds[sorted_idxs]
@@ -109,12 +108,14 @@ def glcm_mesh_anal(glcm):
             labels.append(-1)
     # print class_vals
     ellipses = []
+    trans = []
     for i, c in zip(inds, class_vals):
         if c:
             c = np.array(c)
-            # cent = int(round((c.max() + c.min()) / 2.))
+            trans.append(c.max())
+            i = int(round((c.max() + c.min()) / 2.))
             cent = [i, i]
-            major_axis = (c.max() - c.min() )/ 2
+            major_axis = ((c.max() - c.min() ) + 1) / 0.7071# / 2
             ellipses.append((cent, major_axis))
 
     # while True:
@@ -154,8 +155,13 @@ def glcm_mesh_anal(glcm):
     plt.imshow(glcm)
     ax = plt.gca()
     for e in ellipses:
-        ell = Ellipse(xy=e[0], width=e[1], height=5, angle=45)
+        ell = Ellipse(xy=e[0], width=e[1], height=15, angle=45, color='m', ec='k', lw=4)
         ax.add_artist(ell)
+    for i in trans:
+        plt.plot((2 * i + 1, 0), (0, 2 * i + 1), 'k-', lw=4)
+    plt.axis('image')
+    plt.axis('off')
+    plt.axis([0, 255, 255, 0])
     plt.show()
 
 
