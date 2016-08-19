@@ -118,9 +118,9 @@ def glcm_mesh_anal(glcm):
             major_axis = ((c.max() - c.min() ) + 1) / 0.7071# / 2
             ellipses.append((cent, major_axis))
 
-    # while True:
+    # TODO: urci seedy
 
-
+    # vizualizace
     plt.figure()
     plt.subplot(121), plt.imshow(glcm)
     plt.subplot(122), plt.imshow(glcm_c)
