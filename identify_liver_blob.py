@@ -71,6 +71,10 @@ def load_data(dir, ext='pklz'):
 
 
 def blob_from_hist(data, show=False, show_now=True, min_int=0, max_int=255):
+    data = tools.windowing(data, sliceId=0)
+    data = tools.resize_ND(data, scale=0.1).astype(np.uint8)
+    data = tools.smoothing(data, sliceId=0)
+
     min_interval = int((0 + 125) / 350. * 255)
     max_interval = int((100 + 125) / 350. * 255)
 
@@ -258,7 +262,8 @@ if __name__ == '__main__':
     data = dcr.get_3Ddata()
     # data = tools.resize_ND(data, scale=0.1)
 
-    blob_from_glcm(data)
+    # blob_from_glcm(data, show=True)
+    blob_from_hist(data, show=True)
 
     # calc_features(gt_dir)
 
