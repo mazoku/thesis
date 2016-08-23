@@ -71,8 +71,8 @@ def load_data(dir, ext='pklz'):
 
 
 def blob_from_hist(data, show=False, show_now=True, min_int=0, max_int=255):
-    min_interval = int((20 + 125) / 350. * 255)
-    max_interval = int((80 + 125) / 350. * 255)
+    min_interval = int((0 + 125) / 350. * 255)
+    max_interval = int((100 + 125) / 350. * 255)
 
     mask = np.ones_like(data)
     mask = np.where(data < 5, 0, mask)
@@ -114,8 +114,8 @@ def blob_from_glcm(data, show=False, show_now=True, min_int=0, max_int=255):
     data_f = tools.resize_ND(data, scale=0.1).astype(np.uint8)
     data_f = tools.smoothing(data_f, sliceId=0)
 
-    min_interval = int((20 + 125) / 350. * 255)
-    max_interval = int((80 + 125) / 350. * 255)
+    min_interval = int((0 + 125) / 350. * 255)
+    max_interval = int((100 + 125) / 350. * 255)
     # min_int = 20
     # max_int = 80
 
@@ -157,24 +157,18 @@ def blob_from_glcm(data, show=False, show_now=True, min_int=0, max_int=255):
     return glcm_ind
 
 
-def score_data(data, seg, peak_int=130):
+def score_data(data, seg, peak_int=130, show=False, show_now=True, verbose=False):
     seg = skiseg.clear_border(seg)
     label_im, num_features = skimea.label(seg, connectivity=2, return_num=True)
 
-    # plt.figure()
-    # plt.subplot(121), plt.imshow(seg)
-    # plt.subplot(122), plt.imshow(label_im)
-    # plt.show()
-
-    areas = []#np.zeros(num_features)
-    ints = []#np.zeros(num_features)
-    eccs = []#np.zeros(num_features)
-    dists = []#np.zeros(num_features)
+    areas = []
+    ints = []
+    eccs = []
+    dists = []
     lbls = []
     im_cr, im_cc = np.array(data.shape) / 2
     des_r = im_cr
     des_c = im_cc / 2
-    # label_im_out = np.zeros_like(label_im)
     for i in range(1, num_features):
         lbl = label_im == i
         area = lbl.sum()
@@ -185,17 +179,13 @@ def score_data(data, seg, peak_int=130):
             lab_cr, lab_cc = rp.centroid
             dist = np.sqrt((des_r - lab_cr) ** 2 + (des_c - lab_cc) ** 2)
 
-            # areas[i] = area
-            # ints[i] = abs(peak_int - mean_int)
-            # eccs[i] = ecc
-            # dists[i] = dist
             areas.append(area)
             ints.append(abs(peak_int - mean_int))
             eccs.append(ecc)
             dists.append(dist)
             lbls.append(i)
-            # label_im_out = np.where(lbl, i, label_im_out)
-            print 'area = %i, int = %i, ecc = %.2f, dist=%.1f' % (area, int(mean_int), ecc, dist)
+            if verbose:
+                print 'area = %i, int = %i, ecc = %.2f, dist=%.1f' % (area, int(mean_int), ecc, dist)
     ints = max(ints) - np.array(ints)
     eccs = 1 - np.array(eccs)
     dists = max(dists) - np.array(dists)
@@ -206,13 +196,6 @@ def score_data(data, seg, peak_int=130):
     eccs = skiexp.rescale_intensity(np.array(eccs).astype(np.float), out_range=(0, 1))
     dists = skiexp.rescale_intensity(np.array(dists).astype(np.float), out_range=(0, 1))
 
-    # score images
-    areas_inds = np.argsort(areas)
-    ints_inds = np.argsort(ints)
-    eccs_inds = np.argsort(eccs)
-    pos_inds = np.argsort(dists)
-
-    # score = areas_inds + ints_inds + eccs_inds + pos_inds
     score = areas + ints + eccs + dists
     # score = areas + ints + dists
     score_im = np.zeros(data.shape)
@@ -229,39 +212,41 @@ def score_data(data, seg, peak_int=130):
         pos_sc_im = np.where(lbl, dists[i], pos_sc_im)
         score_im = np.where(lbl, score[i], score_im)
 
-    # area_sc_im = skiexp.rescale_intensity(area_sc_im.astype(np.float), out_range=(0, 1))
-    # ints_sc_im = skiexp.rescale_intensity(ints_sc_im.astype(np.float), out_range=(0, 1))
-    # eccs_sc_im = skiexp.rescale_intensity(eccs_sc_im.astype(np.float), out_range=(0, 1))
-    # pos_sc_im = skiexp.rescale_intensity(pos_sc_im.astype(np.float), out_range=(0, 1))
+    max_sc = score_im.max()
+    blob = score_im == max_sc
 
-    plt.figure()
-    plt.subplot(231), plt.imshow(area_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.subplot(232), plt.imshow(ints_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.subplot(233), plt.imshow(eccs_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.subplot(234), plt.imshow(pos_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
-    plt.subplot(235), plt.imshow(score_im, 'jet', interpolation='nearest'), plt.axis('off')
-    divider = make_axes_locatable(plt.gca())
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    plt.colorbar(cax=cax)
+    if show:
+        plt.figure()
+        plt.subplot(231), plt.imshow(area_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+        plt.subplot(232), plt.imshow(ints_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+        plt.subplot(233), plt.imshow(eccs_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+        plt.subplot(234), plt.imshow(pos_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
+        plt.subplot(235), plt.imshow(score_im, 'jet', interpolation='nearest'), plt.axis('off')
+        divider = make_axes_locatable(plt.gca())
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        plt.colorbar(cax=cax)
 
-    plt.figure()
-    plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.axis('off')
-    plt.subplot(122), plt.imshow(seg, 'jet', interpolation='nearest'), plt.axis('off')
+        plt.figure()
+        plt.subplot(131), plt.imshow(data, 'gray', interpolation='nearest'), plt.axis('off')
+        plt.subplot(132), plt.imshow(seg, 'jet', interpolation='nearest'), plt.axis('off')
+        plt.subplot(133), plt.imshow(blob, 'gray', interpolation='nearest'), plt.axis('off')
 
-    plt.show()
+        if show_now:
+            plt.show()
 
+    return blob
 
 # ------------------------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------------------------

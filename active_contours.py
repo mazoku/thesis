@@ -388,6 +388,8 @@ def lankton_ls(im, mask, method='sfm', slice=None, max_iters=1000, rad=10, alpha
 
 
 def morph_snakes(data, mask, slice=None, scale=0.5, alpha=1000, sigma=1, smoothing_ls=1, threshold=0.3, balloon=1, max_iters=50, show=False, show_now=True):
+    data_o = data.copy()
+    mask_o = mask.copy()
     if scale != 1:
         # data = skitra.rescale(data, scale=scale, preserve_range=True).astype(np.uint8)
         # mask = skitra.rescale(mask, scale=scale, preserve_range=True).astype(np.bool)
@@ -401,8 +403,13 @@ def morph_snakes(data, mask, slice=None, scale=0.5, alpha=1000, sigma=1, smoothi
     mgac.run(iterations=max_iters)
     seg = mgac.levelset
 
+    if scale != 1:
+        # data = tools.resize_ND(data, shape=orig_shape)
+        # mask = tools.resize_ND(mask, shape=orig_shape)
+        seg = tools.resize_ND(seg, shape=data_o.shape)
+
     if show:
-        tools.visualize_seg(data, seg, mask, slice=slice, title='morph snakes', show_now=show_now)
+        tools.visualize_seg(data_o, seg, mask_o, slice=slice, title='morph snakes', show_now=show_now)
     return data, mask, seg
 
 
@@ -666,37 +673,35 @@ if __name__ == "__main__":
     data, mask, voxel_size = tools.load_pickle_data(data_fname)
 
     # 2D
-    # slice_ind = 17
-    slice_ind = 15
-    # data = data[slice_ind, :, :]
+    slice_ind = 17
+    # slice_ind = 15
+    # data2 = data[17, :, :]
+    data = data[slice_ind, :, :]
     data = tools.windowing(data)
-
-    # 3D
-    # data = tools.windowing(data)
 
     # SFM  ----
     # print 'SFM ...',
-    method = 'sfm'
+    # method = 'sfm'
     # params = {'rad': 10, 'alpha': 0.6, 'scale': 0.5, 'init_scale': 0.5, 'smoothing': smoothing,
     #           'save_fig': save_fig, 'show':show, 'show_now': show_now, 'verbose': verbose}
     # im, mask, seg = run(data, slice=None, mask=None, method=method, **params)
     # print 'done'
 
     # MORPH SNAKES  ----
-    # method = 'morphsnakes'
-    # params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.6, 'balloon': 1, 'max_iters': 1000,
-    #           'scale': 0.5, 'init_scale': 0.25,
-    #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
+    method = 'morphsnakes'
+    params = {'alpha': 100, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.6, 'balloon': 1, 'max_iters': 1000,
+              'scale': 0.5, 'init_scale': 0.25,
+              'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
     # params = {'alpha': 10, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.9, 'balloon': 4, 'max_iters': 1000,
     #           'scale': scale, 'init_scale': init_scale,
     #           'smoothing': smoothing, 'save_fig': save_fig, 'show': show, 'show_now': show_now}
-    # im, mask, seg = run(data, slice=slice_ind, mask=None, method=method, **params)
+    im, mask, seg = run(data, slice=slice_ind, mask=None, method=method, **params)
 
     # PARAM TUNING  ----
-    if method == 'morphsnakes':
-        run_param_tuning_morphsnakes(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
-    else:
-        run_param_tuning_sfm(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
+    # if method == 'morphsnakes':
+    #     run_param_tuning_morphsnakes(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
+    # else:
+    #     run_param_tuning_sfm(data, mask, slice_ind, smoothing=smoothing, scale=scale, init_scale=init_scale)
 
     # CALCULATE STATISTICS FROM FILES  ----
     # xlsx_fname = '/home/tomas/Dropbox/Data/liver_segmentation/%s/%s.xlsx' % (method, method)
