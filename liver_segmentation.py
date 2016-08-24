@@ -29,18 +29,29 @@ else:
     print 'Import error in liver_segmentation.py. You need to import package growcut: https://github.com/mzaoku/growcut'
 
 
-def coarse_segmentation(img, show=False, show_now=True):
-    seeds, peaks = tools.seeds_from_glcm_meanshift(img, min_int=0, max_int=255, show=True, show_now=False)
+def _debug(msg, verbose, newline=True):
+    if verbose:
+        if newline:
+            print msg
+        else:
+            print msg,
+
+
+def coarse_segmentation(img, clear_border=True, show=False, show_now=True, verbose=True):
+    seeds, peaks = tools.seeds_from_glcm_meanshift(img, min_int=0, max_int=255, show=False, show_now=False, verbose=verbose)
     # seeds, peaks = tools.seeds_from_hist(img, min_int=5, max_int=250, show=show, show_now=show_now)
 
-    gc = GrowCut(img, seeds, maxits=100, enemies_T=0.7, smooth_cell=False)
+    gc = GrowCut(img, seeds, maxits=100, enemies_T=0.7, smooth_cell=False, verbose=verbose)
     gc.run()
     labs = gc.get_labeled_im()
-    seg = skiseg.clear_border(labs[0, ...])
+    if clear_border:
+        seg = skiseg.clear_border(labs[0, ...])
+    else:
+        seg = labs[0, ...]
 
-    print 'identifying liver blob ...',
-    blob = ilb.score_data(img, seg)
-    print 'done'
+    _debug('identifying liver blob ...', verbose, False)
+    blob = ilb.score_data(img, seg, clear_border=clear_border, show=show, show_now=show_now, verbose=verbose)
+    _debug('done', verbose)
 
     if show:
         plt.figure()
@@ -56,10 +67,10 @@ def coarse_segmentation(img, show=False, show_now=True):
     return blob, seg
 
 
-def segmentation_refinement(data, mask, smoothing=True, save_fig=False, show=False, show_now=True):
+def segmentation_refinement(data, mask, smoothing=True, save_fig=False, show=False, show_now=True, verbose=True):
     method = 'morphsnakes'
     params = {'alpha': 10, 'sigma': 1, 'smoothing_ls': 1, 'threshold': 0.5, 'balloon': 1, 'max_iters': 1000,
-              'smoothing': smoothing, 'save_fig': save_fig, 'show': False, 'show_now': show_now}
+              'smoothing': smoothing, 'save_fig': save_fig, 'show': False, 'show_now': show_now, 'verbose': verbose}
     im, mask, seg = ac.run(data, mask=mask, method=method, **params)
 
     # alpha_v = (10, 100, 500)
@@ -93,11 +104,11 @@ def segmentation_refinement(data, mask, smoothing=True, save_fig=False, show=Fal
     seg = skimor.binary_closing(seg, selem=skimor.disk(3))
     seg = skimor.binary_opening(seg, selem=skimor.disk(2))
 
-    tools.visualize_seg(im, seg, mask=mask, title='0', show_now=False)
+    # tools.visualize_seg(im, seg, mask=mask, title='0', show_now=False)
     # tools.visualize_seg(im, seg_m, mask=mask, title=' disk 1', show_now=False)
     # tools.visualize_seg(im, seg_m2, mask=mask, title='disk 3', show_now=False)
     # tools.visualize_seg(im, seg_m3, mask=mask, title='rect 3', show_now=False)
-    plt.show()
+    # plt.show()
 
     if show:
         plt.figure()
@@ -193,12 +204,12 @@ def load_data(dir, ext='pklz'):
     return data
 
 
-def segmentation_stats(datadir, scale=1, smoothing=True):
+def segmentation_stats(data_struc, scale=1, smoothing=True):
     # fnames = load_data(datadir)
-    fnames = ['/home/tomas/Dropbox/Data/medical/dataset/180_arterial-.pklz',]
+    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/180_arterial-.pklz',]
 
     # creating workbook
-    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/medical/dataset/liver_seg_stats.xlsx')
+    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/final_alg/liver_seg_stats.xlsx')
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True})
@@ -213,6 +224,7 @@ def segmentation_stats(datadir, scale=1, smoothing=True):
     cols_ls = (4, 7, 10)
     start_row = 2
     worksheet.write(0, 0, 'DATA', bold)
+    worksheet.write(0, 1, 'slice', bold)
     worksheet.write(0, 3, 'F-MEASURE', bold)
     worksheet.write(0, 6, 'PRECISION', bold)
     worksheet.write(0, 9, 'RECALL', bold)
@@ -225,15 +237,24 @@ def segmentation_stats(datadir, scale=1, smoothing=True):
     worksheet.write(1, col_ls_rec, 'Level Sets', bold)
 
     # loading data
-    for i, data_fname in enumerate(fnames):
-        print 'data #%i/%i: ' % (i + 1, len(fnames)),
+    data_fnames = []
+    data_slices = []
+    for name, num in data_struc:
+        for i in num:
+            data_fnames.append(name)
+            data_slices.append(i)
+    n_imgs = len(data_fnames)
+    for i, (data_fname, slice) in enumerate(zip(data_fnames, data_slices)):
+        fname = data_fname.split('/')[-1].split('.')[0]
+        print '#%i/%i, %s [%i]: ' % (i + 1, n_imgs, fname, slice),
         data, gt_mask, voxel_size = tools.load_pickle_data(data_fname)
 
-        data = data[17,...]
-        gt_mask = gt_mask[17,...]
+        data = data[slice,...]
+        gt_mask = gt_mask[slice,...]
         print 'windowing ...',
         data = tools.windowing(data)
         shape_orig = data.shape
+        data_o = data.copy()
 
         # plt.figure()
         # plt.imshow(data, 'gray', vmin=0, vmax=255, interpolation='nearest')
@@ -248,9 +269,9 @@ def segmentation_stats(datadir, scale=1, smoothing=True):
             data = tools.smoothing(data)
 
         print 'gc ...',
-        blob, seg_gc = coarse_segmentation(data, show=True)
+        blob, seg_gc = coarse_segmentation(data, clear_border=False, show=False, verbose=False)
         print 'ls ...',
-        seg_ls = segmentation_refinement(data, blob, show=False)
+        seg_ls = segmentation_refinement(data, blob, show=False, verbose=False)
 
         if seg_gc.shape != gt_mask.shape:
             seg_gc = tools.resize_ND(seg_gc, shape=shape_orig)
@@ -265,15 +286,35 @@ def segmentation_stats(datadir, scale=1, smoothing=True):
         # writing statistics
         print 'writing ...',
         items = (f_measure_gc, precision_gc, recall_gc, f_measure_ls, precision_ls, recall_ls)
+        worksheet.write(start_row + i, 0, fname)
+        worksheet.write(start_row + i, 1, slice)
         for it, col in zip(items, cols_gc + cols_ls):
             worksheet.write(start_row + i, col, it)
         print 'done'
 
+        fig = tools.visualize_seg(data_o, seg_ls, mask=seg_gc, title=fname, show_now=False, for_save=True)
+        out_fname = '/home/tomas/Dropbox/Data/liver_segmentation/final_alg/%s_sl_%i.png' % (fname, slice)
+        fig.savefig(out_fname)
+        plt.close('all')
+
+        print '\t\tfmea = %.1f -> %.1f, prec = %.1f -> %.1f, rec = %.1f -> %.1f' %\
+              (f_measure_gc, f_measure_ls, precision_gc, precision_ls, recall_gc, recall_ls)
 
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    segmentation_stats('', scale=0.5, smoothing=1)
+    f = []
+    for (dirpath, dirnames, filenames) in os.walk('/home/tomas/Dropbox/Data/medical/dataset'):
+        filenames = [x for x in filenames if 'leze' not in x]
+        filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
+        for fname in filenames:
+            f.append(os.path.join(dirpath, fname))
+        break
+
+    #TODO: vizualizace a zapsani indexu
+
+    # data_struc = [('/home/tomas/Dropbox/Data/medical/dataset/180_arterial-.pklz', (17, 14)), ]
+    # segmentation_stats(data_struc, scale=0.5, smoothing=1)
 
 
     # data_fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/hypodenseTumor.png'

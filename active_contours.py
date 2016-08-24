@@ -485,17 +485,25 @@ def run(im_in, slice=None, mask=None, smoothing=True, method='sfm', max_iters=10
     #     im_init = im
 
     if method == 'morphsnakes':
-        print ' Morph snakes ...',
+        _debug(' Morph snakes ...', verbose, False)
         im, mask, seg = morph_snakes(im, mask, scale=scale, alpha=int(alpha), sigma=sigma, smoothing_ls=smoothing_ls,
                                      threshold=threshold, balloon=balloon, max_iters=max_iters,
                                      slice=slice, show=show, show_now=show_now)
-        print 'done'
+        _debug('done', verbose)
     elif method in ['sfm', 'lls']:
-        print 'SFM ...',
+        _debug('SFM ...', verbose, False)
         im, mask, seg = lankton_ls(im, mask, method=method, max_iters=max_iters, rad=rad, alpha=alpha, scale=scale,
                                    slice=slice, show=show, show_now=show_now)
-        print 'done'
+        _debug('done', verbose)
     return im, mask, seg
+
+
+def _debug(msg, verbose=True, newline=True):
+    if verbose:
+        if newline:
+            print msg
+        else:
+            print msg,
 
 
 def run_param_tuning_sfm(im_in, gt_mask, slice_ind, smoothing=True, scale=0.5, init_scale=0.5):

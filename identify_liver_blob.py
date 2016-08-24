@@ -161,8 +161,9 @@ def blob_from_glcm(data, show=False, show_now=True, min_int=0, max_int=255):
     return glcm_ind
 
 
-def score_data(data, seg, peak_int=130, show=False, show_now=True, verbose=False):
-    seg = skiseg.clear_border(seg)
+def score_data(data, seg, peak_int=130, clear_border=True, show=False, show_now=True, verbose=False):
+    if clear_border:
+        seg = skiseg.clear_border(seg)
     label_im, num_features = skimea.label(seg, connectivity=2, return_num=True)
 
     areas = []
@@ -179,7 +180,8 @@ def score_data(data, seg, peak_int=130, show=False, show_now=True, verbose=False
         if area > 100:
             mean_int = data[np.nonzero(lbl)].mean()
             rp = skimea.regionprops(lbl.astype(np.uint8))[0]
-            ecc = rp.eccentricity
+            # ecc = rp.eccentricity
+            ecc = tools.compactness(lbl)
             lab_cr, lab_cc = rp.centroid
             dist = np.sqrt((des_r - lab_cr) ** 2 + (des_c - lab_cc) ** 2)
 
@@ -221,6 +223,7 @@ def score_data(data, seg, peak_int=130, show=False, show_now=True, verbose=False
 
     if show:
         plt.figure()
+        plt.suptitle('scores: area | int | eccs | pos | overall')
         plt.subplot(231), plt.imshow(area_sc_im, 'jet', interpolation='nearest'), plt.axis('off')
         divider = make_axes_locatable(plt.gca())
         cax = divider.append_axes('right', size='5%', pad=0.05)
@@ -243,6 +246,7 @@ def score_data(data, seg, peak_int=130, show=False, show_now=True, verbose=False
         plt.colorbar(cax=cax)
 
         plt.figure()
+        plt.suptitle('data | seg | blob')
         plt.subplot(131), plt.imshow(data, 'gray', interpolation='nearest'), plt.axis('off')
         plt.subplot(132), plt.imshow(seg, 'jet', interpolation='nearest'), plt.axis('off')
         plt.subplot(133), plt.imshow(blob, 'gray', interpolation='nearest'), plt.axis('off')
