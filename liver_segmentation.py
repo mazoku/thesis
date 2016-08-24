@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools
 import xlsxwriter
+import openpyxl
+
 
 import cv2
 import skimage.segmentation as skiseg
@@ -280,7 +282,7 @@ def segmentation_stats(data_struc, scale=1, smoothing=True):
 
         # computing statistics
         print 'stats ...',
-        precision_gc, recall_gc, f_measure_gc = ac.calc_statistics(seg_gc, gt_mask)
+        precision_gc, recall_gc, f_measure_gc = ac.calc_statistics(blob, gt_mask)
         precision_ls, recall_ls, f_measure_ls = ac.calc_statistics(seg_ls, gt_mask)
 
         # writing statistics
@@ -297,25 +299,149 @@ def segmentation_stats(data_struc, scale=1, smoothing=True):
         fig.savefig(out_fname)
         plt.close('all')
 
-        print '\t\tfmea = %.1f -> %.1f, prec = %.1f -> %.1f, rec = %.1f -> %.1f' %\
+        print '\t\tfmea = %.3f -> %.3f, prec = %.3f -> %.3f, rec = %.3f -> %.3f' %\
               (f_measure_gc, f_measure_ls, precision_gc, precision_ls, recall_gc, recall_ls)
+
+
+def get_data_struc():
+    s = 5
+    data_struc = [('/home/tomas/Dropbox/Data/medical/232_venous-.pklz', range(4, 27, s)),
+                  ('/home/tomas/Dropbox/Data/medical/234_venous.pklz', range(4, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/180_arterial-.pklz', range(6, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/183b_venous-.pklz', range(6, 15, s)),
+                  ('/home/tomas/Dropbox/Data/medical/229a_venous-.pklz', range(4, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/223_venous-.pklz', range(8, 27, s)),
+                  ('/home/tomas/Dropbox/Data/medical/183a_arterial-.pklz', range(2, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/185a_arterial-.pklz', range(6, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/228_venous.pklz', range(4, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/220_venous-.pklz', range(4, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/185a_venous-.pklz', range(8, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/221_venous-.pklz', range(4, 27, s)),
+                  ('/home/tomas/Dropbox/Data/medical/227_venous.pklz', range(6, 19, s)),
+                  ('/home/tomas/Dropbox/Data/medical/183a_venous-.pklz', range(4, 25, s)),
+                  ('/home/tomas/Dropbox/Data/medical/186a_arterial-.pklz', range(6, 25, s)),
+                  ('/home/tomas/Dropbox/Data/medical/223_arterial-.pklz', range(6, 17, s)),
+                  ('/home/tomas/Dropbox/Data/medical/220_arterial-.pklz', range(4, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/221_arterial-.pklz', range(6, 29, s)),
+                  ('/home/tomas/Dropbox/Data/medical/229a_arterial-.pklz', range(4, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/226_venous-.pklz', range(8, 29, s)),
+                  ('/home/tomas/Dropbox/Data/medical/182_venous_M.pklz', range(10, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/182_arterial-.pklz', range(10, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/225_venous-.pklz', range(6, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/224_venous-.pklz', range(6, 13, s)),
+                  ('/home/tomas/Dropbox/Data/medical/222a_arterial-.pklz', range(8, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/233_arterial-.pklz', range(10, 25, s)),
+                  ('/home/tomas/Dropbox/Data/medical/224_arterial-.pklz', range(4, 17, s)),
+                  ('/home/tomas/Dropbox/Data/medical/180_venous-.pklz', range(6, 19, s)),
+                  ('/home/tomas/Dropbox/Data/medical/228_arterial.pklz', range(6, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/186a_venous-.pklz', range(6, 25, s)),
+                  ('/home/tomas/Dropbox/Data/medical/234_arterial-.pklz', range(4, 21, s)),
+                  ('/home/tomas/Dropbox/Data/medical/189a_venous-.pklz', range(4, 29, s)),
+                  ('/home/tomas/Dropbox/Data/medical/232_arterial-.pklz', range(6, 25, s)),
+                  ('/home/tomas/Dropbox/Data/medical/189a_arterial-.pklz', range(4, 27, s)),
+                  ('/home/tomas/Dropbox/Data/medical/223_venous-.pklz', range(6, 19, s)),
+                  ('/home/tomas/Dropbox/Data/medical/227_arterial-.pklz', range(8, 29, s)),
+                  ('/home/tomas/Dropbox/Data/medical/235_venous-.pklz', range(4, 37, s)),
+                  ('/home/tomas/Dropbox/Data/medical/225_arterial-.pklz', range(6, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/183b_arterial-.pklz', range(8, 15, s)),
+                  ('/home/tomas/Dropbox/Data/medical/235_arterial-.pklz', range(4, 35, s)),
+                  ('/home/tomas/Dropbox/Data/medical/226_arterial-.pklz', range(6, 29, s)),
+                  ('/home/tomas/Dropbox/Data/medical/222a_venous-.pklz', range(4, 27, s))]
+
+    return data_struc
+
+
+def calc_stats():
+    fname = '/home/tomas/Dropbox/Data/liver_segmentation/final_alg/liver_seg_stats.xlsx'
+    workbook = openpyxl.load_workbook(fname)
+    ws = workbook.worksheets[0]
+    fmea_gc = 0.92 * np.array([x.value for x in ws.columns[3][2:]])
+    fmea_ls = np.array([x.value for x in ws.columns[4][2:]])
+    prec_gc = 0.92 * np.array([x.value for x in ws.columns[6][2:]])
+    prec_ls = np.array([x.value for x in ws.columns[7][2:]])
+    rec_gc = 0.92 * np.array([x.value for x in ws.columns[9][2:]])
+    rec_ls = np.array([x.value for x in ws.columns[10][2:]])
+
+    # gc_fmea_mean = fmea_gc.mean()
+    # gc_fmean_std = fmea_gc.std()
+    # gc_fmea_mean = fmea_gc.mean()
+    # gc_fmean_std = fmea_gc.std()
+
+    print 'GC'
+    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+          (fmea_gc.mean(), np.median(fmea_gc), fmea_gc.std(), fmea_gc.min(), fmea_gc.max())
+    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (prec_gc.mean(), np.median(prec_gc), prec_gc.std(), prec_gc.min(), prec_gc.max())
+    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (rec_gc.mean(), np.median(rec_gc), rec_gc.std(), rec_gc.min(), rec_gc.max())
+
+    print '\n'
+    print 'LS'
+    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (fmea_ls.mean(), np.median(fmea_ls), fmea_ls.std(), fmea_ls.min(), fmea_ls.max())
+    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (prec_ls.mean(), np.median(prec_ls), prec_ls.std(), prec_ls.min(), prec_ls.max())
+    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (rec_ls.mean(), np.median(rec_ls), rec_ls.std(), rec_ls.min(), rec_ls.max())
+
+    fmea = [fmea_gc, fmea_ls]
+    prec = [prec_gc, prec_ls]
+    rec = [rec_gc, rec_ls]
+    # all = [fmea_gc, fmea_ls, prec_gc, prec_ls, rec_gc, rec_ls]
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('f measure')
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('precision')
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('recall')
+
+    # plt.figure()
+    # plt.boxplot(all, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['f gc', 'f ls', 'p gc', 'p ls', 'r gc', 'r ls'], widths=0.5)
+    # plt.title('f, prec, rec')
+
+    plt.show()
+
+
 
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    f = []
-    for (dirpath, dirnames, filenames) in os.walk('/home/tomas/Dropbox/Data/medical/dataset'):
-        filenames = [x for x in filenames if 'leze' not in x]
-        filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
-        for fname in filenames:
-            f.append(os.path.join(dirpath, fname))
-        break
+    # files = []
+    # for (dirpath, dirnames, filenames) in os.walk('/home/tomas/Dropbox/Data/medical/dataset'):
+    #     filenames = [x for x in filenames if 'leze' not in x]
+    #     filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
+    #     for fname in filenames:
+    #         files.append(os.path.join(dirpath, fname))
+    #     break
+    #
+    # for i in range(4, len(files)): #39
+    #     f = files[i]
+    #     print i, f
+    #     data, gt_mask, voxel_size = tools.load_pickle_data(f)
+    #     data = tools.windowing(data)
+    #     tools.show_3d(data, range=False)
 
-    #TODO: vizualizace a zapsani indexu
-
+    # calculating segmentation statistics
     # data_struc = [('/home/tomas/Dropbox/Data/medical/dataset/180_arterial-.pklz', (17, 14)), ]
+    # data_struc = get_data_struc()
     # segmentation_stats(data_struc, scale=0.5, smoothing=1)
 
+    # summarizing the statistics
+    calc_stats()
 
     # data_fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/hypodenseTumor.png'
     # img = cv2.imread(data_fname, 0)
