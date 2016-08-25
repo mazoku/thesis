@@ -420,6 +420,11 @@ def calc_stats():
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
+    fname = '/home/tomas/Dropbox/Data/medical/183a_arterial-.pklz'
+    data, gt_mask, voxel_size = tools.load_pickle_data(fname)
+    data = tools.windowing(data)
+    tools.show_3d(data, range=False)
+
     # files = []
     # for (dirpath, dirnames, filenames) in os.walk('/home/tomas/Dropbox/Data/medical/dataset'):
     #     filenames = [x for x in filenames if 'leze' not in x]
