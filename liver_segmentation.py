@@ -325,7 +325,7 @@ def get_data_struc():
                   ('/home/tomas/Dropbox/Data/medical/221_arterial-.pklz', range(6, 29, s)),
                   ('/home/tomas/Dropbox/Data/medical/229a_arterial-.pklz', range(4, 23, s)),
                   ('/home/tomas/Dropbox/Data/medical/226_venous-.pklz', range(8, 29, s)),
-                  ('/home/tomas/Dropbox/Data/medical/182_venous_M.pklz', range(10, 23, s)),
+                  ('/home/tomas/Dropbox/Data/medical/182_venous-.pklz', range(10, 23, s)),
                   ('/home/tomas/Dropbox/Data/medical/182_arterial-.pklz', range(10, 23, s)),
                   ('/home/tomas/Dropbox/Data/medical/225_venous-.pklz', range(6, 21, s)),
                   ('/home/tomas/Dropbox/Data/medical/224_venous-.pklz', range(6, 13, s)),
@@ -433,7 +433,7 @@ if __name__ == '__main__':
     #         files.append(os.path.join(dirpath, fname))
     #     break
     #
-    # for i in range(4, len(files)): #39
+    # for i in range(1, len(files)): #39
     #     f = files[i]
     #     print i, f
     #     data, gt_mask, voxel_size = tools.load_pickle_data(f)
