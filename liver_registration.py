@@ -23,14 +23,16 @@ if os.path.exists('/home/tomas/projects/imtools/'):
     sys.path.insert(0, '/home/tomas/projects/imtools/')
     from imtools import tools, misc
 else:
-    print 'Import error in liver_registration.py. You need to import package imtools: https://github.com/mjirik/imtools'
+    print 'Import error in %s. You need to import package imtools: https://github.com/mjirik/imtools'\
+          % os.path.basename(__file__)
     sys.exit(0)
 
 if os.path.exists('/home/tomas/projects/data_viewers/'):
     sys.path.insert(0, '/home/tomas/projects/data_viewers/')
     from dataviewers.seg_viewer import SegViewer
 else:
-    print 'Import error in liver_registration.py. You need to import package imtools: https://github.com/mazoku/dataviewers'
+    print 'Import error in %s. You need to import package imtools: https://github.com/mazoku/dataviewers'\
+          % os.path.basename(__file__)
     sys.exit(0)
 
 prubeh = []

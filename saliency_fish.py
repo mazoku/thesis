@@ -32,11 +32,12 @@ import sliding_windows
 import he_pipeline
 
 import sys
-if os.path.exists('../imtools/'):
-    sys.path.insert(0, '../imtools/')
+if os.path.exists('/home/tomas/projects/imtools/'):
+    sys.path.insert(0, '/home/tomas/projects/imtools/')
     from imtools import tools, misc
 else:
-    print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    print 'Import error in %s. You need to import package imtools: https://github.com/mjirik/imtools'\
+          % os.path.basename(__file__)
     sys.exit(0)
 
 # if sys.version_info[0] != 2:
@@ -607,9 +608,27 @@ def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2,
     return map
 
 
-def conspicuity_calculation(img, mask=None, consp_fcn=None, n_levels=9, use_sigmoid=False, morph_proc=True,
+def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use_sigmoid=False, morph_proc=True,
                             type='hypo', calc_features=True, return_features=False, show=False, show_now=True):
-    _debug('Running intensity conspicuity calculation, fcn: %s ...' % str(consp_fcn.__name__))
+    _debug('Running intensity conspicuity calculation, type: %s ...' % sal_type)
+
+    if sal_type == 'int_diff':
+        consp_fcn = conspicuity_int_diff
+    elif sal_type == 'int_hist':
+        consp_fcn = conspicuity_int_hist
+    elif sal_type == 'int_glcm':
+        consp_fcn = conspicuity_int_glcm
+    elif sal_type == 'int_sliwin':
+        consp_fcn = conspicuity_int_sliwin
+    elif sal_type == 'texture':
+        consp_fcn = conspicuity_texture
+    elif sal_type == 'circloids':
+        consp_fcn = conspicuity_circloids
+    elif sal_type == 'blobs':
+        consp_fcn = conspicuity_blobs
+    else:
+        raise ValueError('Wrong saliency types.')
+
     if mask is None:
         mask = np.ones_like(img)
     mask = mask.astype(np.float)
@@ -782,13 +801,13 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     im = img_as_float(im)
     # id = conspicuity_intensity(im.copy(), mask=mask, int_type='diff', type='hypo', use_sigmoid=use_sigmoid, show=show, show_now=False)
     # plt.show()
-    # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_diff, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_hist, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    # id = conspicuity_calculation(im, consp_fcn=conspicuity_int_glcm, mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
-    # isw = conspicuity_calculation(im, consp_fcn=conspicuity_int_sliwin, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
-    # it = conspicuity_calculation(im, consp_fcn=conspicuity_texture, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
-    # circ = conspicuity_calculation(im, consp_fcn=conspicuity_circloids, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
-    blobs = conspicuity_calculation(im, consp_fcn=conspicuity_blobs, mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
+    # id = conspicuity_calculation(im, sal_type='int_diff', mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    # id = conspicuity_calculation(im, sal_type='int_hist', mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    # id = conspicuity_calculation(im, sal_type='int_glcm', mask=mask, calc_features=False, use_sigmoid=use_sigmoid, morph_proc=morph_proc, show=show, show_now=False)
+    # isw = conspicuity_calculation(im, sal_type='int_sliwin', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc, show=show, show_now=False)
+    # it = conspicuity_calculation(im, sal_type='texture', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
+    # circ = conspicuity_calculation(im, sal_type='circloids', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
+    blobs = conspicuity_calculation(im, sal_type='blobs', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
 
     # blobs
     # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
