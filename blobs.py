@@ -35,7 +35,7 @@ def set_verbose(val):
     verbose = val
 
 
-def _debug(msg, msgType="[INFO]"):
+def _debug(msg, verbose=True, msgType="[INFO]"):
     if verbose:
         print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
 
@@ -418,7 +418,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     if blob_type == BLOB_DOG:
         # DOG detection -----------------
         # print 'DOG detection ...',
-        _debug('DOG detection ...')
+        _debug('DOG detection ...', verbose=verbose)
         params = ('sigma_ratio', 'threshold')
         sigma_ratios = np.arange(0.6, 2, 0.2)
         thresholds = np.arange(0.1, 1, 0.1)
@@ -433,7 +433,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_LOG:
         # LOG detection -----------------
         # print 'LOG detection ...',
-        _debug('LOG detection ...')
+        _debug('LOG detection ...', verbose=verbose)
         params = ('num_sigma', 'threshold', 'log_scale')
         # num_sigmas = np.arange(5, 15, 2)
         num_sigmas =[5, 10, 15]
@@ -451,7 +451,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_DOH:
         # DOH detection -----------------
         # print 'DOH detection ...',
-        _debug('DOH detection ...')
+        _debug('DOH detection ...', verbose=verbose)
         params = ('num_sigma', 'threshold', 'log_scale')
         num_sigmas = [5, 10, 15]
         # thresholds = [0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.3, 0.5, 1]
@@ -468,7 +468,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
     elif blob_type == BLOB_CV:
         # OPENCV BLOB DETECTOR -------
         # print 'OpenCV blob detection ...',
-        _debug('OpenCV blob detection ...')
+        _debug('OpenCV blob detection ...', verbose=verbose)
         params = ('min_threshold', 'min_area', 'min_circularity', 'min_convexity', 'min_inertia')
         # min_thresholds = [1, 10, 30, 50, 80, 100, 150, 200]
         min_thresholds = [10, 30, 50, 80, 100, 150, 200]

@@ -17,12 +17,13 @@ import skimage.morphology as skimor
 import skimage.filters as skifil
 import skimage.feature as skifea
 from skimage import img_as_float
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MeanShift, estimate_bandwidth
 import sklearn.mixture as sklmix
 
 import os.path
 import sys
 import datetime
+import itertools
 
 # for conspicuity calculations
 import blobs
@@ -306,26 +307,87 @@ def conspicuity_int_hist(im, mask=None, use_sigmoid=False, morph_proc=True, type
 
 
 def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type='hypo', a=3):
+    # im = tools.resize_ND(im, scale=0.5)
+    # mask = tools.resize_ND(mask, scale=0.5)
     if mask is None:
         mask = np.ones_like(im)
 
     if im.max() <= 1:
         im = skiexp.rescale_intensity(im, (0, 1), (0, 255)).astype(np.int)
 
-    gcm = tools.graycomatrix_3D(im, mask=mask)
+    glcm = tools.graycomatrix_3D(im, mask=mask)
+
+    min_num = 2 * glcm.mean()
+    glcm = np.where(glcm < min_num, 0, glcm)
+    diag = np.ones(glcm.shape)
+    k = 20
+    tu = np.triu(diag, -k)
+    tl = np.tril(diag, k)
+    diag = tu * tl
+    glcm *= diag.astype(glcm.dtype)
+
+    # print 'data from glcm ...',
+    data = tools.data_from_glcm(glcm)
+    # print 'estimating bandwidth ...',
+    bandwidth = estimate_bandwidth(data, quantile=0.2, n_samples=2000)
+    # bandwidth = estimate_bandwidth(data, quantile=0.1, n_samples=2000)
+    # print 'meanshift ...',
+    ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)#, min_bin_freq=1000)
+    ms.fit(data)
+    labels = ms.labels_
+    cluster_centers = ms.cluster_centers_
+    n_clusters_ = len(np.unique(labels))
+    # print 'number of estimated clusters : %d' % n_clusters_
+    # print 'cluster centers: {}'.format(cluster_centers)
+    lab_im = (1 + ms.predict(np.array(np.vstack((im.flatten(), im.flatten()))).T).reshape(im.shape)) * mask
+
+    mean_v = im[np.nonzero(mask)].mean()
+    labs = np.unique(lab_im)[1:]
+    res = np.zeros_like(lab_im)
+    for l in labs:
+        tmp = lab_im == l
+        mv = im[np.nonzero(tmp)].mean()
+        if mv < mean_v:
+            res = np.where(tmp, 1, res)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(glcm, 'jet')
+    # for c in cluster_centers:
+    #     plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    # plt.axis('image')
+    # plt.axis('off')
+    # plt.subplot(122), plt.imshow(glcm, 'jet')
+    # colors = itertools.cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
+    # for k, col in zip(range(n_clusters_), colors):
+    #     my_members = labels == k
+    #     cluster_center = cluster_centers[k]
+    #     plt.plot(data[my_members, 0], data[my_members, 1], col + '.')
+    #     plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    # plt.title('Estimated number of clusters: %d' % n_clusters_)
+    # plt.axis('image')
+    # plt.axis('off')
+    # plt.show()
+
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(im, 'gray', interpolation='nearest')
+    # plt.subplot(132), plt.imshow(lab_im, 'jet', interpolation='nearest')
+    # plt.subplot(133), plt.imshow(res, 'gray', interpolation='nearest')
+    # plt.show()
 
     # thresholding graycomatrix (GCM)
-    c_t = 5
-    thresh = c_t * np.mean(gcm)
-    gcm_t = gcm > thresh
-    gcm_to = skimor.binary_opening(gcm_t, selem=skimor.disk(3))
-
-    rvs = tools.analyze_glcm(gcm_to)
+    # c_t = 5
+    # thresh = c_t * np.mean(glcm)
+    # glcm_t = glcm > thresh
+    # glcm_to = skimor.binary_opening(glcm_t, selem=skimor.disk(3))
+    #
+    # rvs = tools.analyze_glcm(glcm_to)
 
     # filtering
-    rvs = sorted(rvs, key=lambda rv: rv.mean())
-    im_int = rvs[0].pdf(im)
-    mean_v = rvs[0].mean()
+    # rvs = sorted(rvs, key=lambda rv: rv.mean())
+    # im_int = rvs[0].pdf(im)
+    # mean_v = rvs[0].mean()
+
+    im_int = res
 
     a = 20
     c = mean_v / 255
@@ -402,6 +464,7 @@ def conspicuity_int_sliwin(im, mask=None, use_sigmoid=False, morph_proc=True, ty
 
     im_int *= mask
 
+    mean_v = im[np.nonzero(mask)].mean()
     c = mean_v / 255
     im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
                                    use_morph=morph_proc, radius=3)
@@ -493,6 +556,7 @@ def find_prototypes(im, mask, lbp, lbp_type, blob_type, w, n_points, k=1):
 
 
 def conspicuity_blobs(im, mask, use_sigmoid=False, a=3, morph_proc=True, type='hypo', show=False, show_now=True):
+    global verbose
     _debug('Running blob response conspicuity calculation ...')
 
     blob_types = blobs.BLOB_ALL
@@ -501,9 +565,9 @@ def conspicuity_blobs(im, mask, use_sigmoid=False, a=3, morph_proc=True, type='h
     surv_overall = np.zeros_like(im)
     for blob_type in blob_types:
         blobs_res, survs_res, titles, params = blobs.detect_blobs(im, mask, blob_type, layer_id=0,
-                                                                  show=show, show_now=show_now)
+                                                                  show=show, show_now=show_now, verbose=verbose)
         # blobs_survs.append(survs_res[0])
-        surv_overall += survs_res[0]
+        surv_overall += survs_res[0].astype(surv_overall.dtype)
 
     # survival overall
     surv = surv_overall
@@ -568,6 +632,7 @@ def conspicuity_circloids(im, mask, use_sigmoid=False, a=3, morph_proc=True, typ
 
     im_int *= mask
 
+    mean_v = im[np.nonzero(mask)].mean()
     c = mean_v / 255
     im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
                                     use_morph=morph_proc, radius=3)
@@ -598,6 +663,10 @@ def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2,
     # using sigmoid
     if use_sigmoid:
         map = tools.sigmoid(map, mask, a=a, c=c, sigm_t=sigm_t)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(map)
+    # plt.subplot(122), plt.imshow(map1)
+    # plt.show()
 
     # morphological postprocessing
     if use_morph:
@@ -609,7 +678,8 @@ def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2,
 
 
 def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use_sigmoid=False, morph_proc=True,
-                            type='hypo', calc_features=True, return_features=False, show=False, show_now=True):
+                            type='hypo', calc_features=True, return_features=False, show=False, show_now=True, verbose=False):
+    set_verbose(verbose)
     _debug('Running intensity conspicuity calculation, type: %s ...' % sal_type)
 
     if sal_type == 'int_diff':
@@ -675,7 +745,7 @@ def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use
         consp_pyramid.append(consp_map)
 
         # pyr-down data
-        logger.debug("scaling at level %d", l)
+        # logger.debug("scaling at level %d", l)
         im_p = tools.pyramid_down(im_pyramid[-1], scale=4. / 3, smooth=False)
         mask_p = tools.pyramid_down(mask_pyramid[-1], scale=4. / 3, smooth=False)
 
@@ -708,11 +778,11 @@ def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use
             big = consp_pyramid[i]
             for j in (d1, d2):
                 # for j in (3, 4):
-                logger.debug("computing features for levels %d and %d", i, i + j)
+                # logger.debug("computing features for levels %d and %d", i, i + j)
                 small = consp_pyramid[i + j]
                 srcsize = small.shape[1], small.shape[0]
                 dstsize = big.shape[1], big.shape[0]
-                logger.debug("Shape source: %s, Shape target :%s", srcsize, dstsize)
+                # logger.debug("Shape source: %s, Shape target :%s", srcsize, dstsize)
                 scaled = cv2.resize(src=small, dsize=dstsize)
                 f = cv2.absdiff(big, scaled)
                 # f = cv2.resize(f, (img.shape[1], img.shape[0]))
@@ -720,14 +790,12 @@ def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use
     else:
         features = [((0, 0), im) for im in consp_pyramid]
 
-    plt.figure()
-    n_cols = np.ceil(len(features) / 2)
-    for i, f in enumerate(features):
-        plt.subplot(200 + 10 * n_cols + i + 1)
-        plt.imshow(cv2.resize(f[1], img.shape[::-1]), 'jet')
-        plt.axis('off')
-        # plt.title('{}'.format(f[0]))
-    # plt.show()
+    # plt.figure()
+    # n_cols = np.ceil(len(features) / 2)
+    # for i, f in enumerate(features):
+    #     plt.subplot(200 + 10 * n_cols + i + 1)
+    #     plt.imshow(cv2.resize(f[1], img.shape[::-1]), 'jet')
+    #     plt.axis('off')
 
     # plt.figure()
     # n_cols = np.ceil(len(im_pyramid) / 2.)
@@ -808,17 +876,6 @@ def run(im, mask=None, save_fig=False, smoothing=False, return_all=False, show=F
     # it = conspicuity_calculation(im, sal_type='texture', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False, show=show, show_now=False)
     # circ = conspicuity_calculation(im, sal_type='circloids', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
     blobs = conspicuity_calculation(im, sal_type='blobs', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, show=show, show_now=False)
-
-    # blobs
-    # consp_blobs = conspicuity_blobs(im, mask=mask, show=show, show_now=False)
-
-    # shape
-    # consp_circ = conspicuity_circloids(im, mask=mask, show=show, show_now=False)
-
-    # texture
-    # consp_texture = conspicuity_texture(im, mask=mask, show=show, show_now=False)
-
-    # consp_heep = conspicuity_he_pipeline(im, mask=mask, proc=['smo', 'equ', 'clo', 'con'], pyr_scale=1.5, show=show, show_now=False)
 
     # TODO: Conspicuity ... ND verze
 
