@@ -72,8 +72,8 @@ def command_iteration(method, metric, ttype):
     #     print '%s, %s: it #%i, metric=%.4f' % (metric, ttype, iteration, method.GetMetricValue())
 
 
-def register(fixed, moving, learning_rate=1., min_step=1e-4, max_iters=500, metric='ms', transform_type='spline',
-             show=False, show_now=True):
+def register(fixed, moving, mask=None, learning_rate=1., min_step=1e-4, max_iters=500, metric='ms', transform_type='spline',
+             return_resampler=False, show=False, show_now=True):
     R = sitk.ImageRegistrationMethod()
     if metric == 'mi':
         R.SetMetricAsMattesMutualInformation(50)
@@ -145,6 +145,18 @@ def register(fixed, moving, learning_rate=1., min_step=1e-4, max_iters=500, metr
 
             if show_now:
                 plt.show()
+
+        # if mask is not None:
+        #     mask_reg = resampler.Execute(mask)
+        #     mask_reg = sitk.Cast(sitk.RescaleIntensity(mask_reg), sitk.sitkUInt8)
+        #     mask_reg = sitk.GetArrayFromImage(mask_reg)
+        #     return moving_im, mask_reg
+        # else:
+        if return_resampler:
+            return moving_im, tx
+        else:
+            return moving_im
+
 
 def get_data_struc():
     dirpath = '/home/tomas/Dropbox/Data/medical/'
@@ -254,6 +266,109 @@ def count_stats(vals, metrics, ttypes, show_now=True):
         plt.show()
 
 
+def transform_data(data, tx):
+    data = sitk.GetImageFromArray(data)
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetReferenceImage(data)
+    resampler.SetInterpolator(sitk.sitkLinear)
+    # resampler.SetDefaultPixelValue(100)
+    resampler.SetTransform(tx)
+    out = resampler.Execute(data)
+    out = sitk.GetArrayFromImage(out)
+
+    return out
+
+
+def register_dataset():
+    dirpath = '/home/tomas/Dropbox/Data/medical/dataset/gt/'
+    data_struc = [('180_venous-GT.pklz', '180_arterial-GT.pklz'),
+                  ('183a_venous-GT.pklz', '183a_arterial-GT.pklz'),
+                  ('185a_venous-GT.pklz', '185a_arterial-GT.pklz'),
+                  ('186a_venous-GT.pklz', '186a_arterial-GT.pklz'),
+                  ('189a_venous-GT.pklz', '189a_arterial-GT.pklz'),
+                  ('221_venous-GT.pklz', '221_arterial-GT.pklz'),
+                  ('222a_venous-GT.pklz', '222a_arterial-GT.pklz'),
+                  ('232_venous-GT.pklz', '232_arterial-GT.pklz'),
+                  # ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s)),
+                  ('235_venous-GT.pklz', '235_arterial-GT.pklz')]
+
+    data_struc = [(dirpath + x[0], dirpath + x[1]) for x in data_struc]
+    n_data = len(data_struc)
+
+    for i, (fixed_fn, moving_fn) in enumerate(data_struc):
+        if i < 5:
+            continue
+        print 'data #%i/%i: ' % (i + 1, n_data),
+
+        data_v, gt_mask, voxel_size = tools.load_pickle_data(fixed_fn)
+        data_v = tools.windowing(data_v)
+
+        data_a, gt_mask, voxel_size = tools.load_pickle_data(moving_fn)
+        # data_a = tools.windowing(data_a)
+        moving_arr = tools.resize_ND(data_a, shape=data_v.shape).astype(data_a.dtype)
+        moving_arr = tools.match_size(moving_arr, data_v.shape, verbose=False)
+        data_ao = moving_arr.copy()
+        moving_arr = tools.windowing(moving_arr).astype(np.float)
+        # moving_arr = tools.windowing(data_a).astype(np.float)
+
+        fixed_arr = data_v.astype(np.float)
+        # moving_arr = tools.resize_ND(data_a, shape=data_v.shape).astype(fixed_arr.dtype)
+        # moving_arr = tools.match_size(moving_arr, fixed_arr.shape, verbose=False)
+        # print fixed_arr.shape, moving_arr.shape
+
+        # plt.figure()
+        # plt.subplot(121), plt.imshow(fixed_arr[15,...], 'gray')
+        # plt.subplot(122), plt.imshow(moving_arr[15,...], 'gray')
+        # plt.show()
+
+        moving_mask = tools.resize_ND(gt_mask, shape=data_v.shape).astype(gt_mask.dtype)
+        moving_mask = tools.match_size(moving_mask, data_v.shape)
+
+        n_slices = fixed_arr.shape[0]
+        print 'slices: %i - ' % n_slices,
+
+        data_reg = np.zeros_like(moving_arr)
+        mask_reg = np.zeros_like(moving_mask)
+        for j, (fixed, moving, mask) in enumerate(zip(fixed_arr, moving_arr, moving_mask)):
+            if (j % 5) == 0:
+                print ' ',
+            # print '#',
+            print j
+            fixed = sitk.GetImageFromArray(fixed)
+            moving = sitk.GetImageFromArray(moving)
+            # mask = sitk.GetImageFromArray(mask)
+
+            setups = (('simil', 'ms'), ('affine', 'ms'), ('spline', 'mi'))
+            for ttype, mtype in setups:
+                data_r, tx = register(fixed, moving, mask=mask, transform_type=ttype, metric=mtype, max_iters=300, return_resampler=True, show=False)
+                if (data_r == 0).sum() < (0.8 * np.prod(data_r.shape)):
+                    print ttype, mtype
+                    data_r = transform_data(data_ao[j,...], tx)
+                    mask_r = transform_data(mask, tx)
+                    break
+            data_reg[j, ...] = data_r
+            mask_reg[j,...] = mask_r
+
+            # plt.figure()
+            # plt.subplot(131), plt.imshow(fixed_arr[j,...], 'gray')
+            # plt.subplot(132), plt.imshow(moving_arr[j,...], 'gray')
+            # plt.subplot(133), plt.imshow(tools.windowing(data_r), 'gray')
+            # plt.show()
+
+        print ' - OK,',
+        datap_reg = {'data3d': data_reg, 'segmentation': mask_reg, 'voxelsize_mm': voxel_size, 'slab': {'none': 0, 'liver': 1, 'lesions': 6}}
+        outname = dirpath + 'registered/' + moving_fn.split('/')[-1].replace('.pklz', '-registered.pklz')
+        # if not os.path.exists(outname):
+        #     os.mkdir(outname)
+        f = gzip.open(outname, 'wb')
+        pickle.dump(datap_reg, f)
+        f.close()
+
+        # break
+
+    print 'done'
+
+
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
@@ -317,12 +432,24 @@ if __name__ == '__main__':
     # count_stats(metric_all_vals, metrics, ttypes, show_now=True)
 
     # --------------------------------------------------------------------------
-    mtype = 'ms'
-    # mtype = 'mi'
-    ttype = 'simil'
-    fixed_arr = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/liver_registration/fixed_img.png', 0)
-    moving_arr = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/liver_registration/moving_img.png', 0)
-    fixed = sitk.GetImageFromArray(fixed_arr.astype(np.float))
-    moving = sitk.GetImageFromArray(moving_arr.astype(np.float))
+    # mtype = 'ms'
+    # # mtype = 'mi'
+    # ttype = 'simil'
+    # fixed_arr = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/liver_registration/fixed_img.png', 0)
+    # moving_arr = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/liver_registration/moving_img.png', 0)
+    # fixed = sitk.GetImageFromArray(fixed_arr.astype(np.float))
+    # moving = sitk.GetImageFromArray(moving_arr.astype(np.float))
+    #
+    # register(fixed, moving, transform_type=ttype, metric=mtype, max_iters=300, show=True)
 
-    register(fixed, moving, transform_type=ttype, metric=mtype, max_iters=300, show=True)
+    # --------------------------------------------------------------------------
+    register_dataset()
+
+    # fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/180_venous-GT.pklz'
+    # reg_fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/registered/180_arterial-GT-registered.pklz'
+    # datap_1 = tools.load_pickle_data(fname, return_datap=True)
+    # datap_2 = tools.load_pickle_data(reg_fname, return_datap=True)
+    # app = QtGui.QApplication(sys.argv)
+    # le = SegViewer(datap1=datap_1, datap2=datap_2)
+    # le.show()
+    # app.exec_()

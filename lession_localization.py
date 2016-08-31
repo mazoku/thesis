@@ -108,28 +108,29 @@ def get_data_struc():
     '''
     dirpath = '/home/tomas/Dropbox/Data/medical/dataset/gt/'
     s = 4
-    # data_struc = [('180_venous-GT.pklz', '180_arterial-GT.pklz', range(6,14), 0),
-    #               ('183a_venous-GT.pklz', '183a_arterial-GT.pklz', range(11, 24, s), -1),
-    #               ('185a_venous-GT.pklz', '185a_arterial-GT.pklz', range(9, 24, s), 1),
-    #               ('186a_venous-GT.pklz', '186a_arterial-GT.pklz', range(1, 5, s), 0),
-    #               ('189a_venous-GT.pklz', '189a_arterial-GT.pklz', range(12, 26, s), -1),
-    #               ('221_venous-GT.pklz', '221_arterial-GT.pklz', range(17, 23, s), 0),
-    #               ('222a_venous-GT.pklz', '222a_arterial-GT.pklz', range(0, 0, s), -2),
-    #               ('232_venous-GT.pklz', '232_arterial-GT.pklz', range(0, 0, s), -2),
-    #               ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s), 0),
-    #               ('235_venous-GT.pklz', '235_arterial-GT.pklz', range(0, 0, s), 0)]
-    data_struc = [('180_venous-GT.pklz', '180_arterial-GT.pklz', range(6, 14)),
-                  ('183a_venous-GT.pklz', '183a_arterial-GT.pklz', range(11, 23, s)),
-                  ('185a_venous-GT.pklz', '185a_arterial-GT.pklz', range(9, 24, s)),
-                  ('186a_venous-GT.pklz', '186a_arterial-GT.pklz', range(1, 7, s)),
-                  ('189a_venous-GT.pklz', '189a_arterial-GT.pklz', range(12, 26, s)),
-                  ('221_venous-GT.pklz', '221_arterial-GT.pklz', range(17, 23, s)),
-                  ('222a_venous-GT.pklz', '222a_arterial-GT.pklz', range(1, 9, s) + range(23, 30, s)),
-                  ('232_venous-GT.pklz', '232_arterial-GT.pklz', range(1, 12, s) + range(17, 25, s)),
-                  ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s)),
-                  ('235_venous-GT.pklz', '235_arterial-GT.pklz', range(11, 42, s))]
+    # data_struc = [('180_venous-GT.pklz', '180_arterial-GT-registered.pklz', range(5, 15, s)),
+    #               ('183a_venous-GT.pklz', '183a_arterial-GT-registered.pklz', range(11, 23, s)),
+    #               ('185a_venous-GT.pklz', '185a_arterial-GT-registered.pklz', range(9, 24, s)),  # spatne registrovany
+    #               ('186a_venous-GT.pklz', '186a_arterial-GT-registered.pklz', range(1, 7, s)),
+    #               ('189a_venous-GT.pklz', '189a_arterial-GT-registered.pklz', range(12, 26, s)),
+    #               ('221_venous-GT.pklz', '221_arterial-GT-registered.pklz', range(17, 23, s)),
+    #               ('222a_venous-GT.pklz', '222a_arterial-GT-registered.pklz', range(1, 9, s) + range(23, 30, s)),
+    #               ('232_venous-GT.pklz', '232_arterial-GT-registered.pklz', range(1, 12, s) + range(17, 25, s)),
+    #               # ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s)),
+    #               ('235_venous-GT.pklz', '235_arterial-GT-registered.pklz', range(11, 42, s))]
 
-    # data_struc = [(dirpath + x[0], dirpath + x[1], x[2], x[3]) for x in data_struc]
+    data_struc = [('180_venous-GT.pklz', '180_arterial-GT.pklz', [(x, y) for x, y in zip(range(5, 16), range(5, 16))]),
+                  ('183a_venous-GT.pklz', '183a_arterial-GT.pklz', [(x, y) for x, y in zip(range(9, 23), range(7, 21))]),
+                  ('185a_venous-GT.pklz', '185a_arterial-GT.pklz', [(x, y) for x, y in zip([9,] + range(10, 24), [10,] + range(10, 24))]),
+                  ('186a_venous-GT.pklz', '186a_arterial-GT.pklz', [(x, y) for x, y in zip(range(1, 8), range(1, 8))]),
+                  ('189a_venous-GT.pklz', '189a_arterial-GT.pklz', [(x, y) for x, y in zip(range(12, 26), range(11, 25))]),
+                  ('221_venous-GT.pklz', '221_arterial-GT.pklz', [(x, y) for x, y in zip(range(17, 22), range(17, 22))]),
+                  ('222a_venous-GT.pklz', '222a_arterial-GT.pklz', [(x, y) for x, y in zip(range(2, 7) + range(24, 30), range(1, 7) + range(21, 27))]),
+                  ('232_venous-GT.pklz', '232_arterial-GT.pklz', [(x, y) for x, y in zip(range(1, 12) + range(17, 25), range(1, 12) + range(16, 24))]),
+                  # ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s)),
+                  ('235_venous-GT.pklz', '235_arterial-GT.pklz', [(x, y) for x, y in zip(range(4, 42), range(4, 42))])] # fujky
+
+    # data_struc = [(dirpath + x[0], dirpath + 'registered/' + x[1], x[2]) for x in data_struc]
     data_struc = [(dirpath + x[0], dirpath + x[1], x[2]) for x in data_struc]
 
     return data_struc
@@ -138,12 +139,35 @@ def get_data_struc():
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    # TODO 1: seshapovat data -  ulozit
-    # TODO 2: registrovat po rezech - ulozit
     # TODO 3: spocitat salmapy - ulozit
     # TODO 4: MRF experimenty
     # TODO 5: vybrat idealni kombinaci salmap
     # TODO 6: porovnat data
+
+    ds = get_data_struc()
+    # vypocet salmap --------------------
+    for i, (data_ven_fn, data_art_fn, slics) in enumerate(ds):
+        data_ven, mask_ven, vs = tools.load_pickle_data(data_ven_fn)
+        data_art, mask_art, vs = tools.load_pickle_data(data_art_fn)
+        data_ven = tools.windowing(data_ven)
+        data_art = tools.windowing(data_art)
+        for s in slics:
+            im_ven = data_ven[s,...]
+            im_art = data_art[s,...]
+
+            dirs = data_ven_fn.split('/')
+            fname = dirs[-1]
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s[0])
+            dirp = '/'.join(dirs[:-1])
+            out_ven = os.path.join(dirp, 'salmaps', salmap_fname)
+            salmaps_ven = calc_saliencies(im_ven, mask_ven, save=True, out_fname=out_ven)
+
+            dirs = data_art_fn.split('/')
+            fname = dirs[-1]
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s[0])
+            dirp = '/'.join(dirs[:-1])
+            out_art = os.path.join(dirp, 'salmaps', salmap_fname)
+            salmaps_art = calc_saliencies(im_art, mask_art, save=True, out_fname=out_ven)
 
     # zoomovani tak aby mela data stejny pocet rezu
     # d1, m1, vs1 = tools.load_pickle_data('/home/tomas/Dropbox/Data/medical/dataset/gt/222a_venous-GT.pklz')
@@ -162,26 +186,24 @@ if __name__ == '__main__':
     # app.exec_()
 
     # vizualizace dat
-    ds = get_data_struc()
-
     # for i, (vfn, afn, slcs, off) in enumerate(ds):
-    # i = 8
-    # vfn, afn, slcs = ds[i]
-    #
-    # print i, ' ... ', vfn.split('/')[-1], afn.split('/')[-1]
-    #
-    # datap_1 = tools.load_pickle_data(vfn, return_datap=True)
-    # # datap_2 = tools.load_pickle_data(afn, return_datap=True)
+    i = 8
+    vfn, afn, slcs = ds[i]
+
+    print i, ' ... ', vfn.split('/')[-1], afn.split('/')[-1]
+
+    datap_1 = tools.load_pickle_data(vfn, return_datap=True)
+    datap_2 = tools.load_pickle_data(afn, return_datap=True)
     # d2, m2, vs2 = tools.load_pickle_data(afn)
     # d2 = tools.match_size(d2, datap_1['data3d'].shape)
     # m2 = tools.match_size(m2, datap_1['segmentation'].shape)
     # slab = {'none': 0, 'liver': 1, 'lesions': 6}
     # datap_2 = {'data3d': d2, 'segmentation': m2, 'voxelsize_mm': vs2, 'slab': slab}
-    #
-    # app = QtGui.QApplication(sys.argv)
-    # le = SegViewer(datap1=datap_1, datap2=datap_2)
-    # le.show()
-    # app.exec_()
+
+    app = QtGui.QApplication(sys.argv)
+    le = SegViewer(datap1=datap_1, datap2=datap_2)
+    le.show()
+    app.exec_()
 
 
     # files = []
