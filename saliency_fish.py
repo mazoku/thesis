@@ -328,18 +328,32 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
 
     # print 'data from glcm ...',
     data = tools.data_from_glcm(glcm)
-    # print 'estimating bandwidth ...',
-    bandwidth = estimate_bandwidth(data, quantile=0.2, n_samples=2000)
-    # bandwidth = estimate_bandwidth(data, quantile=0.1, n_samples=2000)
-    # print 'meanshift ...',
-    ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)#, min_bin_freq=1000)
-    ms.fit(data)
-    labels = ms.labels_
-    cluster_centers = ms.cluster_centers_
-    n_clusters_ = len(np.unique(labels))
-    # print 'number of estimated clusters : %d' % n_clusters_
-    # print 'cluster centers: {}'.format(cluster_centers)
-    lab_im = (1 + ms.predict(np.array(np.vstack((im.flatten(), im.flatten()))).T).reshape(im.shape)) * mask
+    quantiles = [0.2, 0.1, 0.4]
+    for q in quantiles:
+        # print 'estimating bandwidth ...',
+        bandwidth = estimate_bandwidth(data, quantile=q, n_samples=2000)
+        # bandwidth = estimate_bandwidth(data, quantile=0.1, n_samples=2000)
+        # print 'meanshift ...',
+        ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)#, min_bin_freq=1000)
+        ms.fit(data)
+        labels = ms.labels_
+        cluster_centers = ms.cluster_centers_
+        n_clusters_ = len(np.unique(labels))
+        # print q, n_clusters_
+
+        if n_clusters_ > 1:
+            break
+
+    # n_clusters_ = 0
+    if n_clusters_ > 1:
+        # print 'number of estimated clusters : %d' % n_clusters_
+        # print 'cluster centers: {}'.format(cluster_centers)
+        lab_im = (1 + ms.predict(np.array(np.vstack((im.flatten(), im.flatten()))).T).reshape(im.shape)) * mask
+    else:  # pokud meanshift najde pouze jeden mode, pouziji jiny pristup
+        rvs = tools.analyze_glcm(glcm, show=True)
+        rvs = sorted(rvs, key=lambda rv: rv.mean())
+        lab_im = rvs[0].pdf(im)
+        n_clusters_ = len(rvs)
 
     mean_v = im[np.nonzero(mask)].mean()
     labs = np.unique(lab_im)[1:]
@@ -437,7 +451,7 @@ def conspicuity_int_sliwin(im, mask=None, use_sigmoid=False, morph_proc=True, ty
         # out_val = (win < liver_peak).sum() / (win_w * win_h)
 
         # procent. zastoupeni hypo + bin. open
-        m = win < liver_peak
+        m = win < (0.9 * liver_peak)
         # m = skimor.binary_opening(m, skimor.disk(3))
         out_val = np.float(m.sum()) / (win_w * win_h)
         im_int[np.nonzero(win_mask)] += out_val
@@ -588,7 +602,7 @@ def conspicuity_circloids(im, mask, use_sigmoid=False, a=3, morph_proc=True, typ
     liver_peak = bins[np.argmax(hist)]
 
     # setting up values outside mask to better suppress responses on the border of the mask
-    if type == 'dark':
+    if type == 'hypo':
         im = np.where(mask, im, 0)
     else:
         im = np.where(mask, im, 1)
@@ -606,6 +620,7 @@ def conspicuity_circloids(im, mask, use_sigmoid=False, a=3, morph_proc=True, typ
         step_size = 8
         for (x, y, win_mask, win) in tools.sliding_window(im, window_size=win_size, step_size=step_size, mask=mask):
             resp, m_resps = circloids.masks_response(win, m, offset=10./255, type=type, mean_val=liver_peak, show=False)
+
             if resp:
                 # positives.append(((x, y), (x + win_size[0], y + win_size[1])))
                 elip = ((e[0][0] + x, e[0][1] + y), e[1], e[2])
@@ -633,9 +648,15 @@ def conspicuity_circloids(im, mask, use_sigmoid=False, a=3, morph_proc=True, typ
     im_int *= mask
 
     mean_v = im[np.nonzero(mask)].mean()
-    c = mean_v / 255
-    im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
-                                    use_morph=morph_proc, radius=3)
+    if mean_v > 1:
+        c = mean_v / 255
+    else:
+        c = mean_v
+    if im_int.max() > 0:
+        im_res = conspicuity_processing(im_int, mask, use_sigmoid=use_sigmoid, a=a, c=c, sigm_t=0.2,
+                                        use_morph=morph_proc, radius=3)
+    else:
+        im_res = im_int
 
     # plt.figure()
     # for i, im in enumerate(masks_survs):
@@ -657,6 +678,9 @@ def conspicuity_he_pipeline(im, mask, proc, pyr_scale=1.5, min_pyr_size=(20, 20)
 
 
 def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2, use_morph=False, radius=3):
+    if map.max() == 0:
+        return map
+
     # rescaling to <0, 1>
     map = skiexp.rescale_intensity(map.astype(np.float), out_range=(0, 1))
 
@@ -672,7 +696,8 @@ def conspicuity_processing(map, mask, use_sigmoid=False, a=3, c=0.5, sigm_t=0.2,
     if use_morph:
         map = skimor.closing(skimor.opening(map, selem=skimor.disk(radius)))
 
-    map = skiexp.rescale_intensity(map.astype(np.float), out_range=np.float32)
+    if map.max() > 0:
+        map = skiexp.rescale_intensity(map.astype(np.float), out_range=np.float32)
 
     return map
 

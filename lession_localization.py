@@ -31,7 +31,7 @@ else:
     sys.exit(0)
 
 
-def calc_saliencies(data, mask, smoothing=True, save=False, types='dhgstcb', out_fname='out.pklz', show=False, show_now=True):
+def calc_saliencies(data, mask, smoothing=True, save=False, save_fig=False, types='dhgstcb', out_fname='out.pklz', show=False, show_now=True):
     use_sigmoid = True
     morph_proc = True
 
@@ -58,7 +58,8 @@ def calc_saliencies(data, mask, smoothing=True, save=False, types='dhgstcb', out
         data_struc.append((ig, 'int glcm'))
     if 's' in types:
         print 'int sliwin ...',
-        isw = sf.conspicuity_calculation(data, sal_type='int_sliwin', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc)
+        isw = sf.conspicuity_calculation(data, sal_type='int_sliwin', mask=mask, calc_features=False,
+                                         use_sigmoid=False, morph_proc=morph_proc)
         data_struc.append((isw, 'int sliwin'))
     if 't' in types:
         print 'texture ...',
@@ -79,8 +80,8 @@ def calc_saliencies(data, mask, smoothing=True, save=False, types='dhgstcb', out
         pickle.dump(data_struc, f)
         f.close()
 
-    if show:
-        plt.figure()
+    if show or save_fig:
+        fig = plt.figure()
         n_imgs = len(data_struc)
         for i, (im, tit) in enumerate(data_struc):
             # r = 1 + int(i > (n_imgs / 2))
@@ -91,7 +92,9 @@ def calc_saliencies(data, mask, smoothing=True, save=False, types='dhgstcb', out
                 cmap = 'jet'
             plt.imshow(im, cmap, interpolation='nearest')
             plt.title(tit)
-        if show_now:
+        if save_fig:
+            fig.savefig(out_fname.replace('pklz', 'png'))
+        if show and show_now:
             plt.show()
 
 
@@ -107,7 +110,7 @@ def get_data_struc():
     datastruc: [(venous data, arterial data, slices), ...]
     '''
     dirpath = '/home/tomas/Dropbox/Data/medical/dataset/gt/'
-    s = 4
+    # s = 4
     # data_struc = [('180_venous-GT.pklz', '180_arterial-GT-registered.pklz', range(5, 15, s)),
     #               ('183a_venous-GT.pklz', '183a_arterial-GT-registered.pklz', range(11, 23, s)),
     #               ('185a_venous-GT.pklz', '185a_arterial-GT-registered.pklz', range(9, 24, s)),  # spatne registrovany
@@ -144,30 +147,60 @@ if __name__ == '__main__':
     # TODO 5: vybrat idealni kombinaci salmap
     # TODO 6: porovnat data
 
+    # f = gzip.open('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/180_venous-GT-sm-5.pklz', 'rb')
+    # fcontent = f.read()
+    # salmaps = pickle.loads(fcontent)
+    # f.close()
+    #
+    # plt.figure()
+    # n_imgs = len(salmaps)
+    # for i, (im, tit) in enumerate(salmaps):
+    #     # r = 1 + int(i > (n_imgs / 2))
+    #     plt.subplot(201 + 10 * (np.ceil(n_imgs / 2)) + i)
+    #     if i == 0:
+    #         cmap = 'gray'
+    #     else:
+    #         cmap = 'jet'
+    #     plt.imshow(im, cmap, interpolation='nearest')
+    #     plt.title(tit)
+    # plt.show()
+
     ds = get_data_struc()
     # vypocet salmap --------------------
     for i, (data_ven_fn, data_art_fn, slics) in enumerate(ds):
+        # if i < 2:
+        #     continue
+        print '\n#%i/%i: ' % (i + 1, len(ds))
         data_ven, mask_ven, vs = tools.load_pickle_data(data_ven_fn)
         data_art, mask_art, vs = tools.load_pickle_data(data_art_fn)
         data_ven = tools.windowing(data_ven)
         data_art = tools.windowing(data_art)
-        for s in slics:
-            im_ven = data_ven[s,...]
-            im_art = data_art[s,...]
+        for j, (s_ven, s_art) in enumerate(slics):
+            im_ven = data_ven[s_ven,...]
+            im_art = data_art[s_art,...]
+            mask_im_ven = mask_ven[s_ven,...] > 0
+            mask_im_art = mask_art[s_art,...] > 0
 
+            # venous data
+            print '    ven #%i/%i' % (j + 1, len(slics)),
             dirs = data_ven_fn.split('/')
             fname = dirs[-1]
-            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s[0])
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s_ven)
             dirp = '/'.join(dirs[:-1])
             out_ven = os.path.join(dirp, 'salmaps', salmap_fname)
-            salmaps_ven = calc_saliencies(im_ven, mask_ven, save=True, out_fname=out_ven)
+            salmaps_ven = calc_saliencies(im_ven, mask_im_ven, save=True, save_fig=True, out_fname=out_ven)
 
+            # arterial data
+            print '    art #%i/%i' % (j + 1, len(slics)),
             dirs = data_art_fn.split('/')
             fname = dirs[-1]
-            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s[0])
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s_art)
             dirp = '/'.join(dirs[:-1])
             out_art = os.path.join(dirp, 'salmaps', salmap_fname)
-            salmaps_art = calc_saliencies(im_art, mask_art, save=True, out_fname=out_ven)
+            salmaps_art = calc_saliencies(im_art, mask_im_art, save=True, save_fig=True, out_fname=out_art)
+
+        #     break
+        # break
 
     # zoomovani tak aby mela data stejny pocet rezu
     # d1, m1, vs1 = tools.load_pickle_data('/home/tomas/Dropbox/Data/medical/dataset/gt/222a_venous-GT.pklz')

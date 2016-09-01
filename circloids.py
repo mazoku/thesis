@@ -183,14 +183,20 @@ def masks_response(image, masks, type='dark', mean_val=None, offset=10, show=Fal
     corners = np.array(resps[1:])
 
     #TODO: zakodovat ala LBP?
+    # if (image > 0).sum() > (0.5 * np.prod(image.shape)):
+    #     pass
     if type in ['dark', 'black', 'hypo']:
         final_resp = (center[0] < corners[:, 0]).all()
+        if final_resp:
+            pass
         if mean_val is not None:
-            final_resp = final_resp and center[0] < (mean_val - offset)
+            final_resp = final_resp and (center[0] < (mean_val - offset))
+        if final_resp:
+            pass
     elif type in ['bright', 'white', 'hyper']:
         final_resp = (center[0] > corners[:, 0]).all()
         if mean_val is not None:
-            final_resp = final_resp and center[0] > (mean_val + offset)
+            final_resp = final_resp and (center[0] > (mean_val + offset))
     else:
         raise ValueError('Unknown type provided. Possible types are: dark, black, hypo, bright, white, hyper.')
 

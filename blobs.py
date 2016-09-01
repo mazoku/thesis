@@ -498,7 +498,8 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         raise ValueError('Unknown blob type.')
 
     # rescaling intensity
-    blobs_surv_overall = skiexp.rescale_intensity(blobs_surv_overall.astype(np.float), out_range=(0, 1))
+    if blobs_surv_overall.max() > 0:
+        blobs_surv_overall = skiexp.rescale_intensity(blobs_surv_overall.astype(np.float), out_range=(0, 1))
 
     if blob_type == BLOB_DOG:
         survival_imgs = (blobs_surv_overall, blobs_sr_surv, blobs_t_surv)
