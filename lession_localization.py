@@ -139,6 +139,10 @@ def get_data_struc():
     return data_struc
 
 
+def mrfing(salmaps):
+
+
+
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
@@ -168,8 +172,8 @@ if __name__ == '__main__':
     ds = get_data_struc()
     # vypocet salmap --------------------
     for i, (data_ven_fn, data_art_fn, slics) in enumerate(ds):
-        # if i < 2:
-        #     continue
+        if i < 1:
+            continue
         print '\n#%i/%i: ' % (i + 1, len(ds))
         data_ven, mask_ven, vs = tools.load_pickle_data(data_ven_fn)
         data_art, mask_art, vs = tools.load_pickle_data(data_art_fn)

@@ -350,7 +350,7 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
         # print 'cluster centers: {}'.format(cluster_centers)
         lab_im = (1 + ms.predict(np.array(np.vstack((im.flatten(), im.flatten()))).T).reshape(im.shape)) * mask
     else:  # pokud meanshift najde pouze jeden mode, pouziji jiny pristup
-        rvs = tools.analyze_glcm(glcm, show=True)
+        rvs = tools.analyze_glcm(glcm)
         rvs = sorted(rvs, key=lambda rv: rv.mean())
         lab_im = rvs[0].pdf(im)
         n_clusters_ = len(rvs)
