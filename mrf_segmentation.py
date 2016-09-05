@@ -38,10 +38,12 @@ def set_verbose(val):
     verbose = val
 
 
-def _debug(msg, msgType="[INFO]"):
+def _debug(msg, msgType="[INFO]", new_line=True):
     if verbose:
-        print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
-
+        if new_line:
+            print '{} {} | {}'.format(msgType, msg, datetime.datetime.now())
+        else:
+            print '{} {} | {}'.format(msgType, msg, datetime.datetime.now()),
 
 def run(im, mask, alpha=1, beta=1, scale=0.5, show=False, show_now=True, save_fig=False, verbose=True):
     # scale = 0.5  # scaling parameter for resizing the image

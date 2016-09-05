@@ -485,7 +485,7 @@ def detect_blobs(image, mask, blob_type, layer_id, show=False, show_now=True, sa
         # plt.imshow(image, 'gray')
         # plt.show()
         blobs_all, blobs_mt, blobs_ma, blobs_mcir, blobs_mcon, blobs_mi = \
-            detect_opencv_detector(image, mask, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias)
+            detect_opencv_detector(skiexp.rescale_intensity(image, in_range=(0, 1), out_range=(0, 255)).astype(np.uint8), mask > 0, min_thresholds, min_areas, min_circularities, min_convexities, min_inertias)
         blobs_mt_surv = calc_survival_fcn(blobs_mt, mask, show=False)
         blobs_ma_surv = calc_survival_fcn(blobs_ma, mask, show=False)
         blobs_mcir_surv = calc_survival_fcn(blobs_mcir, mask, show=False)

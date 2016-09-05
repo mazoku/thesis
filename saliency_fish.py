@@ -309,6 +309,7 @@ def conspicuity_int_hist(im, mask=None, use_sigmoid=False, morph_proc=True, type
 def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type='hypo', a=3):
     # im = tools.resize_ND(im, scale=0.5)
     # mask = tools.resize_ND(mask, scale=0.5)
+    im = im.copy()
     if mask is None:
         mask = np.ones_like(im)
 
@@ -329,9 +330,12 @@ def conspicuity_int_glcm(im, mask=None, use_sigmoid=False, morph_proc=True, type
     # print 'data from glcm ...',
     data = tools.data_from_glcm(glcm)
     quantiles = [0.2, 0.1, 0.4]
+    n_clusters_ = 0
     for q in quantiles:
         # print 'estimating bandwidth ...',
         bandwidth = estimate_bandwidth(data, quantile=q, n_samples=2000)
+        if bandwidth == 0:
+            continue
         # bandwidth = estimate_bandwidth(data, quantile=0.1, n_samples=2000)
         # print 'meanshift ...',
         ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)#, min_bin_freq=1000)
@@ -755,6 +759,7 @@ def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use
     for l in xrange(n_levels - 1):
         _debug('Pyramid level %i' % (l + 1))
         params = {'mask': mask_p, 'use_sigmoid': use_sigmoid, 'morph_proc': morph_proc, 'type': type}
+
         # calculating conspicuity map if a consp_fcn was provided
         if consp_fcn is not None:
             consp_map = consp_fcn(im_p, **params)
@@ -840,7 +845,13 @@ def conspicuity_calculation(img, mask=None, sal_type='int_diff', n_levels=9, use
     consp_map = sumNormalizedFeatures(features, levels=n_levels)
     consp_map = cv2.resize(consp_map, img.shape[::-1]) * mask
     consp_map = np.where(consp_map < 0, 0, consp_map)
-    consp_map = skiexp.rescale_intensity(consp_map, out_range=(0, 1))
+    if consp_map.max() > 0:
+        consp_map = skiexp.rescale_intensity(consp_map, out_range=(0, 1))
+    # try:
+    #     consp_map = skiexp.rescale_intensity(consp_map, out_range=(0, 1))
+    # except:
+    #     print consp_map.min(), consp_map.max()
+    #     sys.exit(0)
 
     if show:
         plt.figure()
