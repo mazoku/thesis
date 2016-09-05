@@ -1,6 +1,11 @@
+from __future__ import division
+
 import os
 import sys
 import itertools
+
+import gzip
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -282,15 +287,99 @@ def glcm_dpgmm(img):
 
     plt.show()
 
+
+def add_mask():
+    dirpath = '/home/tomas/Dropbox/Data/medical/dataset/gt/'
+    data_struc = [('180_venous-GT.pklz', '180_arterial-GT.pklz', [(x, y) for x, y in zip(range(5, 16), range(5, 16))]),
+                  ('183a_venous-GT.pklz', '183a_arterial-GT.pklz', [(x, y) for x, y in zip(range(9, 23), range(7, 21))]),
+                  ('185a_venous-GT.pklz', '185a_arterial-GT.pklz', [(x, y) for x, y in zip([9, ] + range(10, 24), [10, ] + range(10, 24))]),
+                  ('186a_venous-GT.pklz', '186a_arterial-GT.pklz', [(x, y) for x, y in zip(range(1, 8), range(1, 8))]),
+                  ('189a_venous-GT.pklz', '189a_arterial-GT.pklz', [(x, y) for x, y in zip(range(12, 26), range(11, 25))]),
+                  ('221_venous-GT.pklz', '221_arterial-GT.pklz', [(x, y) for x, y in zip(range(17, 22), range(17, 22))]),
+                  ('222a_venous-GT.pklz', '222a_arterial-GT.pklz', [(x, y) for x, y in zip(range(2, 7) + range(24, 30), range(1, 7) + range(21, 27))]),
+                  ('232_venous-GT.pklz', '232_arterial-GT.pklz', [(x, y) for x, y in zip(range(1, 12) + range(17, 25), range(1, 12) + range(16, 24))]),
+                  # ('234_venous-GT.pklz', '234_arterial-GT.pklz', range(0, 0, s)),
+                  ('235_venous-GT.pklz', '235_arterial-GT.pklz', [(x, y) for x, y in zip(range(4, 42), range(4, 42))])]  # fujky
+    data_struc = [(dirpath + x[0], dirpath + x[1], x[2]) for x in data_struc]
+
+    for i, (data_ven_fn, data_art_fn, slics) in enumerate(data_struc):
+        print '#%i/%i' % (i + 1, len(data_struc))
+        data_ven, mask_ven, vs = tools.load_pickle_data(data_ven_fn)
+        data_art, mask_art, vs = tools.load_pickle_data(data_art_fn)
+
+        for j, (s_ven, s_art) in enumerate(slics):
+
+            mask_im_ven = mask_ven[s_ven, ...]# > 0
+            mask_im_art = mask_art[s_art, ...]# > 0
+
+            dirs = data_ven_fn.split('/')
+            fname = dirs[-1]
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s_ven)
+            dirp = '/'.join(dirs[:-1])
+            out_ven = os.path.join(dirp, 'salmaps', salmap_fname)
+
+            dirs = data_art_fn.split('/')
+            fname = dirs[-1]
+            salmap_fname = fname.replace('.pklz', '-sm-%i.pklz' % s_art)
+            dirp = '/'.join(dirs[:-1])
+            out_art = os.path.join(dirp, 'salmaps', salmap_fname)
+
+            with gzip.open(out_ven, 'rb') as f:
+                fcontent = f.read()
+            data = pickle.loads(fcontent)
+            # data_old = data[:]
+            data.insert(1, (mask_im_ven, 'mask'))
+            with gzip.open(out_ven, 'wb') as f:
+                pickle.dump(data, f)
+
+            with gzip.open(out_art, 'rb') as f:
+                fcontent = f.read()
+            data = pickle.loads(fcontent)
+            data.insert(1, (mask_im_art, 'mask'))
+            with gzip.open(out_art, 'wb') as f:
+                pickle.dump(data, f)
+
+            # with gzip.open(out_ven, 'rb') as f:
+            #     fcontent = f.read()
+            #     data = pickle.loads(fcontent)
+            #
+            # plt.figure()
+            # n_imgs = len(data_old)
+            # for i, (im, tit) in enumerate(data_old):
+            #     # r = 1 + int(i > (n_imgs / 2))
+            #     plt.subplot(201 + 10 * (np.ceil(n_imgs / 2)) + i)
+            #     if i == 0:
+            #         cmap = 'gray'
+            #     else:
+            #         cmap = 'jet'
+            #     plt.imshow(im, cmap, interpolation='nearest')
+            #     plt.title(tit)
+            #
+            # plt.figure()
+            # n_imgs = len(data)
+            # for i, (im, tit) in enumerate(data):
+            #     # r = 1 + int(i > (n_imgs / 2))
+            #     plt.subplot(201 + 10 * (np.ceil(n_imgs / 2)) + i)
+            #     if i == 0:
+            #         cmap = 'gray'
+            #     else:
+            #         cmap = 'jet'
+            #     plt.imshow(im, cmap, interpolation='nearest')
+            #     plt.title(tit)
+            # plt.show()
+        # break
+
+
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
-    img = cv2.imread(fname, 0)
-    img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
-
-    # deriving_seeds_for_growcut(img)
-
-    glcm_dpgmm(img)
+    add_mask()
+    # fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
+    # img = cv2.imread(fname, 0)
+    # img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
+    #
+    # # deriving_seeds_for_growcut(img)
+    #
+    # glcm_dpgmm(img)
 
     # glcm_meanshift(img)
