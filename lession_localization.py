@@ -177,8 +177,8 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
     salmap, __ = tools.crop_to_bbox(salmap, mask)
 
     _debug('Creating MRF object...')
-    alpha = 1
-    beta = 1
+    alpha = 5  # 1, 3, 5, 10
+    beta = 1  # 1, 3, 5, 10
     scale = 0
     mrf = mrf_seg.MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale,
                                     verbose=False)
@@ -245,47 +245,164 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
 
 
 def seg_acc_to_xlsx(acc):
-    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/liver_segmentation/final_alg/liver_seg_stats.xlsx')
+    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/seg_stats.xlsx',
+                                   {'nan_inf_to_errors': True})
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True})
-    col_fmea = 3
-    col_prec = 4
+    # cols_hydohy = (2, 11, 20)
+    cols_idiff = (3, 12, 21)
+    cols_ihist = (4, 13, 22)
+    cols_iglcm = (5, 14, 23)
+    cols_sliwin = (6, 15, 24)
+    cols_LBP = (7, 16, 25)
+    cols_circ = (8, 17, 26)
+    cols_blobs = (9, 18, 27)
+    start_row = 2
 
     worksheet.write(0, 0, 'DATA', bold)
     worksheet.write(0, 2, 'F-MEASURE', bold)
-    worksheet.write(0, 6, 'PRECISION', bold)
-    worksheet.write(0, 9, 'RECALL', bold)
+    worksheet.write(0, 11, 'PRECISION', bold)
+    worksheet.write(0, 20, 'RECALL', bold)
 
-    worksheet.write(1, col_gc_fmea, 'Grow Cut', bold)
-    worksheet.write(1, col_ls_fmea, 'Level Sets', bold)
-    worksheet.write(1, col_gc_prec, 'Grow Cut', bold)
-    worksheet.write(1, col_ls_prec, 'Level Sets', bold)
-    worksheet.write(1, col_gc_rec, 'Grow Cut', bold)
-    worksheet.write(1, col_ls_rec, 'Level Sets', bold)
+    # FMEASURE
+    for i in range(3):
+        # worksheet.write(1, cols_hydohy[i], 'hydohy', bold)
+        worksheet.write(1, cols_idiff[i], 'idiff', bold)
+        worksheet.write(1, cols_ihist[i], 'ihist', bold)
+        worksheet.write(1, cols_iglcm[i], 'iglcm', bold)
+        worksheet.write(1, cols_sliwin[i], 'sliwin', bold)
+        worksheet.write(1, cols_LBP[i], 'LBP', bold)
+        worksheet.write(1, cols_circ[i], 'circ', bold)
+        worksheet.write(1, cols_blobs[i], 'blobs', bold)
+
+    data_prep = []
+    for fname, it in acc:
+        elem = []
+        for s in it:
+            elem.extend((s[1], s[2], s[3]))
+        data_prep.append((fname, elem))
+
+    # cols = cols_hydohy + cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
+    cols = cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
+
+    for i, (fname, data_row) in enumerate(data_prep):
+        worksheet.write(i + start_row, 0, fname)
+        for c, data_cell in zip(cols, data_row):
+            if data_cell is None:
+                data_cell = 'None'
+            worksheet.write(i + start_row, c, data_cell)
+
+    workbook.close()
+
+
+def calc_stats():
+    fname = '/home/tomas/Dropbox/Data/liver_segmentation/final_alg/liver_seg_stats.xlsx'
+    workbook = openpyxl.load_workbook(fname)
+    ws = workbook.worksheets[0]
+    cols_idiff = (3, 12, 21)
+    cols_ihist = (4, 13, 22)
+    cols_iglcm = (5, 14, 23)
+    cols_sliwin = (6, 15, 24)
+    cols_LBP = (7, 16, 25)
+    cols_circ = (8, 17, 26)
+    cols_blobs = (9, 18, 27)
+
+    cols = cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
+
+    # idiff_fmea = np.array([x.value for x in ws.columns[cols_idiff[0]][2:]])
+    # idiff_prec = np.array([x.value for x in ws.columns[cols_idiff[1]][2:]])
+    # idiff_rec = np.array([x.value for x in ws.columns[cols_idiff[2]][2:]])
+
+    ihist_fmea2 = np.array([x.value for x in ws.columns[cols_ihist[0]][2:]])
+    ihist_prec2 = np.array([x.value for x in ws.columns[cols_ihist[1]][2:]])
+    ihist_rec2 = np.array([x.value for x in ws.columns[cols_ihist[2]][2:]])
+
+    idiff_fmea, idiff_prec, idiff_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
+    ihist_fmea, ihist_prec, ihist_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
+    iglcm_fmea, iglcm_prec, iglcm_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
+    sliwin_fmea, sliwin_prec, sliwin_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
+    LBP_fmea, LBP_prec, LBP_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
+    circ_fmea, circ_prec, circ_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
+    blobs_fmea, blobs_prec, blobs_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
+
+    print 'idiff'
+    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+          (fmea_gc.mean(), np.median(fmea_gc), fmea_gc.std(), fmea_gc.min(), fmea_gc.max())
+    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (prec_gc.mean(), np.median(prec_gc), prec_gc.std(), prec_gc.min(), prec_gc.max())
+    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (rec_gc.mean(), np.median(rec_gc), rec_gc.std(), rec_gc.min(), rec_gc.max())
+
+    print '\n'
+    print 'LS'
+    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (fmea_ls.mean(), np.median(fmea_ls), fmea_ls.std(), fmea_ls.min(), fmea_ls.max())
+    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (prec_ls.mean(), np.median(prec_ls), prec_ls.std(), prec_ls.min(), prec_ls.max())
+    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+          (rec_ls.mean(), np.median(rec_ls), rec_ls.std(), rec_ls.min(), rec_ls.max())
+
+    fmea = [fmea_gc, fmea_ls]
+    prec = [prec_gc, prec_ls]
+    rec = [rec_gc, rec_ls]
+    # all = [fmea_gc, fmea_ls, prec_gc, prec_ls, rec_gc, rec_ls]
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('f measure')
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('precision')
+
+    plt.figure(figsize=(3.5, 7))
+    plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=['grow cut', 'active contours'], widths=0.5)
+    plt.title('recall')
+
+    # plt.figure()
+    # plt.boxplot(all, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['f gc', 'f ls', 'p gc', 'p ls', 'r gc', 'r ls'], widths=0.5)
+    # plt.title('f, prec, rec')
+
+    plt.show()
+
 
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    # TODO 4: MRF experimenty
+    # TODO 4: MRF experimenty pro ruzne hodnoty parametru alpha beta
     # TODO 5: vybrat idealni kombinaci salmap
     # TODO 6: porovnat data
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # mrfing
-    # datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps'
-    # files = []
-    # for (dirpath, dirnames, filenames) in os.walk(datapath):
-    #     filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
-    #     for fname in filenames:
-    #         files.append(os.path.join(dirpath, fname))
-    #     break
+    # with gzip.open('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/data_res.pklz', 'rb') as f:
+    #     fcontent = f.read()
+    # sheet_res = pickle.loads(fcontent)
 
-    files = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/183a_venous-GT-sm-17.pklz',]
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # mrfing
+    datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/'
+    files = []
+    for (dirpath, dirnames, filenames) in os.walk(datapath):
+        filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
+        for fname in filenames:
+            files.append(os.path.join(dirpath, fname))
+        break
+
+    # files = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/232_venous-GT-sm-2.pklz',]
 
     sheet_res = []
     fig = plt.figure(figsize=(24, 14))
     for i, fname in enumerate(files):
+        print '#%i/%i %s ... ' % (i + 1, len(files), fname.split('/')[-1]),
         # f = files[i]
         # print i, f
         with gzip.open(fname, 'rb') as f:
@@ -299,8 +416,9 @@ if __name__ == '__main__':
         # plt.imshow(mask), plt.colorbar()
         # plt.show()
         data_res = []
-        for i in range(2, len(data)):
-            salmap, tit = data[i]
+        for j in range(2, len(data)):
+            salmap, tit = data[j]
+            print tit, ' ... ',
             res, unary_bgd, unary_obj = mrfing(im, mask>0, salmap, salmap_name=tit, smoothing=True, show=False, show_now=False)
             res = np.where(res == -1, 0, res).astype(np.uint8)
 
@@ -330,7 +448,18 @@ if __name__ == '__main__':
             # plt.close('all')
             fig.clf()
 
-        sheet_res.append(data_res)
+        sheet_res.append((fname.split('/')[-1], data_res))
+        print 'done'
+
+    print 'writing to disk ...',
+    fn = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/data_res.pklz'
+    with gzip.open(fn, 'wb') as f:
+        pickle.dump(sheet_res, f)
+    print 'done'
+
+    print 'writing results to XLSX ...',
+    seg_acc_to_xlsx(sheet_res)
+    print 'done'
 
         # for (im, salmap, res, unary_bgd, unary_obj, tit), (f_measure, precision, recall) in zip(results, accuracy):
         #     plt.figure()
