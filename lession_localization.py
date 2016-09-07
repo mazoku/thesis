@@ -232,7 +232,7 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
     res = np.where(res_b, lbl_obj, lbl_dom)
     res = np.where(mask_bb, res, -1)
 
-    res = ac_refinement(im_bb, res==1)
+    # res = ac_refinement(im_bb, res==1)
 
     if show or save_fig:
         if save_fig:
