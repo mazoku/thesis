@@ -178,7 +178,7 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
 
     _debug('Creating MRF object...')
     alpha = 5  # 1, 3, 5, 10
-    beta = 1  # 1, 3, 5, 10
+    beta = 10   # 1, 3, 5, 10
     scale = 0
     mrf = mrf_seg.MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale,
                                     verbose=False)
@@ -297,7 +297,7 @@ def seg_acc_to_xlsx(acc):
 
 
 def calc_stats():
-    fname = '/home/tomas/Dropbox/Data/liver_segmentation/final_alg/liver_seg_stats.xlsx'
+    fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res_a1_b1/seg_stats.xlsx'
     workbook = openpyxl.load_workbook(fname)
     ws = workbook.worksheets[0]
     cols_idiff = (3, 12, 21)
@@ -308,69 +308,64 @@ def calc_stats():
     cols_circ = (8, 17, 26)
     cols_blobs = (9, 18, 27)
 
-    cols = cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
+    # cols = cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
 
     # idiff_fmea = np.array([x.value for x in ws.columns[cols_idiff[0]][2:]])
     # idiff_prec = np.array([x.value for x in ws.columns[cols_idiff[1]][2:]])
     # idiff_rec = np.array([x.value for x in ws.columns[cols_idiff[2]][2:]])
 
-    ihist_fmea2 = np.array([x.value for x in ws.columns[cols_ihist[0]][2:]])
-    ihist_prec2 = np.array([x.value for x in ws.columns[cols_ihist[1]][2:]])
-    ihist_rec2 = np.array([x.value for x in ws.columns[cols_ihist[2]][2:]])
+    # ihist_fmea2 = np.array([x.value for x in ws.columns[cols_ihist[0]][2:]])
+    # ihist_prec2 = np.array([x.value for x in ws.columns[cols_ihist[1]][2:]])
+    # ihist_rec2 = np.array([x.value for x in ws.columns[cols_ihist[2]][2:]])
 
-    idiff_fmea, idiff_prec, idiff_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
-    ihist_fmea, ihist_prec, ihist_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
-    iglcm_fmea, iglcm_prec, iglcm_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
-    sliwin_fmea, sliwin_prec, sliwin_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
-    LBP_fmea, LBP_prec, LBP_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
-    circ_fmea, circ_prec, circ_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
-    blobs_fmea, blobs_prec, blobs_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
+    # idiff_fmea, idiff_prec, idiff_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
+    # ihist_fmea, ihist_prec, ihist_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
+    # iglcm_fmea, iglcm_prec, iglcm_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
+    # sliwin_fmea, sliwin_prec, sliwin_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
+    # LBP_fmea, LBP_prec, LBP_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
+    # circ_fmea, circ_prec, circ_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
+    # blobs_fmea, blobs_prec, blobs_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
+    idiff_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
+    ihist_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
+    iglcm_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
+    sliwin_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
+    LBP_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
+    circ_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
+    blobs_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
 
-    print 'idiff'
-    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
-          (fmea_gc.mean(), np.median(fmea_gc), fmea_gc.std(), fmea_gc.min(), fmea_gc.max())
-    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-          (prec_gc.mean(), np.median(prec_gc), prec_gc.std(), prec_gc.min(), prec_gc.max())
-    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-          (rec_gc.mean(), np.median(rec_gc), rec_gc.std(), rec_gc.min(), rec_gc.max())
+    data = (idiff_acc, ihist_acc, iglcm_acc, sliwin_acc, LBP_acc, circ_acc, blobs_acc)
+    tits = ('idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs')
+    for d, t in zip(data, tits):
+        print t
+        print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+              (d[0].mean(), np.median(d[0]), d[0].std(), d[0].min(), d[0].max())
+        print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+              (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
+        print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+              (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
 
-    print '\n'
-    print 'LS'
-    print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-          (fmea_ls.mean(), np.median(fmea_ls), fmea_ls.std(), fmea_ls.min(), fmea_ls.max())
-    print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-          (prec_ls.mean(), np.median(prec_ls), prec_ls.std(), prec_ls.min(), prec_ls.max())
-    print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-          (rec_ls.mean(), np.median(rec_ls), rec_ls.std(), rec_ls.min(), rec_ls.max())
-
-    fmea = [fmea_gc, fmea_ls]
-    prec = [prec_gc, prec_ls]
-    rec = [rec_gc, rec_ls]
+    fmea = [idiff_acc[0], ihist_acc[0], iglcm_acc[0], sliwin_acc[0], LBP_acc[0], circ_acc[0], blobs_acc[0]]
+    prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
+    rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
     # all = [fmea_gc, fmea_ls, prec_gc, prec_ls, rec_gc, rec_ls]
 
     plt.figure(figsize=(3.5, 7))
     plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['grow cut', 'active contours'], widths=0.5)
+                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
     plt.title('f measure')
 
     plt.figure(figsize=(3.5, 7))
     plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['grow cut', 'active contours'], widths=0.5)
+                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
     plt.title('precision')
 
     plt.figure(figsize=(3.5, 7))
     plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['grow cut', 'active contours'], widths=0.5)
+                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
     plt.title('recall')
-
-    # plt.figure()
-    # plt.boxplot(all, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
-    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-    #             labels=['f gc', 'f ls', 'p gc', 'p ls', 'r gc', 'r ls'], widths=0.5)
-    # plt.title('f, prec, rec')
 
     plt.show()
 
@@ -378,7 +373,6 @@ def calc_stats():
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    # TODO 4: MRF experimenty pro ruzne hodnoty parametru alpha beta
     # TODO 5: vybrat idealni kombinaci salmap
     # TODO 6: porovnat data
 
