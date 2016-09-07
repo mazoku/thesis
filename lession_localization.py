@@ -18,6 +18,7 @@ import skimage.color as skicol
 
 import saliency_fish as sf
 import mrf_segmentation as mrf_seg
+import active_contours as ac
 
 from PyQt4 import QtGui
 
@@ -177,8 +178,8 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
     salmap, __ = tools.crop_to_bbox(salmap, mask)
 
     _debug('Creating MRF object...')
-    alpha = 5  # 1, 3, 5, 10
-    beta = 10   # 1, 3, 5, 10
+    alpha = 1  # 1, 5, 10
+    beta = 100   # 1, 5, 10
     scale = 0
     mrf = mrf_seg.MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale,
                                     verbose=False)
@@ -197,56 +198,65 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
     salmap = skiexp.rescale_intensity(salmap, out_range=(0, max_int)).astype(unary_domin.dtype)
     salmap_inv = skiexp.rescale_intensity(salmap, out_range=(max_int, 0)).astype(unary_domin.dtype)
 
+    unary_domin = skiexp.rescale_intensity(salmap_inv.reshape(-1, 1), out_range=(max_int, 0))
+    unary_domin = (5 * unary_domin).astype(np.int32)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(unary_domin, 'gray')
+    # plt.subplot(122), plt.imshow(unary_domin2, 'gray')
+    # plt.show()
+
     unaries_domin_sal = np.dstack((unary_domin, salmap_inv.reshape(-1, 1)))
 
-    alphas = [1, 10, 100]
-    beta = 1
-    for alpha in alphas:
-        mrf = mrf_seg.MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale,
-                                        verbose=False)
-        _debug('Optimizing MRF with unary term: %s' % salmap_name)
-        # mrf.set_unaries(unary.astype(np.int32))
-        mrf.alpha = alpha
-        mrf.beta = beta
-        mrf.models = []
-        mrf.set_unaries(unaries_domin_sal)
-        res = mrf.run(resize=False)
-        res = res[0, :, :]
-        res = np.where(mask_bb, res, -1)
+    # alphas = [1, 10, 100]
+    # beta = 1
+    # for alpha in alphas:
+    mrf = mrf_seg.MarkovRandomField(im_bb, mask=mask_bb, models_estim='hydohy', alpha=alpha, beta=beta, scale=scale,
+                                    verbose=False)
+    _debug('Optimizing MRF with unary term: %s' % salmap_name)
+    # mrf.set_unaries(unary.astype(np.int32))
+    mrf.alpha = alpha
+    mrf.beta = beta
+    mrf.models = []
+    mrf.set_unaries(beta * unaries_domin_sal)
+    res = mrf.run(resize=False)
+    res = res[0, :, :]
+    res = np.where(mask_bb, res, -1)
 
-        # morphology
-        lbl_obj = 1
-        lbl_dom = 0
-        rad = 5
-        res_b = res == lbl_obj
-        res_b = skimor.binary_opening(res_b, selem=skimor.disk(rad))
-        res = np.where(res_b, lbl_obj, lbl_dom)
-        res = np.where(mask_bb, res, -1)
+    # morphology
+    lbl_obj = 1
+    lbl_dom = 0
+    rad = 5
+    res_b = res == lbl_obj
+    res_b = skimor.binary_opening(res_b, selem=skimor.disk(rad))
+    res = np.where(res_b, lbl_obj, lbl_dom)
+    res = np.where(mask_bb, res, -1)
 
-        if show or save_fig:
-            if save_fig:
-                fig = plt.figure(figsize=(24, 14))
-            else:
-                plt.figure()
-            plt.subplot(141), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('input')
-            plt.subplot(142), plt.imshow(res, interpolation='nearest'), plt.title('result - %s' % tit)
-            plt.subplot(143), plt.imshow(unaries_domin_sal[:, 0, 0].reshape(im_bb.shape), 'gray', interpolation='nearest')
-            plt.title('unary #1')
-            plt.subplot(144), plt.imshow(unaries_domin_sal[:, 0, 1].reshape(im_bb.shape), 'gray', interpolation='nearest')
-            plt.title('unary #2')
+    res = ac_refinement(im_bb, res==1)
 
-            if save_fig:
-                figname = 'unary_%s_alpha_%i_rad_%i.png' % (tit, alpha, rad)
-                fig.savefig(os.path.join(figdir, figname), dpi=100, bbox_inches='tight', pad_inches=0)
-            if show_now:
-                plt.show()
+    if show or save_fig:
+        if save_fig:
+            fig = plt.figure(figsize=(24, 14))
+        else:
+            plt.figure()
+        plt.subplot(141), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('input')
+        plt.subplot(142), plt.imshow(res, interpolation='nearest'), plt.title('result')
+        plt.subplot(143), plt.imshow(unaries_domin_sal[:, 0, 0].reshape(im_bb.shape), 'gray', interpolation='nearest')
+        plt.title('unary #1')
+        plt.subplot(144), plt.imshow(unaries_domin_sal[:, 0, 1].reshape(im_bb.shape), 'gray', interpolation='nearest')
+        plt.title('unary #2')
 
-        return res, unaries_domin_sal[:, 0, 0].reshape(im_bb.shape), unaries_domin_sal[:, 0, 1].reshape(im_bb.shape)
+        if save_fig:
+            figname = 'unary_%s_alpha_%i_rad_%i.png' % (tit, alpha, rad)
+            fig.savefig(os.path.join(figdir, figname), dpi=100, bbox_inches='tight', pad_inches=0)
+        if show_now:
+            plt.show()
+
+    return res, unaries_domin_sal[:, 0, 0].reshape(im_bb.shape), unaries_domin_sal[:, 0, 1].reshape(im_bb.shape)
 
 
-def seg_acc_to_xlsx(acc):
-    workbook = xlsxwriter.Workbook('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/seg_stats.xlsx',
-                                   {'nan_inf_to_errors': True})
+def seg_acc_to_xlsx(acc, fname):
+    workbook = xlsxwriter.Workbook(fname, {'nan_inf_to_errors': True})
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
     bold = workbook.add_format({'bold': True})
@@ -296,8 +306,8 @@ def seg_acc_to_xlsx(acc):
     workbook.close()
 
 
-def calc_stats():
-    fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res_a1_b1/seg_stats.xlsx'
+def calc_stats(fname, serie='', show_now=True):
+    # fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res_a1_b1/seg_stats.xlsx'
     workbook = openpyxl.load_workbook(fname)
     ws = workbook.worksheets[0]
     cols_idiff = (3, 12, 21)
@@ -308,82 +318,88 @@ def calc_stats():
     cols_circ = (8, 17, 26)
     cols_blobs = (9, 18, 27)
 
-    # cols = cols_idiff + cols_ihist + cols_iglcm + cols_sliwin + cols_LBP + cols_circ + cols_blobs
+    idiff_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_idiff]
+    ihist_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_ihist]
+    iglcm_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_iglcm]
+    sliwin_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_sliwin]
+    LBP_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_LBP]
+    circ_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_circ]
+    blobs_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_blobs]
 
-    # idiff_fmea = np.array([x.value for x in ws.columns[cols_idiff[0]][2:]])
-    # idiff_prec = np.array([x.value for x in ws.columns[cols_idiff[1]][2:]])
-    # idiff_rec = np.array([x.value for x in ws.columns[cols_idiff[2]][2:]])
-
-    # ihist_fmea2 = np.array([x.value for x in ws.columns[cols_ihist[0]][2:]])
-    # ihist_prec2 = np.array([x.value for x in ws.columns[cols_ihist[1]][2:]])
-    # ihist_rec2 = np.array([x.value for x in ws.columns[cols_ihist[2]][2:]])
-
-    # idiff_fmea, idiff_prec, idiff_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
-    # ihist_fmea, ihist_prec, ihist_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
-    # iglcm_fmea, iglcm_prec, iglcm_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
-    # sliwin_fmea, sliwin_prec, sliwin_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
-    # LBP_fmea, LBP_prec, LBP_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
-    # circ_fmea, circ_prec, circ_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
-    # blobs_fmea, blobs_prec, blobs_rec = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
-    idiff_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_idiff]
-    ihist_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_ihist]
-    iglcm_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_iglcm]
-    sliwin_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_sliwin]
-    LBP_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_LBP]
-    circ_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_circ]
-    blobs_acc = [np.array([x.value for x in ws.columns[y][2:]]) for y in cols_blobs]
+    # idiff_acc = [np.array([min(1.2 * y, 1) for y in x])for x in idiff_acc]
+    # ihist_acc = [np.array([min(1.2 * y, 1) for y in x])for x in ihist_acc]
+    # iglcm_acc = [np.array([min(1.2 * y, 1) for y in x])for x in iglcm_acc]
+    # sliwin_acc = [np.array([min(1.2 * y, 1) for y in x])for x in sliwin_acc]
+    # LBP_acc = [np.array([min(1.2 * y, 1) for y in x])for x in LBP_acc]
+    # circ_acc = [np.array([min(1.2 * y, 1) for y in x])for x in circ_acc]
+    # blobs_acc = [np.array([min(1.2 * y, 1) for y in x])for x in blobs_acc]
 
     data = (idiff_acc, ihist_acc, iglcm_acc, sliwin_acc, LBP_acc, circ_acc, blobs_acc)
     tits = ('idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs')
+    means = []
+    medians = []
     for d, t in zip(data, tits):
         print t
+        dmean = d[0].mean()
+        dmedian = np.median(d[0])
+        means.append(dmean)
+        medians.append(dmedian)
         print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
-              (d[0].mean(), np.median(d[0]), d[0].std(), d[0].min(), d[0].max())
-        print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-              (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
-        print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-              (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
+              (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
+        # print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+        #       (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
+        # print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+        #       (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
 
     fmea = [idiff_acc[0], ihist_acc[0], iglcm_acc[0], sliwin_acc[0], LBP_acc[0], circ_acc[0], blobs_acc[0]]
-    prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
-    rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
-    # all = [fmea_gc, fmea_ls, prec_gc, prec_ls, rec_gc, rec_ls]
+    # prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
+    # rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
 
-    plt.figure(figsize=(3.5, 7))
+    all_mean = np.array(means).mean()
+    all_median = np.median(np.array(medians))
+
+    plt.figure(figsize=(5.5, 7))
     plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
                 labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
-    plt.title('f measure')
+    plt.title(serie + ' f measure')
 
-    plt.figure(figsize=(3.5, 7))
-    plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
-                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
-    plt.title('precision')
+    # plt.figure(figsize=(5.5, 7))
+    # plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    # plt.title(serie + ' precision')
+    #
+    # plt.figure(figsize=(5.5, 7))
+    # plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    # plt.title(serie + ' recall')
 
-    plt.figure(figsize=(3.5, 7))
-    plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
-                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
-    plt.title('recall')
+    if show_now:
+        plt.show()
 
-    plt.show()
+    return all_mean, all_median
 
 
-################################################################################
-################################################################################
-if __name__ == '__main__':
-    # TODO 5: vybrat idealni kombinaci salmap
-    # TODO 6: porovnat data
+def ac_refinement(data, mask):
+    method = 'morphsnakes'
+    params = {'alpha': 1, 'sigma': 4, 'smoothing_ls': 1, 'threshold': 0.9, 'balloon': 1, 'max_iters': 10,
+              'smoothing': False, 'save_fig': False, 'show': False, 'show_now': False, 'verbose': False}
+    im, mask, seg = ac.run(data, mask=mask, method=method, **params)
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # with gzip.open('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/data_res.pklz', 'rb') as f:
-    #     fcontent = f.read()
-    # sheet_res = pickle.loads(fcontent)
+    # plt.figure()
+    # plt.suptitle('input | initialization | segmentation')
+    # plt.subplot(131), plt.imshow(data, 'gray', interpolation='nearest'), plt.axis('off')
+    # plt.subplot(132), plt.imshow(mask, 'gray', interpolation='nearest'), plt.axis('off')
+    # plt.subplot(133), plt.imshow(seg, 'gray', interpolation='nearest'), plt.axis('off')
+    # plt.show()
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # mrfing
-    datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/'
+    return seg
+
+
+def comb_salmap(types):
+    datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/'
     files = []
     for (dirpath, dirnames, filenames) in os.walk(datapath):
         filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
@@ -396,6 +412,8 @@ if __name__ == '__main__':
     sheet_res = []
     fig = plt.figure(figsize=(24, 14))
     for i, fname in enumerate(files):
+        # i = 1
+        # fname = files[1]
         print '#%i/%i %s ... ' % (i + 1, len(files), fname.split('/')[-1]),
         # f = files[i]
         # print i, f
@@ -410,34 +428,70 @@ if __name__ == '__main__':
         # plt.imshow(mask), plt.colorbar()
         # plt.show()
         data_res = []
+        salmaps = []
+        tits = []
         for j in range(2, len(data)):
-            salmap, tit = data[j]
+            sm, tit = data[j]
+            if tit in types:
+                tits.append(tit)
+                salmaps.append(sm)
+        # salmap = np.array(salmaps).mean(axis=0)
+        all = np.median(np.array(salmaps), axis=0)
+        tit_all = 'all_med'
+
+        smtp = ['int diff', 'int hist', 'int glcm', 'int sliwin', 'circloids', 'blobs']
+        no_texture = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
+        tit_no_texture = 'no_texture_med'
+
+        smtp = ['int diff', 'int sliwin', 'circloids', 'blobs']
+        dscb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
+        tit_dscb = 'dscb'
+
+        smtp = ['int glcm', 'int sliwin', 'circloids', 'blobs']
+        gscb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
+        tit_gscb = 'gscb'
+
+        smtp = ['int sliwin', 'circloids']
+        sc = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
+        tit_sc = 'sc'
+
+        comb_salmaps = [all, no_texture, dscb, gscb, sc]
+        comb_tits = [tit_all, tit_no_texture, tit_dscb, tit_gscb, tit_sc]
+        # plt.figure()
+        # plt.subplot(121), plt.imshow(salmap_mea, interpolation='nearest')
+        # plt.subplot(122), plt.imshow(salmap_med, interpolation='nearest')
+        # plt.show()
+        for salmap, tit in zip(comb_salmaps, comb_tits):
             print tit, ' ... ',
-            res, unary_bgd, unary_obj = mrfing(im, mask>0, salmap, salmap_name=tit, smoothing=True, show=False, show_now=False)
+            res, unary_bgd, unary_obj = mrfing(im, mask > 0, salmap, salmap_name=tit, smoothing=True, show=False,
+                                               show_now=True)
             res = np.where(res == -1, 0, res).astype(np.uint8)
 
-            im_bb, mask_bb = tools.crop_to_bbox(im, mask>0)
-            salmap, __ = tools.crop_to_bbox(salmap, mask>0)
+            im_bb, mask_bb = tools.crop_to_bbox(im, mask > 0)
+            salmap, __ = tools.crop_to_bbox(salmap, mask > 0)
 
-            results = (im_bb, salmap, res, unary_bgd, unary_obj, tit)
+            # results = (im_bb, salmap, res, unary_bgd, unary_obj, tit)
 
             gt, __ = tools.crop_to_bbox((mask == 1).astype(np.uint8), mask > 0)
             precision, recall, f_measure = tools.segmentation_accuracy(res, gt)
-            accuracy = (f_measure, precision, recall)
+            # accuracy = (f_measure, precision, recall)
             data_res.append((tit, f_measure, precision, recall))
 
             # fig = plt.figure(figsize=(24, 14))
             im_overlay = res + 3 * gt
-            im_overlay = skicol.label2rgb(im_overlay, colors=['magenta', 'yellow', 'green', 'white'], bg_label=0, alpha=1)
+            im_overlay = skicol.label2rgb(im_overlay, colors=['magenta', 'yellow', 'green', 'white'], bg_label=0,
+                                          alpha=1)
             plt.suptitle('im | %s | res | gt || res bounds | gt bounds | overlay' % tit)
-            plt.subplot(241), plt.imshow(im_bb * mask_bb , 'gray', interpolation='nearest'), plt.axis('off')
+            plt.subplot(241), plt.imshow(im_bb * mask_bb, 'gray', interpolation='nearest'), plt.axis('off')
             plt.subplot(242), plt.imshow(salmap, 'jet', interpolation='nearest'), plt.axis('off')
             plt.subplot(243), plt.imshow(res, 'gray', interpolation='nearest'), plt.axis('off')
             plt.subplot(244), plt.imshow(gt, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(245), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, res, color=(1, 0, 0), mode='thick'), interpolation='nearest'), plt.axis('off')
-            plt.subplot(246), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, gt, color=(1, 0, 0), mode='thick'), interpolation='nearest'), plt.axis('off')
+            plt.subplot(245), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, res, color=(1, 0, 0), mode='thick'),
+                                         interpolation='nearest'), plt.axis('off')
+            plt.subplot(246), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, gt, color=(1, 0, 0), mode='thick'),
+                                         interpolation='nearest'), plt.axis('off')
             plt.subplot(247), plt.imshow(im_overlay, interpolation='nearest'), plt.axis('off')
-            fig_fname = fname.replace('vyber/', 'vyber/res/').replace('.pklz', '-%s-seg.png' % tit.replace(' ', '_'))
+            fig_fname = fname.replace('hypo/', 'hypo/res/').replace('.pklz', '-%s-seg.png' % tit.replace(' ', '_'))
             fig.savefig(fig_fname)
             # plt.close('all')
             fig.clf()
@@ -445,62 +499,130 @@ if __name__ == '__main__':
         sheet_res.append((fname.split('/')[-1], data_res))
         print 'done'
 
+        # if i == 1:
+        #     break
+
     print 'writing to disk ...',
-    fn = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res/data_res.pklz'
+    fn = datapath + 'res/data_res.pklz'
     with gzip.open(fn, 'wb') as f:
         pickle.dump(sheet_res, f)
     print 'done'
 
     print 'writing results to XLSX ...',
-    seg_acc_to_xlsx(sheet_res)
+    seg_acc_to_xlsx(sheet_res, fname=datapath + 'res/seg_stats.xlsx')
     print 'done'
 
-        # for (im, salmap, res, unary_bgd, unary_obj, tit), (f_measure, precision, recall) in zip(results, accuracy):
-        #     plt.figure()
-        #     # f_measure, precision, recall = acc
-        #     plt.suptitle('f=%.3f, p=%.3f, r=%.3f' % (f_measure, precision, recall))
-        #     plt.subplot(231), plt.imshow(im, 'gray', interpolation='nearest'), plt.title('input')
-        #     plt.subplot(232), plt.imshow(salmap, 'jet', interpolation='nearest'), plt.title('salmap - %s' % tit)
-        #     plt.subplot(233), plt.imshow(res, 'gray', interpolation='nearest'), plt.title('result')
-        #     plt.subplot(234), plt.imshow(unary_bgd, 'jet', interpolation='nearest'), plt.title('unary bgd')
-        #     plt.subplot(235), plt.imshow(unary_obj, 'jet', interpolation='nearest'), plt.title('unary obj')
-        #     plt.subplot(236), plt.imshow(tum_mask_bb, 'jet', interpolation='nearest'), plt.title('gt')
-        # plt.show()
 
-        # fig = plt.figure()
-        # n_imgs = len(data)
-        # for i, (im, tit) in enumerate(data):
-        #     # r = 1 + int(i > (n_imgs / 2))
-        #     plt.subplot(201 + 10 * (np.ceil(n_imgs / 2)) + i)
-        #     if i == 0:
-        #         cmap = 'gray'
-        #     else:
-        #         cmap = 'jet'
-        #     plt.imshow(im, cmap, interpolation='nearest')
-        #     plt.title(tit)
-        # plt.show()
+################################################################################
+################################################################################
+if __name__ == '__main__':
+    # TODO 5: vybrat idealni kombinaci salmap
+    # TODO 6: porovnat data
 
-    # f = gzip.open('/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/180_venous-GT-sm-5.pklz', 'rb')
-    # fcontent = f.read()
-    # salmaps = pickle.loads(fcontent)
-    # f.close()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # calc segmentation accuracy
+    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a1_b1/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a1_b10/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a1_b5/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a10_b1/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a10_b5/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b1/seg_stats.xlsx',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b10/seg_stats.xlsx']
+
+    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b1/seg_stats.xlsx',]
     #
-    # plt.figure()
-    # n_imgs = len(salmaps)
-    # for i, (im, tit) in enumerate(salmaps):
-    #     # r = 1 + int(i > (n_imgs / 2))
-    #     plt.subplot(201 + 10 * (np.ceil(n_imgs / 2)) + i)
-    #     if i == 0:
-    #         cmap = 'gray'
-    #     else:
-    #         cmap = 'jet'
-    #     plt.imshow(im, cmap, interpolation='nearest')
-    #     plt.title(tit)
+    # for fn in fnames:
+    #     print fn.split('/')[-2]
+    #     ser = '-'.join(fn.split('/')[-2].split('_')[1:])
+    #     calc_stats(fn, serie=ser, show_now=False)
+    #     print '\n'
     # plt.show()
 
-    # ds = get_data_struc()
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # comb salmaps
+    comb_salmap(['int diff', 'int hist', 'int glcm', 'int sliwin', 'texture', 'circloids', 'blobs'])
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # mrfing
+    # datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/'
+    # files = []
+    # for (dirpath, dirnames, filenames) in os.walk(datapath):
+    #     filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
+    #     for fname in filenames:
+    #         files.append(os.path.join(dirpath, fname))
+    #     break
+    #
+    # # files = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/232_venous-GT-sm-2.pklz',]
+    #
+    # sheet_res = []
+    # fig = plt.figure(figsize=(24, 14))
+    # for i, fname in enumerate(files):
+    #     print '#%i/%i %s ... ' % (i + 1, len(files), fname.split('/')[-1]),
+    #     # f = files[i]
+    #     # print i, f
+    #     with gzip.open(fname, 'rb') as f:
+    #         fcontent = f.read()
+    #     data = pickle.loads(fcontent)
+    #
+    #     n_imgs = len(data)
+    #     im = data[0][0]
+    #     mask = data[1][0]
+    #     # plt.figure()
+    #     # plt.imshow(mask), plt.colorbar()
+    #     # plt.show()
+    #     data_res = []
+    #     for j in range(2, len(data)):
+    #         salmap, tit = data[j]
+    #         print tit, ' ... ',
+    #         res, unary_bgd, unary_obj = mrfing(im, mask>0, salmap, salmap_name=tit, smoothing=True, show=False, show_now=False)
+    #         res = np.where(res == -1, 0, res).astype(np.uint8)
+    #
+    #         im_bb, mask_bb = tools.crop_to_bbox(im, mask>0)
+    #         salmap, __ = tools.crop_to_bbox(salmap, mask>0)
+    #
+    #         results = (im_bb, salmap, res, unary_bgd, unary_obj, tit)
+    #
+    #         gt, __ = tools.crop_to_bbox((mask == 1).astype(np.uint8), mask > 0)
+    #         precision, recall, f_measure = tools.segmentation_accuracy(res, gt)
+    #         accuracy = (f_measure, precision, recall)
+    #         data_res.append((tit, f_measure, precision, recall))
+    #
+    #         # fig = plt.figure(figsize=(24, 14))
+    #         im_overlay = res + 3 * gt
+    #         im_overlay = skicol.label2rgb(im_overlay, colors=['magenta', 'yellow', 'green', 'white'], bg_label=0, alpha=1)
+    #         plt.suptitle('im | %s | res | gt || res bounds | gt bounds | overlay' % tit)
+    #         plt.subplot(241), plt.imshow(im_bb * mask_bb , 'gray', interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(242), plt.imshow(salmap, 'jet', interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(243), plt.imshow(res, 'gray', interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(244), plt.imshow(gt, 'gray', interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(245), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, res, color=(1, 0, 0), mode='thick'), interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(246), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, gt, color=(1, 0, 0), mode='thick'), interpolation='nearest'), plt.axis('off')
+    #         plt.subplot(247), plt.imshow(im_overlay, interpolation='nearest'), plt.axis('off')
+    #         fig_fname = fname.replace('hypo/', 'hypo/res/').replace('.pklz', '-%s-seg.png' % tit.replace(' ', '_'))
+    #         fig.savefig(fig_fname)
+    #         # plt.close('all')
+    #         fig.clf()
+    #
+    #     sheet_res.append((fname.split('/')[-1], data_res))
+    #     print 'done'
+    #
+    #     if i == 1:
+    #         break
+    #
+    # print 'writing to disk ...',
+    # fn = datapath + 'res/data_res.pklz'
+    # with gzip.open(fn, 'wb') as f:
+    #     pickle.dump(sheet_res, f)
+    # print 'done'
+    #
+    # print 'writing results to XLSX ...',
+    # seg_acc_to_xlsx(sheet_res, fname = datapath + 'res/seg_stats.xlsx')
+    # print 'done'
+
+
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # vypocet salmap --------------------
+    # ds = get_data_struc()
     # for i, (data_ven_fn, data_art_fn, slics) in enumerate(ds):
     #     if i < 4:
     #         continue
