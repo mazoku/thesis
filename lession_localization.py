@@ -255,7 +255,7 @@ def mrfing(im, mask, salmap, salmap_name='unknown', smoothing=True, show=False, 
     return res, unaries_domin_sal[:, 0, 0].reshape(im_bb.shape), unaries_domin_sal[:, 0, 1].reshape(im_bb.shape)
 
 
-def seg_acc_to_xlsx(acc, fname):
+def seg_acc_to_xlsx(acc, fname, tits):
     workbook = xlsxwriter.Workbook(fname, {'nan_inf_to_errors': True})
     worksheet = workbook.add_worksheet()
     # Add a bold format to use to highlight cells.
@@ -271,9 +271,9 @@ def seg_acc_to_xlsx(acc, fname):
     start_row = 2
 
     worksheet.write(0, 0, 'DATA', bold)
-    worksheet.write(0, 2, 'F-MEASURE', bold)
-    worksheet.write(0, 11, 'PRECISION', bold)
-    worksheet.write(0, 20, 'RECALL', bold)
+    worksheet.write(0, 3, 'F-MEASURE', bold)
+    worksheet.write(0, 12, 'PRECISION', bold)
+    worksheet.write(0, 21, 'RECALL', bold)
 
     # FMEASURE
     for i in range(3):
@@ -344,8 +344,11 @@ def calc_stats(fname, serie='', show_now=True):
         dmedian = np.median(d[0])
         means.append(dmean)
         medians.append(dmedian)
-        print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+        try:
+            print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
               (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
+        except:
+            pass
         # print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
         #       (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
         # print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
@@ -362,6 +365,100 @@ def calc_stats(fname, serie='', show_now=True):
     plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
                 labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    plt.title(serie + ' f measure')
+
+    # plt.figure(figsize=(5.5, 7))
+    # plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    # plt.title(serie + ' precision')
+    #
+    # plt.figure(figsize=(5.5, 7))
+    # plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    # plt.title(serie + ' recall')
+
+    if show_now:
+        plt.show()
+
+    return all_mean, all_median
+
+
+def calc_comb_stats(fname, tits, serie='', show_now=True):
+    # fname = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/res_a1_b1/seg_stats.xlsx'
+    workbook = openpyxl.load_workbook(fname)
+    ws = workbook.worksheets[0]
+
+    n_elems = len(tits)
+    offset = n_elems + 2
+    start_c = 3
+    cols_elems = []
+    for i in range(n_elems):
+        cols = (start_c + i, start_c + i + offset, start_c + i + 2 * offset)
+        cols_elems.append(cols)
+    # cols_idiff = (3, 12, 21)
+    # cols_ihist = (4, 13, 22)
+    # cols_iglcm = (5, 14, 23)
+    # cols_sliwin = (6, 15, 24)
+    # cols_LBP = (7, 16, 25)
+    # cols_circ = (8, 17, 26)
+    # cols_blobs = (9, 18, 27)
+
+    data = []
+    for i in range(n_elems):
+        acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_elems[i]]
+        data.append(acc)
+    # idiff_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_idiff]
+    # ihist_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_ihist]
+    # iglcm_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_iglcm]
+    # sliwin_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_sliwin]
+    # LBP_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_LBP]
+    # circ_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_circ]
+    # blobs_acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_blobs]
+
+    # idiff_acc = [np.array([min(1.2 * y, 1) for y in x])for x in idiff_acc]
+    # ihist_acc = [np.array([min(1.2 * y, 1) for y in x])for x in ihist_acc]
+    # iglcm_acc = [np.array([min(1.2 * y, 1) for y in x])for x in iglcm_acc]
+    # sliwin_acc = [np.array([min(1.2 * y, 1) for y in x])for x in sliwin_acc]
+    # LBP_acc = [np.array([min(1.2 * y, 1) for y in x])for x in LBP_acc]
+    # circ_acc = [np.array([min(1.2 * y, 1) for y in x])for x in circ_acc]
+    # blobs_acc = [np.array([min(1.2 * y, 1) for y in x])for x in blobs_acc]
+
+    # data = (idiff_acc, ihist_acc, iglcm_acc, sliwin_acc, LBP_acc, circ_acc, blobs_acc)
+    # tits = ('idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs')
+    means = []
+    medians = []
+    for d, t in zip(data, tits):
+        print t
+        dmean = d[0].mean()
+        dmedian = np.median(d[0])
+        means.append(dmean)
+        medians.append(dmedian)
+        try:
+            print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+              (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
+        except:
+            pass
+        # print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+        #       (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
+        # print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+        #       (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
+
+    # fmea = [idiff_acc[0], ihist_acc[0], iglcm_acc[0], sliwin_acc[0], LBP_acc[0], circ_acc[0], blobs_acc[0]]
+    # prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
+    # rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
+    fmea = [x[0] for x in data]
+    # prec = [x[1] for x in data]
+    # rec = [x[2] for x in data]
+
+    all_mean = np.array(means).mean()
+    all_median = np.median(np.array(medians))
+
+    plt.figure(figsize=(5.5, 7))
+    plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=tits, widths=0.5)
     plt.title(serie + ' f measure')
 
     # plt.figure(figsize=(5.5, 7))
@@ -455,8 +552,12 @@ def comb_salmap(types):
         sc = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
         tit_sc = 'sc'
 
-        comb_salmaps = [all, no_texture, dscb, gscb, sc]
-        comb_tits = [tit_all, tit_no_texture, tit_dscb, tit_gscb, tit_sc]
+        smtp = ['int diff', 'int sliwin', 'blobs']
+        dsb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
+        tit_dsb = 'dsb'
+
+        comb_salmaps = [all, no_texture, dscb, gscb, sc, dsb]
+        comb_tits = [tit_all, tit_no_texture, tit_dscb, tit_gscb, tit_sc, tit_dsb]
         # plt.figure()
         # plt.subplot(121), plt.imshow(salmap_mea, interpolation='nearest')
         # plt.subplot(122), plt.imshow(salmap_med, interpolation='nearest')
@@ -529,18 +630,24 @@ if __name__ == '__main__':
     #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b1/seg_stats.xlsx',
     #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b10/seg_stats.xlsx']
 
+    # best alpha, beta
     # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b1/seg_stats.xlsx',]
-    #
-    # for fn in fnames:
-    #     print fn.split('/')[-2]
-    #     ser = '-'.join(fn.split('/')[-2].split('_')[1:])
-    #     calc_stats(fn, serie=ser, show_now=False)
-    #     print '\n'
-    # plt.show()
+
+    # comb salmaps
+    fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_no_ac/seg_stats.xlsx',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_ac_ref/seg_stats.xlsx']
+
+    for fn in fnames:
+        print fn.split('/')[-2]
+        ser = '-'.join(fn.split('/')[-2].split('_')[1:])
+        # calc_stats(fn, serie=ser, show_now=False)
+        calc_comb_stats(fn, ['all', 'no_texture', 'dscb', 'gscb', 'sc'], serie=ser, show_now=False)
+        print '\n'
+    plt.show()
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # comb salmaps
-    comb_salmap(['int diff', 'int hist', 'int glcm', 'int sliwin', 'texture', 'circloids', 'blobs'])
+    # comb_salmap(['int diff', 'int hist', 'int glcm', 'int sliwin', 'texture', 'circloids', 'blobs'])
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # mrfing
