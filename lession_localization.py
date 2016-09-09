@@ -404,39 +404,43 @@ def calc_stats(fname, serie='', show_now=True):
         dmedian = np.median(d[0])
         means.append(dmean)
         medians.append(dmedian)
-        try:
-            print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
-              (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
-        except:
-            pass
-        # print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-        #       (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
-        # print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
-        #       (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
+        # try:
+        #     print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+        #       (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
+        # except:
+        #     pass
+        print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+              (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
+        print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+              (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
+        print '\n'
 
     fmea = [idiff_acc[0], ihist_acc[0], iglcm_acc[0], sliwin_acc[0], LBP_acc[0], circ_acc[0], blobs_acc[0]]
-    # prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
-    # rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
+    prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
+    rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
 
     all_mean = np.array(means).mean()
     all_median = np.median(np.array(medians))
 
+    tits = ['idiff', 'hist', 'GLCM', 'sliwin', 'LBP', 'shape', 'blobs']
+    # ['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs']
+
     plt.figure(figsize=(5.5, 7))
     plt.boxplot(fmea, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-                labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
-    plt.title(serie + ' f measure')
+                labels=tits, widths=0.5)
+    # plt.title(serie + ' f measure')
 
-    # plt.figure(figsize=(5.5, 7))
-    # plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
-    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+    plt.figure(figsize=(5.5, 7))
+    plt.boxplot(prec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=tits, widths=0.5)
     # plt.title(serie + ' precision')
-    #
-    # plt.figure(figsize=(5.5, 7))
-    # plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
-    #             capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
-    #             labels=['idiff', 'ihist', 'iglcm', 'sliwin', 'LBP', 'circ', 'blobs'], widths=0.5)
+
+    plt.figure(figsize=(5.5, 7))
+    plt.boxplot(rec, showfliers=False, showmeans=True, boxprops={'linewidth': 5}, whiskerprops={'linewidth': 3},
+                capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
+                labels=tits, widths=0.5)
     # plt.title(serie + ' recall')
 
     if show_now:
@@ -451,7 +455,7 @@ def calc_comb_stats(fname, tits, serie='', show_now=True):
     ws = workbook.worksheets[0]
 
     n_elems = len(tits)
-    offset = n_elems + 3
+    offset = n_elems + 2
     start_c = 3
     cols_elems = []
     for i in range(n_elems):
@@ -463,6 +467,16 @@ def calc_comb_stats(fname, tits, serie='', show_now=True):
         acc = [np.array([x.value for x in ws.columns[y][2:] if isinstance(x.value, float)]) for y in cols_elems[i]]
         data.append(acc)
 
+    off = 0.2
+    # fmea = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[0] if x] for y in data]
+    # prec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[1] if x] for y in data]
+    # rec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[2] if x] for y in data]
+    fmea = [[x for x in y[0] if x] for y in data]
+    prec = [[x for x in y[1] if x] for y in data]
+    rec = [[x for x in y[2] if x] for y in data]
+
+    data = [[np.array(f), np.array(p), np.array(r)] for f, p, r in zip(fmea, prec, rec)]
+
     means = []
     medians = []
     for d, t in zip(data, tits):
@@ -471,22 +485,25 @@ def calc_comb_stats(fname, tits, serie='', show_now=True):
         dmedian = np.median(d[0])
         means.append(dmean)
         medians.append(dmedian)
-        try:
-            print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
+        print 'FMEA: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' %\
               (dmean, dmedian, d[0].std(), d[0].min(), d[0].max())
-        except:
-            pass
+        print 'PREC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+                  (d[1].mean(), np.median(d[1]), d[1].std(), d[1].min(), d[1].max())
+        print 'REC: mean=%.3f, median=%.3f, std=%.3f, min=%.3f, max=%.3f' % \
+              (d[2].mean(), np.median(d[2]), d[2].std(), d[2].min(), d[2].max())
+        print '\n'
 
     # fmea = [idiff_acc[0], ihist_acc[0], iglcm_acc[0], sliwin_acc[0], LBP_acc[0], circ_acc[0], blobs_acc[0]]
     # prec = [idiff_acc[1], ihist_acc[1], iglcm_acc[1], sliwin_acc[1], LBP_acc[1], circ_acc[1], blobs_acc[1]]
     # rec = [idiff_acc[2], ihist_acc[2], iglcm_acc[2], sliwin_acc[2], LBP_acc[2], circ_acc[2], blobs_acc[2]]
-    off = 0.2
-    fmea = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[0] if x] for y in data]
-    prec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[1] if x] for y in data]
-    rec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[2] if x] for y in data]
+    # off = 0.2
+    # fmea = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[0] if x] for y in data]
+    # prec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[1] if x] for y in data]
+    # rec = [[min(1, x + off) - 0.05 * np.random.rand(1) for x in y[2] if x] for y in data]
     # fmea = [[x for x in y[0] if x] for y in data]
     # prec = [[x for x in y[1] if x] for y in data]
     # rec = [[x for x in y[2] if x] for y in data]
+
 
     all_mean = np.array(means).mean()
     all_median = np.median(np.array(medians))
@@ -506,7 +523,10 @@ def calc_comb_stats(fname, tits, serie='', show_now=True):
                 capprops={'linewidth': 5}, medianprops={'linewidth': 3}, meanprops={'markersize': 8},
                 labels=tits, widths=0.5)
     ax = plt.axis()
-    mini = np.array([np.array(x).min() for x in prec]).min() - 0.01
+    try:
+        mini = np.array([np.array(x).min() for x in prec]).min() - 0.01
+    except:
+        pass
     maxi = np.array([np.array(x).max() for x in prec]).max() + 0.01
     plt.axis((ax[0], ax[1], mini, maxi))
     plt.title(serie + ' precision')
@@ -668,19 +688,23 @@ def comb_salmap(types):
 
         smtp = ['int diff', 'int sliwin', 'circloids', 'blobs']
         dscb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
-        tit_dscb = 'dscb'
+        # tit_dscb = 'dscb'
+        tit_dscb = 'dwsb'
 
         smtp = ['int glcm', 'int sliwin', 'circloids', 'blobs']
         gscb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
-        tit_gscb = 'gscb'
+        # tit_gscb = 'gscb'
+        tit_gscb = 'gwsb'
 
         smtp = ['int sliwin', 'circloids']
         sc = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
-        tit_sc = 'sc'
+        # tit_sc = 'sc'
+        tit_sc = 'ws'
 
         smtp = ['int diff', 'int sliwin', 'blobs']
         dsb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
-        tit_dsb = 'dsb'
+        # tit_dsb = 'dsb'
+        tit_dsb = 'dwb'
 
         comb_salmaps = [all, no_texture, dscb, gscb, sc, dsb]
         comb_tits = [tit_all, tit_no_texture, tit_dscb, tit_gscb, tit_sc, tit_dsb]
@@ -762,16 +786,16 @@ if __name__ == '__main__':
     # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a5_b1/seg_stats.xlsx',]
 
     # comb salmaps
-    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_no_ac/seg_stats.xlsx',
-    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_ac_ref/seg_stats.xlsx']
+    fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_no_ac/seg_stats.xlsx',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_ac_ref/seg_stats.xlsx']
 
-    fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_hydohy/seg_stats.xlsx',]
+    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_hydohy/seg_stats.xlsx',]
 
     for fn in fnames:
         print fn.split('/')[-2]
         ser = '-'.join(fn.split('/')[-2].split('_')[1:])
         # calc_stats(fn, serie=ser, show_now=False)
-        calc_comb_stats(fn, ['all', 'no_texture', 'dscb', 'gscb', 'sc'], serie=ser, show_now=False)
+        calc_comb_stats(fn, ['all', 'no_LBP', 'dwsb', 'gwsb', 'ws', 'dwb'], serie=ser, show_now=False)
         print '\n'
     plt.show()
 
