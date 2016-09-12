@@ -769,9 +769,6 @@ def comb_salmap(types):
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
-    # TODO 5: vybrat idealni kombinaci salmap
-    # TODO 6: porovnat data
-
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # calc segmentation accuracy
     # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a1_b1/seg_stats.xlsx',
@@ -791,13 +788,13 @@ if __name__ == '__main__':
 
     # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_hydohy/seg_stats.xlsx',]
 
-    for fn in fnames:
-        print fn.split('/')[-2]
-        ser = '-'.join(fn.split('/')[-2].split('_')[1:])
-        # calc_stats(fn, serie=ser, show_now=False)
-        calc_comb_stats(fn, ['all', 'no_LBP', 'dwsb', 'gwsb', 'ws', 'dwb'], serie=ser, show_now=False)
-        print '\n'
-    plt.show()
+    # for fn in fnames:
+    #     print fn.split('/')[-2]
+    #     ser = '-'.join(fn.split('/')[-2].split('_')[1:])
+    #     # calc_stats(fn, serie=ser, show_now=False)
+    #     calc_comb_stats(fn, ['all', 'no_LBP', 'dwsb', 'gwsb', 'ws', 'dwb'], serie=ser, show_now=False)
+    #     print '\n'
+    # plt.show()
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # mrfing
@@ -914,3 +911,38 @@ if __name__ == '__main__':
     # plt.figure()
     # plt.imshow(data, 'gray', interpolation='nearest')
     # plt.show()
+
+    # vyber lozisek do TEXtu
+    # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/232_arterial-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/232_arterial-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/232_venous-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/235_venous-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/235_arterial-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/189a_venous-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/234_venous-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/185a_arterial-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/185a_venous-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/183a_arterial-GT.pklz',
+    #           '/home/tomas/Dropbox/Data/medical/dataset/gt/180_arterial-GT.pklz']
+    # slices = [6, 20, 8, 34, 13, 24, 6, 16, 17, 12, 11]
+
+    fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/235_arterial-GT.pklz',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/183a_arterial-GT.pklz',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/232_venous-GT.pklz',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/234_venous-GT.pklz',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/180_arterial-GT.pklz',
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/185a_venous-GT.pklz']
+    slices = [13, 12, 8, 6, 11, 17]
+
+    for f, s in zip(fnames, slices):
+        data, gt_mask, voxel_size = tools.load_pickle_data(f)
+        data = tools.windowing(data)
+        data = data[s,...]
+        gt_mask = gt_mask[s,...]
+
+        plt.figure()
+        plt.subplot(121), plt.imshow(data, 'gray', interpolation='nearest'), plt.axis('off')
+        # plt.subplot(122), plt.imshow(gt_mask, 'gray', interpolation='nearest')
+        plt.subplot(122), plt.imshow(skiseg.mark_boundaries(data, gt_mask==1, color=(1, 0, 0), mode='thick'), interpolation='nearest'), plt.axis('off')
+        plt.suptitle(f.split('/')[-1] + ', ' + str(s))
+    plt.show()
