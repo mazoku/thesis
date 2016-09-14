@@ -643,6 +643,7 @@ def pure_salmap():
 
 def comb_salmap(types):
     datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/'
+    outpath = datapath + 'res/'
     files = []
     for (dirpath, dirnames, filenames) in os.walk(datapath):
         filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
@@ -680,11 +681,11 @@ def comb_salmap(types):
                 salmaps.append(sm)
         # salmap = np.array(salmaps).mean(axis=0)
         all = np.median(np.array(salmaps), axis=0)
-        tit_all = 'all_med'
+        tit_all = 'all'
 
         smtp = ['int diff', 'int hist', 'int glcm', 'int sliwin', 'circloids', 'blobs']
         no_texture = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
-        tit_no_texture = 'no_texture_med'
+        tit_no_texture = 'no_texture'
 
         smtp = ['int diff', 'int sliwin', 'circloids', 'blobs']
         dscb = np.median(np.array([salmaps[j] for j in range(len(types)) if types[j] in smtp]), axis=0)
@@ -723,31 +724,37 @@ def comb_salmap(types):
             im_bb, mask_bb = tools.crop_to_bbox(im, mask > 0)
             salmap, __ = tools.crop_to_bbox(salmap, mask > 0)
 
+            out_fname = outpath + fname.split('/')[-1].replace('sm', 'res').replace('.pklz', '-%s.pklz' % tit)
+
+            out_dat = [im_bb, salmap, res]
+            with gzip.open(out_fname, 'wb', compresslevel=1) as f:
+                pickle.dump(out_dat, f)
+
             # results = (im_bb, salmap, res, unary_bgd, unary_obj, tit)
 
-            gt, __ = tools.crop_to_bbox((mask == 1).astype(np.uint8), mask > 0)
-            precision, recall, f_measure = tools.segmentation_accuracy(res, gt)
-            # accuracy = (f_measure, precision, recall)
-            data_res.append((tit, f_measure, precision, recall))
-
-            # fig = plt.figure(figsize=(24, 14))
-            im_overlay = res + 3 * gt
-            im_overlay = skicol.label2rgb(im_overlay, colors=['magenta', 'yellow', 'green', 'white'], bg_label=0,
-                                          alpha=1)
-            plt.suptitle('im | %s | res | gt || res bounds | gt bounds | overlay' % tit)
-            plt.subplot(241), plt.imshow(im_bb * mask_bb, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(242), plt.imshow(salmap, 'jet', interpolation='nearest'), plt.axis('off')
-            plt.subplot(243), plt.imshow(res, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(244), plt.imshow(gt, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(245), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, res, color=(1, 0, 0), mode='thick'),
-                                         interpolation='nearest'), plt.axis('off')
-            plt.subplot(246), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, gt, color=(1, 0, 0), mode='thick'),
-                                         interpolation='nearest'), plt.axis('off')
-            plt.subplot(247), plt.imshow(im_overlay, interpolation='nearest'), plt.axis('off')
-            fig_fname = fname.replace('hypo/', 'hypo/res/').replace('.pklz', '-%s-seg.png' % tit.replace(' ', '_'))
-            fig.savefig(fig_fname)
-            # plt.close('all')
-            fig.clf()
+            # gt, __ = tools.crop_to_bbox((mask == 1).astype(np.uint8), mask > 0)
+            # precision, recall, f_measure = tools.segmentation_accuracy(res, gt)
+            # # accuracy = (f_measure, precision, recall)
+            # data_res.append((tit, f_measure, precision, recall))
+            #
+            # # fig = plt.figure(figsize=(24, 14))
+            # im_overlay = res + 3 * gt
+            # im_overlay = skicol.label2rgb(im_overlay, colors=['magenta', 'yellow', 'green', 'white'], bg_label=0,
+            #                               alpha=1)
+            # plt.suptitle('im | %s | res | gt || res bounds | gt bounds | overlay' % tit)
+            # plt.subplot(241), plt.imshow(im_bb * mask_bb, 'gray', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(242), plt.imshow(salmap, 'jet', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(243), plt.imshow(res, 'gray', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(244), plt.imshow(gt, 'gray', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(245), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, res, color=(1, 0, 0), mode='thick'),
+            #                              interpolation='nearest'), plt.axis('off')
+            # plt.subplot(246), plt.imshow(skiseg.mark_boundaries(im_bb * mask_bb, gt, color=(1, 0, 0), mode='thick'),
+            #                              interpolation='nearest'), plt.axis('off')
+            # plt.subplot(247), plt.imshow(im_overlay, interpolation='nearest'), plt.axis('off')
+            # fig_fname = fname.replace('hypo/', 'hypo/res/').replace('.pklz', '-%s-seg.png' % tit.replace(' ', '_'))
+            # fig.savefig(fig_fname)
+            # # plt.close('all')
+            # fig.clf()
 
         sheet_res.append((fname.split('/')[-1], data_res))
         print 'done'
@@ -802,14 +809,14 @@ if __name__ == '__main__':
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # comb salmaps
-    # comb_salmap(['int diff', 'int hist', 'int glcm', 'int sliwin', 'texture', 'circloids', 'blobs'])
+    comb_salmap(['int diff', 'int hist', 'int glcm', 'int sliwin', 'texture', 'circloids', 'blobs'])
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # vypocet salmap --------------------
     # ds = get_data_struc()
     # for i, (data_ven_fn, data_art_fn, slics) in enumerate(ds):
-    #     if i < 4:
-    #         continue
+    #     # if i < 4:
+    #     #     continue
     #     print '\n#%i/%i: ' % (i + 1, len(ds))
     #     data_ven, mask_ven, vs = tools.load_pickle_data(data_ven_fn)
     #     data_art, mask_art, vs = tools.load_pickle_data(data_art_fn)
@@ -931,7 +938,8 @@ if __name__ == '__main__':
               '/home/tomas/Dropbox/Data/medical/dataset/gt/232_venous-GT.pklz',
               '/home/tomas/Dropbox/Data/medical/dataset/gt/234_venous-GT.pklz',
               '/home/tomas/Dropbox/Data/medical/dataset/gt/180_arterial-GT.pklz',
-              '/home/tomas/Dropbox/Data/medical/dataset/gt/185a_venous-GT.pklz']
+              '/home/tomas/Dropbox/Data/medical/dataset/gt/185a_venous-GT.pklz',
+              ]
     slices = [13, 12, 8, 6, 11, 17]
 
     for f, s in zip(fnames, slices):

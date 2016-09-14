@@ -66,35 +66,79 @@ def glcm_meanshift(glcm):
     print 'number of estimated clusters : %d' % n_clusters_
     print 'cluster centers :', cluster_centers
 
+    y_pred = ms.predict(data)
+    glcm_labs = np.zeros(glcm.shape, dtype=np.uint8)
+    for x, y in zip(data, y_pred):
+        glcm_labs[tuple(x)] = int(y + 1)
+
+    inds = np.argsort(ms.cluster_centers_.mean(axis=1))
+    glcm_labs2 = glcm_labs.copy()
+    for i, l in enumerate(inds):
+        glcm_labs2 = np.where(glcm_labs == l + 1, i + 1, glcm_labs2)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(glcm_labs)
+    # plt.subplot(122), plt.imshow(glcm_labs2)
+
+    glcm_labs = glcm_labs2
+
+    labint = ms.predict(np.vstack((range(0, 256), range(0, 256))).T)
+    labim = labint[img.flatten()].reshape(img.shape)
+    # labim += 10
+    labim2 = labim.copy()
+    for i, l in enumerate(inds):
+        labim2 = np.where(labim == l, i + 1, labim2)
+    labim = labim2
+
+    labim_f = scindifil.median_filter(labim, size=3)
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(img, 'gray', interpolation='nearest'), plt.axis('off')
+    # plt.subplot(132), plt.imshow(labim, 'jet', interpolation='nearest'), plt.axis('off')
+    # plt.subplot(133), plt.imshow(labim_f, 'jet', interpolation='nearest'), plt.axis('off')
+    # plt.show()
+
     # deriving seeds
-    int_labels = []
-    for x in range(256):
-        int_labels.append(ms.predict(np.array([[x, x]])))
-    seeds = np.array(int_labels)[img.flatten()].reshape(img.shape)
-    seeds_f = scindifil.median_filter(seeds, size=3)
+    # int_labels = []
+    # for x in range(256):
+    #     int_labels.append(ms.predict(np.array([[x, x]])))
+    # seeds = np.array(int_labels)[img.flatten()].reshape(img.shape)
+    # seeds_f = scindifil.median_filter(seeds, size=3)
+
+    plt.figure()
+    plt.subplot(131), plt.imshow(img, 'gray', interpolation='nearest'), plt.axis('off')
+    plt.subplot(132), plt.imshow(labim, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
+    plt.subplot(133), plt.imshow(labim_f, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(glcm, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
+    for c in ms.cluster_centers_:
+        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
+    plt.subplot(122), plt.imshow(glcm_labs, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
+    for c in ms.cluster_centers_:
+        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
 
     # visualization
-    plt.figure()
-    plt.subplot(131), plt.imshow(img, 'gray'), plt.axis('off')
-    plt.subplot(132), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.axis('off')
-    plt.subplot(133), plt.imshow(seeds_f, 'jet', interpolation='nearest'), plt.axis('off')
-
-    plt.figure()
-    plt.subplot(121), plt.imshow(glcm, 'jet')
-    for c in cluster_centers:
-        plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
-    plt.axis('image')
-    plt.axis('off')
-    plt.subplot(122), plt.imshow(glcm, 'jet')
-    colors = itertools.cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
-    for k, col in zip(range(n_clusters_), colors):
-        my_members = labels == k
-        cluster_center = cluster_centers[k]
-        plt.plot(data[my_members, 0], data[my_members, 1], col + '.')
-        plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
-    plt.title('Estimated number of clusters: %d' % n_clusters_)
-    plt.axis('image')
-    plt.axis('off')
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(img, 'gray'), plt.axis('off')
+    # plt.subplot(132), plt.imshow(seeds, 'jet', interpolation='nearest'), plt.axis('off')
+    # plt.subplot(133), plt.imshow(seeds_f, 'jet', interpolation='nearest'), plt.axis('off')
+    #
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(glcm, 'jet')
+    # for c in cluster_centers:
+    #     plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    # plt.axis('image')
+    # plt.axis('off')
+    # plt.subplot(122), plt.imshow(glcm, 'jet')
+    # colors = itertools.cycle('bgrcmykbgrcmykbgrcmykbgrcmyk')
+    # for k, col in zip(range(n_clusters_), colors):
+    #     my_members = labels == k
+    #     cluster_center = cluster_centers[k]
+    #     plt.plot(data[my_members, 0], data[my_members, 1], col + '.')
+    #     plt.plot(cluster_center[0], cluster_center[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=8)
+    # plt.title('Estimated number of clusters: %d' % n_clusters_)
+    # plt.axis('image')
+    # plt.axis('off')
 
     plt.show()
 
@@ -251,7 +295,7 @@ def glcm_dpgmm(img):
     # plt.title('scores')
 
     print 'fitting DPGMM ...',
-    # dpgmm = mixture.GMM(n_components=6, covariance_type='tied')
+    # dpgmm = mixture.GMM(n_components=3, covariance_type='tied')
     dpgmm = mixture.DPGMM(n_components=6, covariance_type='tied', alpha=1.)
     dpgmm.fit(data)
     print 'done'
@@ -272,27 +316,49 @@ def glcm_dpgmm(img):
     print 'predicting DPGMM ...',
     data = data_from_glcm(glcm_o)
     y_pred = dpgmm.predict(data)
-    glcm_labs = np.zeros(glcm.shape)
+    glcm_labs = np.zeros(glcm.shape, dtype=np.uint8)
     for x, y in zip(data, y_pred):
-        glcm_labs[tuple(x)] = y + 1
+        glcm_labs[tuple(x)] = int(y + 1)
     print 'done'
 
-    glcm_labs += 10
-    remap = [()]
+    # glcm_labs += 10
+    inds = np.argsort(dpgmm.means_.mean(axis=1))
+    glcm_labs2 = glcm_labs.copy()
+    for i, l in enumerate(inds):
+        glcm_labs2 = np.where(glcm_labs == l + 1, i + 1, glcm_labs2)
+    glcm_labs = glcm_labs2
+    # glcm_labs3 = inds[glcm_labs.flatten()].reshape(glcm_labs.shape)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(glcm_labs)
+    # plt.subplot(122), plt.imshow(glcm_labs2)
+    # plt.show()
 
     labint = dpgmm.predict(np.vstack((range(0, 256), range(0,256))).T)
     labim = labint[img.flatten()].reshape(img.shape)
+    # labim += 10
+    labim2 = labim.copy()
+    for i, l in enumerate(inds):
+        labim2 = np.where(labim == l, i + 1, labim2)
+    labim = labim2
+    # labim3 = inds[labim.flatten()].reshape(labim.shape)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(labim)
+    # plt.subplot(122), plt.imshow(labim2)
+    # # plt.subplot(133), plt.imshow(labim3)
+    # plt.show()
+
     labim_f = scindifil.median_filter(labim, size=3)
     plt.figure()
     plt.subplot(131), plt.imshow(img, 'gray', interpolation='nearest'), plt.axis('off')
-    plt.subplot(132), plt.imshow(labim, 'jet', interpolation='nearest'), plt.axis('off')
-    plt.subplot(133), plt.imshow(labim_f, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(132), plt.imshow(labim, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
+    plt.subplot(133), plt.imshow(labim_f, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
 
     plt.figure()
-    plt.subplot(121), plt.imshow(glcm_o, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(121), plt.imshow(glcm_o, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
     for c in dpgmm.means_:
         plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
-    plt.subplot(122), plt.imshow(glcm_labs, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(122), plt.imshow(glcm_labs, 'jet', interpolation='nearest', vmin=0), plt.axis('off')
     for c in dpgmm.means_:
         plt.plot(c[0], c[1], 'o', markerfacecolor='w', markeredgecolor='k', markersize=12)
 
@@ -393,4 +459,4 @@ if __name__ == "__main__":
 
     glcm_dpgmm(img)
 
-    glcm_meanshift(img)
+    # glcm_meanshift(img)
