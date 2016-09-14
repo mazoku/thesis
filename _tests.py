@@ -69,7 +69,7 @@ def glcm_meanshift(glcm):
     # deriving seeds
     int_labels = []
     for x in range(256):
-        int_labels.append(ms.predict((x, x)))
+        int_labels.append(ms.predict(np.array([[x, x]])))
     seeds = np.array(int_labels)[img.flatten()].reshape(img.shape)
     seeds_f = scindifil.median_filter(seeds, size=3)
 
@@ -277,6 +277,17 @@ def glcm_dpgmm(img):
         glcm_labs[tuple(x)] = y + 1
     print 'done'
 
+    glcm_labs += 10
+    remap = [()]
+
+    labint = dpgmm.predict(np.vstack((range(0, 256), range(0,256))).T)
+    labim = labint[img.flatten()].reshape(img.shape)
+    labim_f = scindifil.median_filter(labim, size=3)
+    plt.figure()
+    plt.subplot(131), plt.imshow(img, 'gray', interpolation='nearest'), plt.axis('off')
+    plt.subplot(132), plt.imshow(labim, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(133), plt.imshow(labim_f, 'jet', interpolation='nearest'), plt.axis('off')
+
     plt.figure()
     plt.subplot(121), plt.imshow(glcm_o, 'jet', interpolation='nearest'), plt.axis('off')
     for c in dpgmm.means_:
@@ -373,13 +384,13 @@ def add_mask():
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    add_mask()
-    # fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
-    # img = cv2.imread(fname, 0)
-    # img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
-    #
-    # # deriving_seeds_for_growcut(img)
-    #
-    # glcm_dpgmm(img)
+    # add_mask()
+    fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
+    img = cv2.imread(fname, 0)
+    img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
 
-    # glcm_meanshift(img)
+    # deriving_seeds_for_growcut(img)
+
+    glcm_dpgmm(img)
+
+    glcm_meanshift(img)

@@ -9,7 +9,6 @@ import itertools
 import xlsxwriter
 import openpyxl
 
-
 import cv2
 import skimage.segmentation as skiseg
 import skimage.morphology as skimor
