@@ -69,10 +69,6 @@ def calc_saliencies(data, mask, smoothing=True, save=False, save_fig=False, type
     data_struc = [(data, 'input'),]
     data_f = img_as_float(data)
     print 'calculating:',
-    if 'c' in types:
-        print 'circloids ...',
-        circ = sf.conspicuity_calculation(data_f, sal_type='circloids', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True)
-        data_struc.append((circ, 'circloids'))
     if 'd' in types:
         print 'int diff ...',
         id = sf.conspicuity_calculation(data_f, sal_type='int_diff', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=morph_proc)
@@ -94,6 +90,10 @@ def calc_saliencies(data, mask, smoothing=True, save=False, save_fig=False, type
         print 'texture ...',
         t = sf.conspicuity_calculation(data_f, sal_type='texture', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=False)
         data_struc.append((t, 'texture'))
+    if 'c' in types:
+        print 'circloids ...',
+        circ = sf.conspicuity_calculation(data_f, sal_type='circloids', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True)
+        data_struc.append((circ, 'circloids'))
     if 'b' in types:
         print 'blobs ...',
         blobs = sf.conspicuity_calculation(data_f, sal_type='blobs', mask=mask, calc_features=False, use_sigmoid=False, morph_proc=True, verbose=False)
@@ -123,6 +123,8 @@ def calc_saliencies(data, mask, smoothing=True, save=False, save_fig=False, type
             plt.show()
         plt.close('all')
 
+    return data_struc
+
 
 def localize(data, mask, show=False, show_now=True):
     data, mask = tools.crop_to_bbox(data, mask>0)
@@ -130,7 +132,7 @@ def localize(data, mask, show=False, show_now=True):
     sals = calc_saliencies(data, mask, show=show, show_now=show_now)
 
 
-def get_data_struc():
+def get_data_struc(reshape=False):
     '''
     datastruc: [(venous data, arterial data, slices, offset), ...]
     datastruc: [(venous data, arterial data, slices), ...]
@@ -161,6 +163,13 @@ def get_data_struc():
 
     # data_struc = [(dirpath + x[0], dirpath + 'registered/' + x[1], x[2]) for x in data_struc]
     data_struc = [(dirpath + x[0], dirpath + x[1], x[2]) for x in data_struc]
+
+    if reshape:
+        data_out = []
+        for im1, im2, slics in data_struc:
+            for s1, s2 in slics:
+                data_out.append((im1, im2, s1, s2))
+        data_struc = data_out
 
     return data_struc
 
@@ -771,6 +780,29 @@ def comb_salmap(types):
     print 'writing results to XLSX ...',
     seg_acc_to_xlsx(sheet_res, fname=datapath + 'res/seg_stats.xlsx', tits=comb_tits)
     print 'done'
+
+
+def comb_salmap_from_scratch():
+    # loading data
+    datas = get_data_struc(reshape=True)
+
+    # iterating
+    for fn1, fn2, s1, s2 in datas:
+        # processing first image
+        im1, gt_mask1, __ = tools.load_pickle_data(fn1)
+        im1 = im1[s1,...]
+        gt_mask1 = gt_mask1[s1,...]
+        im1 = tools.windowing(im1)
+
+        salmaps1 = calc_saliencies(im1, gt_mask1 > 0, save=False)
+
+        # processinf second image
+        im2, gt_mask2, __ = tools.load_pickle_data(fn2)
+        im2 = im2[s2, ...]
+        gt_mask2 = gt_mask2[s2, ...]
+        im2 = tools.windowing(im2)
+
+
 
 
 ################################################################################
