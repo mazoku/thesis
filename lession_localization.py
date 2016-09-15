@@ -796,6 +796,8 @@ def comb_salmap_from_scratch():
 
         salmaps1 = calc_saliencies(im1, gt_mask1 > 0, save=False)
 
+        # TODO: rovnou tady vybrat ten nejlepsi vysledek
+
         # processinf second image
         im2, gt_mask2, __ = tools.load_pickle_data(fn2)
         im2 = im2[s2, ...]
