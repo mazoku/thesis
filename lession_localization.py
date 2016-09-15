@@ -651,8 +651,9 @@ def pure_salmap():
 
 
 def comb_salmap(types):
-    datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/'
-    outpath = datapath + 'res/'
+    # datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/'
+    datapath = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/'
+    # outpath = datapath + 'res/'
     files = []
     for (dirpath, dirnames, filenames) in os.walk(datapath):
         filenames = [x for x in filenames if x.split('.')[-1] == 'pklz']
@@ -663,7 +664,7 @@ def comb_salmap(types):
     # files = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/232_venous-GT-sm-2.pklz',]
 
     sheet_res = []
-    fig = plt.figure(figsize=(24, 14))
+    # fig = plt.figure(figsize=(24, 14))
     for i, fname in enumerate(files):
         # i = 1
         # fname = files[1]
@@ -722,22 +723,36 @@ def comb_salmap(types):
         # plt.subplot(121), plt.imshow(salmap_mea, interpolation='nearest')
         # plt.subplot(122), plt.imshow(salmap_med, interpolation='nearest')
         # plt.show()
+        best_dat = None
+        best_fm = 0
+        best_fname = ''
         for salmap, tit in zip(comb_salmaps, comb_tits):
             print tit, ' ... ',
-            # res, unary_bgd, unary_obj = mrfing(im, mask > 0, salmap, salmap_name=tit, smoothing=True, show=True,
-            #                                    show_now=True)
-            res, unary_bgd, unary_obj = mrfing_hydohy(im, mask > 0, smoothing=True, show=False,
+            res, unary_bgd, unary_obj = mrfing(im, mask > 0, salmap, salmap_name=tit, smoothing=True, show=False,
                                                show_now=True)
+            # res, unary_bgd, unary_obj = mrfing_hydohy(im, mask > 0, smoothing=True, show=False,
+            #                                    show_now=True)
             res = np.where(res == -1, 0, res).astype(np.uint8)
 
             im_bb, mask_bb = tools.crop_to_bbox(im, mask > 0)
             salmap, __ = tools.crop_to_bbox(salmap, mask > 0)
 
-            out_fname = outpath + fname.split('/')[-1].replace('sm', 'res').replace('.pklz', '-%s.pklz' % tit)
+            # out_fname = outpath + fname.split('/')[-1].replace('sm', 'res').replace('.pklz', '-%s.pklz' % tit)
+            # csm_fname = datapath + 'comb_sm/' + fname.split('/')[-1].replace('sm', tit)
+            res_fname = datapath + 'res/' + fname.split('/')[-1].replace('sm', 'res').replace('.pklz', '-%s.pklz' % tit)
 
             out_dat = [im_bb, salmap, res]
-            with gzip.open(out_fname, 'wb', compresslevel=1) as f:
+            with gzip.open(res_fname, 'wb', compresslevel=1) as f:
                 pickle.dump(out_dat, f)
+
+            # looking for the best res ----
+            gt, __ = tools.crop_to_bbox((mask == 1).astype(np.uint8), mask > 0)
+            precision, recall, f_measure = tools.segmentation_accuracy(res, gt)
+            if f_measure > best_fm:
+                best_fm = f_measure
+                best_dat = out_dat[:]
+                best_fname = res_fname.replace('res/', 'res/best/')
+            #----
 
             # results = (im_bb, salmap, res, unary_bgd, unary_obj, tit)
 
@@ -765,21 +780,27 @@ def comb_salmap(types):
             # # plt.close('all')
             # fig.clf()
 
-        sheet_res.append((fname.split('/')[-1], data_res))
+        # saving the best res ----
+        if best_fm > 0:
+            with gzip.open(best_fname, 'wb', compresslevel=1) as f:
+                pickle.dump(best_dat, f)
+        # ----
+
+        # sheet_res.append((fname.split('/')[-1], data_res))
         print 'done'
 
         # if i == 1:
         #     break
 
-    print 'writing to disk ...',
-    fn = datapath + 'res/data_res.pklz'
-    with gzip.open(fn, 'wb') as f:
-        pickle.dump(sheet_res, f)
-    print 'done'
-
-    print 'writing results to XLSX ...',
-    seg_acc_to_xlsx(sheet_res, fname=datapath + 'res/seg_stats.xlsx', tits=comb_tits)
-    print 'done'
+    # print 'writing to disk ...',
+    # fn = datapath + 'res/data_res.pklz'
+    # with gzip.open(fn, 'wb') as f:
+    #     pickle.dump(sheet_res, f)
+    # print 'done'
+    #
+    # print 'writing results to XLSX ...',
+    # seg_acc_to_xlsx(sheet_res, fname=datapath + 'res/seg_stats.xlsx', tits=comb_tits)
+    # print 'done'
 
 
 def comb_salmap_from_scratch():
@@ -794,7 +815,8 @@ def comb_salmap_from_scratch():
         gt_mask1 = gt_mask1[s1,...]
         im1 = tools.windowing(im1)
 
-        salmaps1 = calc_saliencies(im1, gt_mask1 > 0, save=False)
+        # salmaps = [(sm1, tit1), (sm2, tit2), ...]
+        # salmaps1 = calc_saliencies(im1, gt_mask1 > 0, save=True)
 
         # TODO: rovnou tady vybrat ten nejlepsi vysledek
 
@@ -805,6 +827,42 @@ def comb_salmap_from_scratch():
         im2 = tools.windowing(im2)
 
 
+def combine_salmaps(salmaps_struc, types):
+    '''
+    salmap_struc = [[(sm1, tit1), (sm2, tit2), ...]], sm_ = ndarray, tit_ in {'int diff', 'int hist', ...}
+    types = [type1, type2, ...], type_ is combination of ['d', 'h', 'g', 'w', 't', 's', 'b'] or 'all' or 'no_texture'
+    '''
+    salmaps = [x[0] for x in salmaps_struc]
+    tits = [x[1] for x in salmaps_struc]
+
+    comb_salmaps = []
+    comb_tits = []
+
+    for i, type in enumerate(types):
+        smtp = []
+        if type == 'all':
+            type = 'dhgwtsp'
+        if type == 'no_texture':
+            type = 'dhgwsp'
+        if 'd' in type:
+            smtp.append('int_diff')
+        if 'h' in type:
+            smtp.append('int hist')
+        if 'g' in type:
+            smtp.append('int glcm')
+        if 'w' in type:
+            smtp.append('int sliwin')
+        if 't' in type:
+            smtp.append('texture')
+        if 's' in type:
+            smtp.append('circloids')
+        if 'b' in type:
+            smtp.append('blobs')
+
+        sm_comb = np.median(np.array([sm for sm, tit in zip(salmaps, tits) if tit in smtp]), axis=0)
+
+        comb_salmaps.append(sm_comb)
+        comb_tits.append(type)
 
 
 ################################################################################
