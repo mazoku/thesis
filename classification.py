@@ -36,6 +36,8 @@ def find_file(q_fname, q_sl, files):
 
     if len(fnames) > 1:
         raise ValueError('More than one file found.')
+
+    # TODO: IndexError
     return fnames[0]
 
 
