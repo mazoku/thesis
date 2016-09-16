@@ -74,7 +74,7 @@ def identify_tumors(im1, im2, gt1, gt2):
     im1 = filter_out_fp(im1, gt1)
 
 
-def pair_up_tumors(res1, res2, gt1, gt2):
+def pair_up_tumors(res1_in, res2_in, gt1_in, gt2_in):
     # olabelovat res1 a res2
     # iterovat pres labely res1
     #   je obj v gt1?
@@ -83,26 +83,57 @@ def pair_up_tumors(res1, res2, gt1, gt2):
     #       ano -> vytvorit par a ulozit
     #           -> clearnout prislusny obj v res2
     #       ne -> pouzit k vytvoreni paru oblast odpovidajici obj z res1
+    res1 = res1_in.copy()
+    res2 = tools.resize_ND(res2_in, shape=res1.shape)
+    gt1 = gt1_in.copy()
+    gt2 = tools.resize_ND(gt2_in.astype(np.uint8), shape=gt1.shape)
     lab_res1 = skimea.label(res1)
     lab_res2 = skimea.label(res2)
+    # lab_res2 = tools.resize_ND(lab_res2, shape=lab_res1.shape)
 
     fp = 0
     pairs = []
     for l in range(1, lab_res1.max() + 1):
-        obj = lab_res1 == l
-        if (obj * gt1).sum() > 0:  # prekryvaji se -> jedna se o TP
-            if (obj * lab_res2).sum() > 0:  # tumor detekovan i v druhych datech
-                # TODO: co kdyz v druhych datech bude tumor rozdelen na vice objektu?
-                lbls = lab_res2[np.nonzero(obj * lab_res2)]
-                hist, bins = skiexp.histogram(lbls)
-                lbl = bins[np.argmax(hist)]
+        obj1 = lab_res1 == l
+        if (obj1 * gt1).sum() > 0:  # prekryvaji se -> jedna se o TP
+            if (obj1 * lab_res2).sum() > 0:  # tumor detekovan i v druhych datech
+                lbls = lab_res2[np.nonzero(obj1 * lab_res2)]
+                uni_lbls = np.unique(lbls)
+                if len(uni_lbls) > 1:  # v pripade vice objektu vyberu ten nejcetnejsi
+                    hist, bins = skiexp.histogram(lbls)
+                    lbl = bins[np.argmax(hist)]
+                else:
+                    lbl = uni_lbls[0]  # jinak vezmu ten jediny
                 obj2 = lab_res2 == lbl
                 lab_res2 = np.where(obj2, 0, lab_res2)  # vynuluji - na konci se bude analyzovat zbytek v lab_res2
+                pair_type = 1  # v obou datech byly objekty
             else:  # v druhych datech tumor nedetekovan
-                obj2 = obj.copy()  # pouziji masku z res1
-            pairs.append((obj, obj2))  # ulozim korespondujici par lozisek
+                obj2 = obj1.copy()  # pouziji masku z res1
+                pair_type = 2  # druhy objekt nenalezen
+            pairs.append((obj1, obj2, pair_type))  # ulozim korespondujici par lozisek
         else:
             fp += 1
+
+    # zbyva zanalyzovat objekty v druhych datech, ktere nebyly sparovany s objekty v prvnich datech (nebyly vynulovany)
+    res_labs = np.unique(lab_res2)
+    for l in res_labs[1:]:  # 0 neni objekt ale pozadi
+        obj2 = lab_res2 == l
+        if (obj2 * gt2).sum() > 0:  # prekryvaji se -> jedna se o TP
+            obj1 = obj2.copy()  # prislusny obj1 musi byt neolabelovana oblast, jinak by byl jiz sparovan
+            pair_type = 3  # prvni objekt nenalezen
+            pairs.append((obj1, obj2, pair_type))
+
+    relab1 = np.zeros_like(lab_res1)
+    relab2 = np.zeros_like(lab_res2)
+    for i, (o1, o2, __) in enumerate(pairs):
+        relab1 = np.where(o1, i + 1, relab1)
+        relab2 = np.where(o2, i + 1, relab2)
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(relab1, interpolation='nearest')
+    # plt.subplot(122), plt.imshow(relab2, interpolation='nearest')
+    # plt.show()
+
+    return pairs
 
 
 ################################################################################
@@ -120,7 +151,8 @@ if __name__ == '__main__':
             files.append(os.path.join(dirpath, fname))
         break
 
-    for im1_fn, im2_fn, s1, s2 in datas:
+    for i, (im1_fn, im2_fn, s1, s2) in enumerate(datas):
+        print 'data # %i/%i ...' % (i + 1, len(datas))
         # getting ground-truth data
         __, gt_mask1, __ = tools.load_pickle_data(im1_fn)
         gt_mask1 = gt_mask1[s1, ...]
@@ -147,16 +179,25 @@ if __name__ == '__main__':
                 fcontent = f.read()
             im2, sm2, res2 = pickle.loads(fcontent)
 
-            identify_tumors(res1, res2, gt_mask1, gt_mask2)
+            # identify_tumors(res1, res2, gt_mask1, gt_mask2)
+            pairs = pair_up_tumors(res1, res2, gt_mask1, gt_mask2)
+            for j, (obj1, obj2, pair_type) in enumerate(pairs):
+                kw = fname1.split('/')[-1].split('.')[0].split('-')
+                nmb = kw[0].split('_')[0]
+                sl1 = kw[-2]
+                sl2 = fname2.split('/')[-1].split('.')[0].split('-')[-2]
+                outfn = '/'.join(fname1.split('/')[:-1]) + '/pairs/%s_sl-%s-%s_tp-%s.pklz' % (nmb, sl1, sl2, pair_type)
+                with gzip.open(outfn, 'wb', compresslevel=1) as f:
+                    pickle.dump(pairs, f)
 
-            plt.figure()
-            plt.subplot(241), plt.imshow(im1, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(242), plt.imshow(sm1, interpolation='nearest'), plt.axis('off')
-            plt.subplot(243), plt.imshow(res1, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('res')
-            plt.subplot(244), plt.imshow(gt_mask1, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('gt')
-
-            plt.subplot(245), plt.imshow(im2, 'gray', interpolation='nearest'), plt.axis('off')
-            plt.subplot(246), plt.imshow(sm2, interpolation='nearest'), plt.axis('off')
-            plt.subplot(247), plt.imshow(res2, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('res')
-            plt.subplot(248), plt.imshow(gt_mask2, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('gt')
-            plt.show()
+            # plt.figure()
+            # plt.subplot(241), plt.imshow(im1, 'gray', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(242), plt.imshow(sm1, interpolation='nearest'), plt.axis('off')
+            # plt.subplot(243), plt.imshow(res1, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('res')
+            # plt.subplot(244), plt.imshow(gt_mask1, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('gt')
+            #
+            # plt.subplot(245), plt.imshow(im2, 'gray', interpolation='nearest'), plt.axis('off')
+            # plt.subplot(246), plt.imshow(sm2, interpolation='nearest'), plt.axis('off')
+            # plt.subplot(247), plt.imshow(res2, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('res')
+            # plt.subplot(248), plt.imshow(gt_mask2, 'gray', interpolation='nearest'), plt.axis('off'), plt.title('gt')
+            # plt.show()
