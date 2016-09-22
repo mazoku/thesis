@@ -19,6 +19,7 @@ import skimage.color as skicol
 import saliency_fish as sf
 import mrf_segmentation as mrf_seg
 import active_contours as ac
+import liver_registration as livreg
 
 from PyQt4 import QtGui
 
@@ -865,9 +866,24 @@ def combine_salmaps(salmaps_struc, types):
         comb_tits.append(type)
 
 
+def show_data():
+    dat = livreg.get_data_struc()
+
+    app = QtGui.QApplication(sys.argv)
+    for i, (fn1, fn2, __, __) in enumerate(dat):
+        print fn1.split('/')[-1], fn2.split('/')[-1]
+        datap_1 = tools.load_pickle_data(fn1, return_datap=True)
+        datap_2 = tools.load_pickle_data(fn2, return_datap=True)
+        le = SegViewer(datap1=datap_1, datap2=datap_2)
+        le.show()
+        app.exec_()
+
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
+    show_data()
+    sys.exit(0)
+
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # calc segmentation accuracy
     # fnames = ['/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/vyber/hypo/res_a1_b1/seg_stats.xlsx',
