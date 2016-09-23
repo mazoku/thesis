@@ -2,8 +2,10 @@ from __future__ import division
 
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
 
 import lession_localization as lesloc
+import fuzzy as fuz
 
 import os
 import sys
@@ -12,6 +14,7 @@ import cPickle as pickle
 
 import skimage.measure as skimea
 import skimage.exposure as skiexp
+from sklearn.cluster import KMeans
 
 if os.path.exists('/home/tomas/projects/imtools/'):
     sys.path.insert(0, '/home/tomas/projects/imtools/')
@@ -245,12 +248,122 @@ def classify(pair):
     plt.show()
 
 
+def dominant_colors(img, mask=None, k=3):
+    if mask is None:
+        mask = np.ones_like(img)
+    clt = KMeans(n_clusters=k)
+    data = img[np.nonzero(mask)]
+    clt.fit(data.reshape(len(data), 1))
+    cents = clt.cluster_centers_
+
+    return cents
+
+
+def color_clustering(img, mask=None, colors=None, k=3):
+    if mask is None:
+        mask = np.ones(img.shape[:2])
+    if colors is None:
+        colors = dominant_colors(img, mask=mask, k=k)
+    diffs = np.array([np.abs(img - x) for x in colors])
+
+    clust = np.argmin(diffs, 0)
+    clust = np.where(mask, clust, -1)
+
+    print colors
+    plt.figure()
+    plt.subplot(121), plt.imshow(img, 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(clust, 'jet', interpolation='nearest')
+    plt.show()
+
+    return clust, colors
+
+
+def analyze_im_for_features(fn, show=True, show_now=True):
+    mask_fn = fn.replace('.%s' % (fn.split('.')[-1]), '_mask.%s' % (fn.split('.')[-1]))
+    im = cv2.imread(fn, 0)
+    ims = tools.smoothing(im, d=10, sigmaColor=50, sigmaSpace=10)
+    mask = cv2.imread(mask_fn, 0) > 0
+    pts = ims[np.nonzero(mask)]
+
+    # fuz.fcm(ims, mask=mask, n_clusters=2, show=True)
+    # color_clustering(ims, mask=mask, k=2)
+
+    hist, bins = skiexp.histogram(pts)
+    glcm = tools.graycomatrix_3D(ims, mask=mask)
+    # glcm *= glcm > 3
+
+    if show:
+        plt.figure()
+        plt.subplot(141), plt.imshow(im, 'gray', interpolation='nearest')
+        plt.subplot(142), plt.imshow(mask, 'gray', interpolation='nearest')
+        plt.subplot(143), plt.plot(bins, hist, 'b-')
+        plt.xlim([0, 255])
+        plt.subplot(144), plt.imshow(glcm, interpolation='nearest')#, vmax=5 * glcm.mean())
+        if show_now:
+            plt.show()
+
+    return bins, hist, glcm
+
+
+def features():
+    # HOMO
+    # fn_homo = '/home/tomas/Dropbox/Data/medical/features/cyst_venous.jpg'
+    # im_homo = cv2.imread(fn_homo, 0)
+    # mask_fn_homo = fn_homo.replace('.jpg', '_mask.jpg')
+    # mask_homo = cv2.imread(mask_fn_homo, 0)
+    # pts = im_homo[np.nonzero(mask_homo)]
+    # hist_homo, bins_homo = skiexp.histogram(pts)
+    # glcm_homo = tools.graycomatrix_3D(im_homo, mask=mask_homo)
+    # glcm_homo *= glcm_homo > 3
+    #
+    # plt.figure()
+    # plt.subplot(141), plt.imshow(im_homo, 'gray', interpolation='nearest')
+    # plt.subplot(142), plt.imshow(mask_homo, 'gray', interpolation='nearest')
+    # plt.subplot(143), plt.plot(bins_homo, hist_homo, 'b-')
+    # plt.xlim([0, 255])
+    # plt.subplot(144), plt.imshow(glcm_homo, interpolation='nearest')  # , vmax=5 * glcm.mean())
+    # plt.show()
+
+    # HETERO
+    # fn_hetero = '/home/tomas/Dropbox/Data/medical/features/flk_arterial.jpg'
+    # im_hetero = cv2.imread(fn_hetero, 0)
+    # mask_fn_hetero = fn_hetero.replace('.jpg', '_mask.jpg')
+    # mask_hetero = cv2.imread(mask_fn_hetero, 0)
+    # pts = im_hetero[np.nonzero(mask_hetero)]
+    # hist_hetero, bins_hetero = skiexp.histogram(pts)
+    # glcm_hetero = tools.graycomatrix_3D(im_hetero, mask=mask_hetero)
+    # glcm_hetero *= glcm_hetero > 3
+    #
+    # plt.figure()
+    # plt.subplot(141), plt.imshow(im_hetero, 'gray', interpolation='nearest')
+    # plt.subplot(142), plt.imshow(mask_hetero, 'gray', interpolation='nearest')
+    # plt.subplot(143), plt.plot(bins_hetero, hist_hetero, 'b-')
+    # plt.xlim([0, 255])
+    # plt.subplot(144), plt.imshow(glcm_hetero, interpolation='nearest')  # , vmax=5 * glcm.mean())
+    # plt.show()
+
+    # SCAR
+    # fn = '/home/tomas/Dropbox/Data/medical/features/fnh_arterial.png'
+    # fn = '/home/tomas/Dropbox/Data/medical/features/scar1.png'
+    # analyze_im_for_features(fn)
+
+    # CALCIFICATION
+    fn = '/home/tomas/Dropbox/Data/medical/features/flk_nect.png'
+    analyze_im_for_features(fn)
+
+    #TODO: updatovat prvni featury na pouziti fce analyze_im_for_features
+
+
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
     # pair up tumors ------
     # extract_and_save_pairs()
     # ------
+
+    # features
+    features()
+    sys.exit(0)
 
     # classification ------
     files = []
