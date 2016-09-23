@@ -1,6 +1,7 @@
 from __future__ import division
 
 import numpy as np
+import scipy.stats as scista
 import matplotlib.pyplot as plt
 import cv2
 
@@ -14,6 +15,8 @@ import cPickle as pickle
 
 import skimage.measure as skimea
 import skimage.exposure as skiexp
+import skimage.morphology as skimor
+import skimage.segmentation as skiseg
 from sklearn.cluster import KMeans
 
 if os.path.exists('/home/tomas/projects/imtools/'):
@@ -292,66 +295,107 @@ def analyze_im_for_features(fn, show=True, show_now=True):
     glcm = tools.graycomatrix_3D(ims, mask=mask)
     # glcm *= glcm > 3
 
+    # glcm_p = glcm > (0.4 * glcm.max())
+    glcm_p = glcm > 2 * (glcm[np.nonzero(glcm)].mean())
+    # glcm_p = glcm > (np.median(glcm[np.nonzero(glcm)]))
+    glcm_pts = np.nonzero(glcm_p)
+    width = glcm_pts[1].max() - glcm_pts[1].min()
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(glcm)
+    plt.subplot(122), plt.imshow(glcm_p, 'gray')
+    # plt.show()
+
+    mu, std = scista.norm.fit(pts.flatten())
+    # b = scista.norm.pdf(bins, mu, std)
+    # k = hist.max() / b.max()
+    # plt.figure()
+    # plt.plot(bins, hist, 'b-')
+    # plt.plot(bins, k * b, 'r-')
+    # plt.show()
+
     if show:
         plt.figure()
-        plt.subplot(141), plt.imshow(im, 'gray', interpolation='nearest')
-        plt.subplot(142), plt.imshow(mask, 'gray', interpolation='nearest')
-        plt.subplot(143), plt.plot(bins, hist, 'b-')
+        plt.suptitle('std=%.2f, width=%i' % (std, width))
+        plt.subplot(131), plt.imshow(skiseg.mark_boundaries(im, mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+        # plt.subplot(142), plt.imshow(mask, 'gray', interpolation='nearest')
+        plt.subplot(132), plt.plot(bins, hist, 'b-')
         plt.xlim([0, 255])
-        plt.subplot(144), plt.imshow(glcm, interpolation='nearest')#, vmax=5 * glcm.mean())
+        plt.subplot(133), plt.imshow(glcm, interpolation='nearest')#, vmax=5 * glcm.mean())
         if show_now:
             plt.show()
 
     return bins, hist, glcm
 
 
+def detect_capsule(fn):
+    mask_fn = fn.replace('.%s' % (fn.split('.')[-1]), '_mask.%s' % (fn.split('.')[-1]))
+    im = cv2.imread(fn, 0)
+    mask = cv2.imread(mask_fn, 0)
+    mask_in = mask > 254 # 220
+    mask_in = skimor.remove_small_holes(mask_in)
+    mask_in = skimor.binary_opening(mask_in, selem=skimor.disk(5))
+    # mask_caps = mask > 20 * mask < 100
+    mask_caps = (20 < mask) * (mask < 150)
+    # mask_caps = (mask > 20) - mask_in
+
+    mask_caps_c = skimor.remove_small_holes(mask_caps, min_size=500)
+
+    mask_caps_e = skimor.binary_erosion(mask_caps_c, selem=skimor.disk(3)) * mask_caps
+
+    inside = 2 * mask_caps_c - mask_in
+
+    plt.figure()
+    plt.suptitle('in, detected objs, filled caps, inside test')
+    plt.subplot(141), plt.imshow(im, 'gray', interpolation='nearest')
+    plt.subplot(142), plt.imshow(2 * mask_caps_e + mask_in, 'gray', interpolation='nearest')
+    # plt.subplot(141), plt.imshow(mask_in, 'gray', interpolation='nearest')
+    # plt.subplot(142), plt.imshow(mask_caps, 'gray', interpolation='nearest')
+    plt.subplot(143), plt.imshow(mask_caps_c, 'gray', interpolation='nearest')
+    plt.subplot(144), plt.imshow(inside, 'gray', interpolation='nearest')
+    # plt.subplot(236), plt.imshow(mask_in + mask_caps, 'gray', interpolation='nearest')
+    plt.show()
+
+
 def features():
     # HOMO
-    # fn_homo = '/home/tomas/Dropbox/Data/medical/features/cyst_venous.jpg'
-    # im_homo = cv2.imread(fn_homo, 0)
-    # mask_fn_homo = fn_homo.replace('.jpg', '_mask.jpg')
-    # mask_homo = cv2.imread(mask_fn_homo, 0)
-    # pts = im_homo[np.nonzero(mask_homo)]
-    # hist_homo, bins_homo = skiexp.histogram(pts)
-    # glcm_homo = tools.graycomatrix_3D(im_homo, mask=mask_homo)
-    # glcm_homo *= glcm_homo > 3
-    #
-    # plt.figure()
-    # plt.subplot(141), plt.imshow(im_homo, 'gray', interpolation='nearest')
-    # plt.subplot(142), plt.imshow(mask_homo, 'gray', interpolation='nearest')
-    # plt.subplot(143), plt.plot(bins_homo, hist_homo, 'b-')
-    # plt.xlim([0, 255])
-    # plt.subplot(144), plt.imshow(glcm_homo, interpolation='nearest')  # , vmax=5 * glcm.mean())
-    # plt.show()
+    print 'homo ...',
+    fn_homo = '/home/tomas/Dropbox/Data/medical/features/cyst_venous.png'
+    analyze_im_for_features(fn_homo, show_now=False)
+    print 'done'
 
     # HETERO
-    # fn_hetero = '/home/tomas/Dropbox/Data/medical/features/flk_arterial.jpg'
-    # im_hetero = cv2.imread(fn_hetero, 0)
-    # mask_fn_hetero = fn_hetero.replace('.jpg', '_mask.jpg')
-    # mask_hetero = cv2.imread(mask_fn_hetero, 0)
-    # pts = im_hetero[np.nonzero(mask_hetero)]
-    # hist_hetero, bins_hetero = skiexp.histogram(pts)
-    # glcm_hetero = tools.graycomatrix_3D(im_hetero, mask=mask_hetero)
-    # glcm_hetero *= glcm_hetero > 3
-    #
-    # plt.figure()
-    # plt.subplot(141), plt.imshow(im_hetero, 'gray', interpolation='nearest')
-    # plt.subplot(142), plt.imshow(mask_hetero, 'gray', interpolation='nearest')
-    # plt.subplot(143), plt.plot(bins_hetero, hist_hetero, 'b-')
-    # plt.xlim([0, 255])
-    # plt.subplot(144), plt.imshow(glcm_hetero, interpolation='nearest')  # , vmax=5 * glcm.mean())
-    # plt.show()
+    print 'hetero ...',
+    fn_hetero = '/home/tomas/Dropbox/Data/medical/features/flk_arterial.png'
+    analyze_im_for_features(fn_hetero)
+    print 'done'
 
     # SCAR
+    # print 'scar ...',
     # fn = '/home/tomas/Dropbox/Data/medical/features/fnh_arterial.png'
     # fn = '/home/tomas/Dropbox/Data/medical/features/scar1.png'
     # analyze_im_for_features(fn)
+    # print 'done'
 
     # CALCIFICATION
-    fn = '/home/tomas/Dropbox/Data/medical/features/flk_nect.png'
-    analyze_im_for_features(fn)
+    # print 'calcification ...',
+    # fn = '/home/tomas/Dropbox/Data/medical/features/flk_nect.png'
+    # analyze_im_for_features(fn)
+    # print 'done'
 
-    #TODO: updatovat prvni featury na pouziti fce analyze_im_for_features
+    # CAPSULE HYPO
+    # fn =
+
+    # CAPSULE HYPER
+    # print 'capsule ...',
+    # fn = '/home/tomas/Dropbox/Data/medical/features/imgTum.png'
+    # detect_capsule(fn)
+    # print 'done'
+
+    # HEMORRHAGE
+    # print 'hemorrhage ...',
+    # fn =
+    # print 'done'
 
 
 ################################################################################
