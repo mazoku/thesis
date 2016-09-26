@@ -332,6 +332,11 @@ def detect_capsule(fn):
     mask_fn = fn.replace('.%s' % (fn.split('.')[-1]), '_mask.%s' % (fn.split('.')[-1]))
     im = cv2.imread(fn, 0)
     mask = cv2.imread(mask_fn, 0)
+
+    # plt.figure()
+    # plt.subplot(131), plt.imshow(skiseg.mark_boundaries(im, mask, color=(1,0,0), mode='thick')), plt.axis('off')
+    # plt.show()
+
     mask_in = mask > 254 # 220
     mask_in = skimor.remove_small_holes(mask_in)
     mask_in = skimor.binary_opening(mask_in, selem=skimor.disk(5))
@@ -359,20 +364,20 @@ def detect_capsule(fn):
 
 def features():
     # HOMO
-    print 'homo ...',
-    fn_homo = '/home/tomas/Dropbox/Data/medical/features/cyst_venous.png'
-    analyze_im_for_features(fn_homo, show_now=False)
-    print 'done'
+    # print 'homo ...',
+    # fn_homo = '/home/tomas/Dropbox/Data/medical/features/cyst_venous.png'
+    # analyze_im_for_features(fn_homo, show_now=False)
+    # print 'done'
 
     # HETERO
-    print 'hetero ...',
-    fn_hetero = '/home/tomas/Dropbox/Data/medical/features/flk_arterial.png'
-    analyze_im_for_features(fn_hetero)
-    print 'done'
+    # print 'hetero ...',
+    # fn_hetero = '/home/tomas/Dropbox/Data/medical/features/flk_arterial.png'
+    # analyze_im_for_features(fn_hetero)
+    # print 'done'
 
     # SCAR
     # print 'scar ...',
-    # fn = '/home/tomas/Dropbox/Data/medical/features/fnh_arterial.png'
+    # # fn = '/home/tomas/Dropbox/Data/medical/features/fnh_arterial.png'
     # fn = '/home/tomas/Dropbox/Data/medical/features/scar1.png'
     # analyze_im_for_features(fn)
     # print 'done'
@@ -393,9 +398,10 @@ def features():
     # print 'done'
 
     # HEMORRHAGE
-    # print 'hemorrhage ...',
-    # fn =
-    # print 'done'
+    print 'hemorrhage ...',
+    fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_local/feature_hemorr.png'
+    analyze_im_for_features(fn)
+    print 'done'
 
 
 ################################################################################
