@@ -373,10 +373,19 @@ def hemorr_vs_capsule():
     caps = cv2.imread(caps_fn, 0)
     caps_mask = cv2.imread(caps_mask_fn, 0) > 0
 
+    hem_comp = tools.compactness(hem_mask)
+    caps_comp = tools.compactness(caps_mask)
+
+    print 'hem comp = %.3f, caps comp = %.3f' % (hem_comp, caps_comp)
+
     #TODO: compactness
     plt.figure()
-    plt.subplot(121), plt.imshow(skiseg.mark_boundaries(hem, hem_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
-    plt.subplot(122), plt.imshow(skiseg.mark_boundaries(caps, caps_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+    plt.subplot(141), plt.imshow(skiseg.mark_boundaries(hem, hem_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(142), plt.imshow(hem_mask, 'gray', interpolation='nearest'), plt.axis('off')
+    plt.subplot(143), plt.imshow(skiseg.mark_boundaries(caps, caps_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(144), plt.imshow(caps_mask, 'gray', interpolation='nearest'), plt.axis('off')
     # plt.subplot(141), plt.imshow(hem, 'gray', interpolation='nearest')
     # plt.subplot(142), plt.imshow(hem_mask, 'gray', interpolation='nearest')
     # plt.subplot(143), plt.imshow(caps, 'gray', interpolation='nearest')
