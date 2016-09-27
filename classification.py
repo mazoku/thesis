@@ -362,6 +362,28 @@ def detect_capsule(fn):
     plt.show()
 
 
+def hemorr_vs_capsule():
+    hem_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_local/feature_hemorr.png'
+    hem_mask_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_local/feature_hemorr_mask2.png'
+    hem = cv2.imread(hem_fn, 0)
+    hem_mask = cv2.imread(hem_mask_fn, 0) > 0
+
+    caps_fn = '/home/tomas/Dropbox/Data/medical/features/imgTum_zoom.png'
+    caps_mask_fn = '/home/tomas/Dropbox/Data/medical/features/imgTum_zoom_mask.png'
+    caps = cv2.imread(caps_fn, 0)
+    caps_mask = cv2.imread(caps_mask_fn, 0) > 0
+
+    #TODO: compactness
+    plt.figure()
+    plt.subplot(121), plt.imshow(skiseg.mark_boundaries(hem, hem_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+    plt.subplot(122), plt.imshow(skiseg.mark_boundaries(caps, caps_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
+    # plt.subplot(141), plt.imshow(hem, 'gray', interpolation='nearest')
+    # plt.subplot(142), plt.imshow(hem_mask, 'gray', interpolation='nearest')
+    # plt.subplot(143), plt.imshow(caps, 'gray', interpolation='nearest')
+    # plt.subplot(144), plt.imshow(caps_mask, 'gray', interpolation='nearest')
+    plt.show()
+
+
 def features():
     # HOMO
     # print 'homo ...',
@@ -398,10 +420,13 @@ def features():
     # print 'done'
 
     # HEMORRHAGE
-    print 'hemorrhage ...',
-    fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_local/feature_hemorr.png'
-    analyze_im_for_features(fn)
-    print 'done'
+    # print 'hemorrhage ...',
+    # fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_local/feature_hemorr.png'
+    # analyze_im_for_features(fn)
+    # print 'done'
+
+    # HEMORR vs CAPSULE
+    hemorr_vs_capsule()
 
 
 ################################################################################
