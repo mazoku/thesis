@@ -8,6 +8,8 @@ import cv2
 import lession_localization as lesloc
 import fuzzy as fuz
 
+from collections import namedtuple
+
 import os
 import sys
 import gzip
@@ -378,7 +380,6 @@ def hemorr_vs_capsule():
 
     print 'hem comp = %.3f, caps comp = %.3f' % (hem_comp, caps_comp)
 
-    #TODO: compactness
     plt.figure()
     plt.subplot(141), plt.imshow(skiseg.mark_boundaries(hem, hem_mask, color=(1,0,0), mode='thick'), 'gray', interpolation='nearest')
     plt.axis('off')
@@ -438,6 +439,16 @@ def features():
     hemorr_vs_capsule()
 
 
+def create_dataset():
+    datasetpath = '/home/tomas/Dropbox/Data/medical/dataset/types'
+    files = []
+
+    dato = namedtuple('dato', 'type, art_fn, art_mask_fn, ven_fn, ven_mask_fn')
+    for dirpath, dirnames, filenames in os.walk(datasetpath):
+        for fname in filenames:
+            files.append(os.path.join(dirpath, fname))
+
+
 ################################################################################
 ################################################################################
 if __name__ == '__main__':
@@ -445,19 +456,22 @@ if __name__ == '__main__':
     # extract_and_save_pairs()
     # ------
 
+    # create dataset ------
+    create_dataset()
+    # ------
+
     # features
-    features()
-    sys.exit(0)
+    # features()
 
     # classification ------
-    files = []
-    datadir = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/res/best/pairs/'
-    for (dirpath, dirnames, filenames) in os.walk(datadir):
-        for fname in filenames:
-            files.append(os.path.join(dirpath, fname))
-    for f in files:
-        with gzip.open(f, 'rb') as f:
-            fcontent = f.read()
-        pair = pickle.loads(fcontent)
-        classify(pair)
+    # files = []
+    # datadir = '/home/tomas/Dropbox/Data/medical/dataset/gt/salmaps/res/best/pairs/'
+    # for (dirpath, dirnames, filenames) in os.walk(datadir):
+    #     for fname in filenames:
+    #         files.append(os.path.join(dirpath, fname))
+    # for f in files:
+    #     with gzip.open(f, 'rb') as f:
+    #         fcontent = f.read()
+    #     pair = pickle.loads(fcontent)
+    #     classify(pair)
     # ------
