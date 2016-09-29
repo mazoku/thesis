@@ -440,13 +440,77 @@ def features():
 
 
 def create_dataset():
-    datasetpath = '/home/tomas/Dropbox/Data/medical/dataset/types'
-    files = []
+    # datasetpath = '/home/tomas/Dropbox/Data/medical/dataset/types'
+    # files = []
+    #
+    # dato = namedtuple('dato', 'type, art_fn, art_mask_fn, ven_fn, ven_mask_fn')
+    # for dirpath, dirnames, filenames in os.walk(datasetpath):
+    #     for fname in filenames:
+    #         files.append(os.path.join(dirpath, fname))
 
-    dato = namedtuple('dato', 'type, art_fn, art_mask_fn, ven_fn, ven_mask_fn')
-    for dirpath, dirnames, filenames in os.walk(datasetpath):
-        for fname in filenames:
-            files.append(os.path.join(dirpath, fname))
+    # TODO: vykreslit ukazkovy vysledek
+    # TODO: nejaky negativni pripad?
+    # TODO: boxploty
+    # HCC
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_art.jpg'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_art_mask_1.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port.jpg'
+    port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port_mask_1.jpg'
+    port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port_mask_2.jpg'
+
+    # FLC
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_art.jpg'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_art_mask.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_port.jpg'
+    port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_port_mask.jpg'
+
+    # ICC
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_art.jpg'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_art_mask.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_port.jpg'
+    port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_port_mask.jpg'
+
+    # HAS
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_art.jpg'
+    art_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_art_mask_1.jpg'
+    art_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_art_mask_2.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port.jpg'
+    port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port_mask_1.jpg'
+    port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port_mask_2.jpg'
+
+    # meta
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_art.jpg'
+    art_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_art_mask_1.jpg'
+    art_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_art_mask_2.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port.jpg'
+    port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port_mask_1.jpg'
+    port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port_mask_2.jpg'
+
+    # HG
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_art.png'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_art_mask.png'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_port.png'
+    port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_port_mask.png'
+
+    # FNH
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_art.jpg'
+    art_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_art_mask_1.jpg'
+    art_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_art_mask_2.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port.jpg'
+    port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port_mask_1.jpg'
+    port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port_mask_2.jpg'
+
+    # HA
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_art.jpg'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_art_mask.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_port.jpg'
+    port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_port_mask.jpg'
+
+    # Cyst
+    art = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_art.jpg'
+    art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_art_mask.jpg'
+    port = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_port.jpg'
+    port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_port_mask.jpg'
 
 
 ################################################################################
