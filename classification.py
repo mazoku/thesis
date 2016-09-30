@@ -448,9 +448,23 @@ def create_dataset():
     #     for fname in filenames:
     #         files.append(os.path.join(dirpath, fname))
 
+    # TODO: boxploty
     # TODO: vykreslit ukazkovy vysledek
     # TODO: nejaky negativni pripad?
-    # TODO: boxploty
+
+    # confusion matrix
+    # HCC, FLC, ICC, HAS, meta, HG, FNH, HA, cyst
+    tp = 74
+    fn = 100 - tp  # zbytek radky
+    fp = 26
+
+    prec = tp / (tp + fp)
+    rec = tp / (tp + fn)
+    f = 2 * prec * rec / (prec + rec)
+
+    print prec, rec, f
+    sys.exit(0)
+
     # HCC
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_art.jpg'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_art_mask_1.jpg'
