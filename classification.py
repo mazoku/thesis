@@ -439,6 +439,31 @@ def features():
     hemorr_vs_capsule()
 
 
+def show_class(art, art_m1, art_m2, port, port_m1, port_m2):
+    im_a = cv2.imread(art, 0)
+    im_am1 = cv2.imread(art_m1, 0) > 100
+    if art_m2 is not None:
+        im_am2 = cv2.imread(art_m2, 0) > 100
+
+    im_p = cv2.imread(port, 0)
+    im_pm1 = cv2.imread(port_m1, 0) > 100
+    if port_m2 is not None:
+        im_pm2 = cv2.imread(port_m2, 0) > 100
+
+    vis_a = skiseg.mark_boundaries(im_a, im_am1, color=(1, 0, 0), mode='thick')
+    if art_m2 is not None:
+        vis_a = skiseg.mark_boundaries(vis_a, im_am2, color=(0, 0, 1), mode='thick')
+    vis_p = skiseg.mark_boundaries(im_p, im_pm1, color=(1, 0, 0), mode='thick')
+    if port_m2 is not None:
+        # vis_p = skiseg.mark_boundaries(vis_p, im_pm2, color=(0, 0.7, 0), mode='thick')
+        vis_p = skiseg.mark_boundaries(vis_p, im_pm2, color=(0, 0, 1), mode='thick')
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(vis_a, 'gray'), plt.axis('off')
+    plt.subplot(122), plt.imshow(vis_p, 'gray'), plt.axis('off')
+    plt.show()
+
+
 def create_dataset():
     # datasetpath = '/home/tomas/Dropbox/Data/medical/dataset/types'
     # files = []
@@ -448,22 +473,30 @@ def create_dataset():
     #     for fname in filenames:
     #         files.append(os.path.join(dirpath, fname))
 
-    # TODO: boxploty
     # TODO: vykreslit ukazkovy vysledek
     # TODO: nejaky negativni pripad?
 
-    # confusion matrix
-    # HCC, FLC, ICC, HAS, meta, HG, FNH, HA, cyst
-    tp = 74
-    fn = 100 - tp  # zbytek radky
-    fp = 26
-
-    prec = tp / (tp + fp)
-    rec = tp / (tp + fn)
-    f = 2 * prec * rec / (prec + rec)
-
-    print prec, rec, f
-    sys.exit(0)
+    # confusion matrix ------
+    # types = ('HCC', 'FLC', 'ICC', 'HAS', 'meta', 'HG', 'FNH', 'HA', 'cyst')
+    # cf = np.array([[74, 7, 2, 0, 6, 1, 5, 5, 0],
+    #                [6, 80, 0, 2, 0, 3, 8, 4, 0],
+    #                [1, 1, 69, 6, 7, 2, 8, 2, 4],
+    #                [1, 3, 4, 73, 8, 6, 1, 0, 4],
+    #                [5, 1, 8, 6, 66, 3, 6, 1, 4],
+    #                [2, 2, 3, 5, 3, 82, 0, 0, 3],
+    #                [6, 7, 7, 0, 8, 1, 65, 6, 0],
+    #                [6, 3, 4, 1, 0, 1, 5, 80, 0],
+    #                [0, 1, 3, 2, 2, 5, 0, 0, 87]])
+    # for i in range(cf.shape[0]):
+    #     tp = cf[i, i]
+    #     fn = 100 - tp
+    #     fp = cf[:, i].sum() - tp
+    #     prec = tp / (tp + fp)
+    #     rec = tp / (tp + fn)
+    #     f = 2 * prec * rec / (prec + rec)
+    #
+    #     print '%s: f=%.3f, prec=%.3f, rec=%.3f' % (types[i], f, prec, rec)
+    # ------
 
     # HCC
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_art.jpg'
@@ -471,18 +504,21 @@ def create_dataset():
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port.jpg'
     port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port_mask_1.jpg'
     port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_3_port_mask_2.jpg'
+    # show_class(art, art_m, None, port, port_m1, port_m2)
 
     # FLC
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_art.jpg'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_art_mask.jpg'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_port.jpg'
     port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/FLC/flc_1_port_mask.jpg'
+    # show_class(art, art_m, None, port, port_m, None)
 
     # ICC
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_art.jpg'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_art_mask.jpg'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_port.jpg'
     port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_5_port_mask.jpg'
+    # show_class(art, art_m, None, port, port_m, None)
 
     # HAS
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_art.jpg'
@@ -491,6 +527,7 @@ def create_dataset():
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port.jpg'
     port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port_mask_1.jpg'
     port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/HAS/has_3_port_mask_2.jpg'
+    # show_class(art, art_m1, art_m2, port, port_m1, port_m2)
 
     # meta
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_art.jpg'
@@ -498,13 +535,15 @@ def create_dataset():
     art_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_art_mask_2.jpg'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port.jpg'
     port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port_mask_1.jpg'
-    port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port_mask_2.jpg'
+    # port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/meta-hypo/meta-hypo_6_port_mask_2.jpg'
+    # show_class(art, art_m1, art_m2, port, port_m1, art_m2)
 
     # HG
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_art.png'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_art_mask.png'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_port.png'
     port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HG/hg_4_port_mask.png'
+    # show_class(art, art_m, None, port, port_m, None)
 
     # FNH
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_art.jpg'
@@ -513,19 +552,22 @@ def create_dataset():
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port.jpg'
     port_m1 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port_mask_1.jpg'
     port_m2 = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port_mask_2.jpg'
+    # show_class(art, art_m1, art_m2, port, port_m1, port_m2)
 
     # HA
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_art.jpg'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_art_mask.jpg'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_port.jpg'
     port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/HA/ha_5_port_mask.jpg'
+    # show_class(art, art_m, None, port, port_m, None)
 
     # Cyst
     art = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_art.jpg'
     art_m = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_art_mask.jpg'
     port = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_port.jpg'
     port_m = '/home/tomas/Dropbox/Data/medical/dataset/types/cyst/cyst_3_port_mask.jpg'
-
+    show_class(art, art_m, None, port, port_m, None)
+#
 
 ################################################################################
 ################################################################################
