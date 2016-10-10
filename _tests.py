@@ -13,8 +13,10 @@ from matplotlib.patches import Ellipse
 import skimage.exposure as skiexp
 import skimage.filters as skifil
 import skimage.morphology as skimor
+import skimage.segmentation as skiseg
 import skimage.measure as skimea
 import skimage.feature as skifea
+import skimage.color as skicol
 import scipy.ndimage.filters as scindifil
 
 from sklearn import mixture
@@ -27,6 +29,14 @@ if os.path.exists('../imtools/'):
     from imtools import tools, misc
 else:
     print 'You need to import package imtools: https://github.com/mjirik/imtools'
+    sys.exit(0)
+
+if os.path.exists('/home/tomas/projects/ShoPaBas/'):
+    sys.path.insert(0, '/home/tomas/projects/ShoPaBas/')
+    import ShoPaBas as spb
+else:
+    print 'Import error in %s. You need to import package ShoPaBas: https://github.com/mazoku/ShoPaBas'\
+          % os.path.basename(__file__)
     sys.exit(0)
 
 
@@ -500,7 +510,7 @@ def circloids():
 
     q1 = im[np.nonzero(lm == 200)].mean()
     q2 = im[np.nonzero(lm == 29)].mean()
-    q3= im[np.nonzero(lm == 104)].mean()
+    q3 = im[np.nonzero(lm == 104)].mean()
     q4 = im[np.nonzero(lm == 181)].mean()
     b = im[np.nonzero(gm == 200)].mean()
     c = im[np.nonzero(lm == 14)].mean()
@@ -514,6 +524,35 @@ def circloids():
     plt.show()
 
 
+def hetero_split():
+    orig = cv2.imread('/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_1_art.jpg', 0)
+    im = cv2.imread('/home/tomas/Dropbox/Data/medical/features/hetero_split.png', 0)
+    im = (im < 5 ) + 2 * (im > 250)
+
+    # plt.figure()
+    # plt.subplot(121), plt.imshow(orig, 'gray')
+    # plt.subplot(122), plt.imshow(im, 'gray')
+    # plt.show()
+
+    over = skicol.label2rgb(im, image=orig, colors=['blue', 'red'], bg_label=0)
+
+    mask = im > 0
+    mask = skimor.binary_closing(mask, selem=skimor.disk(3))
+    all = skiseg.mark_boundaries(orig, mask, color=(1, 0, 0), mode='thick')
+
+    plt.figure()
+    plt.subplot(131), plt.imshow(orig, 'gray'), plt.axis('off')
+    plt.subplot(132), plt.imshow(over, 'gray'), plt.axis('off')
+    plt.subplot(133), plt.imshow(all, 'gray'), plt.axis('off')
+    plt.show()
+
+
+def shopabas_example():
+    fname = '/home/tomas/Dropbox/Data/medical/dataset/types/FNH/fnh_4_port.jpg'
+    im = cv2.imread(fname, 0)
+    shopa = spb.ShoPaBas(data=im, data_type=spb.DATA_IMG)
+    spb.run()
+
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -522,7 +561,15 @@ if __name__ == "__main__":
     # ----
 
     # circloids ----
-    circloids()
+    # circloids()
+    #----
+
+    # hetero split ----
+    # hetero_split()
+    #----
+
+    # shopabas example
+    shopabas_example()
     #----
 
     # add_mask()
