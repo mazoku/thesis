@@ -447,16 +447,91 @@ def add_mask():
         # break
 
 
+def cell_smoothing():
+    img = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/grow_cut/vyrez.png', 0)
+
+    img1 = img < 10
+    img2 = (img > 50) * (img < 150)
+    img3 = img >= 150
+
+    img = img1 + 2 * img2 + 3 * img3
+
+    # plt.figure()
+    # plt.subplot(141), plt.imshow(img1, 'gray')
+    # plt.subplot(142), plt.imshow(img2, 'gray')
+    # plt.subplot(143), plt.imshow(img3, 'gray')
+    # plt.subplot(144), plt.imshow(img, 'gray')
+    # plt.show()
+
+    # median
+    a = 5
+    med = skifil.median(img, selem=np.ones((a, a)))
+
+    # cell smoothing
+    pts = np.argwhere(img).squeeze()
+    r = 7
+    nent = 0.5
+    img_cs = img.copy()
+    for p in pts:
+        lbl = img[tuple(p)]
+        m = np.zeros(img.shape)
+        cv2.circle(m, (p[1], p[0]), r, 1, thickness=-1)
+        surr_lbls = img[np.nonzero(m)]
+        # surr_lbls = [data[int(self.neighborsM[q, p])] for q in range(self.nghood)
+        #              if not np.isnan(self.neighborsM[q, p])]
+        enemies = [x != lbl for x in surr_lbls]
+        n_enemies = np.array(enemies).sum()
+        if n_enemies >= nent * m.sum():
+            hist, bins = skiexp.histogram(np.array(surr_lbls))
+            enem_lbl = bins[np.argmax(hist)]
+            img_cs[tuple(p)] = enem_lbl
+
+    plt.figure()
+    plt.subplot(131), plt.imshow(img, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(132), plt.imshow(med, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.subplot(133), plt.imshow(img_cs, 'jet', interpolation='nearest'), plt.axis('off')
+    plt.show()
+
+
+def circloids():
+    im = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/saliency/input_img.png', 0)
+    lm = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/saliency/local_mask.png', 0)
+    gm = cv2.imread('/home/tomas/Dropbox/Work/Dizertace/figures/saliency/global_mask.png', 0)
+
+    q1 = im[np.nonzero(lm == 200)].mean()
+    q2 = im[np.nonzero(lm == 29)].mean()
+    q3= im[np.nonzero(lm == 104)].mean()
+    q4 = im[np.nonzero(lm == 181)].mean()
+    b = im[np.nonzero(gm == 200)].mean()
+    c = im[np.nonzero(lm == 14)].mean()
+
+    print c, ' - ', b, ' - ', q1, ', ', q2, ', ', q3, ', ', q4
+
+    plt.figure()
+    plt.subplot(231), plt.imshow(im, 'gray', interpolation='nearest', vmax=255)
+    plt.subplot(232), plt.imshow(lm, 'jet', interpolation='nearest')
+    plt.subplot(233), plt.imshow(gm, 'jet', interpolation='nearest')
+    plt.show()
+
+
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
+    # cells smoothing ----
+    # cell_smoothing()
+    # ----
+
+    # circloids ----
+    circloids()
+    #----
+
     # add_mask()
-    fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
-    img = cv2.imread(fname, 0)
-    img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
+    # fname = '/home/tomas/Dropbox/Work/Dizertace/figures/liver_segmentation/input.png'
+    # img = cv2.imread(fname, 0)
+    # img = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
 
     # deriving_seeds_for_growcut(img)
 
-    glcm_dpgmm(img)
+    # glcm_dpgmm(img)
 
     # glcm_meanshift(img)

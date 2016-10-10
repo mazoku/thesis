@@ -477,25 +477,25 @@ def create_dataset():
     # TODO: nejaky negativni pripad?
 
     # confusion matrix ------
-    # types = ('HCC', 'FLC', 'ICC', 'HAS', 'meta', 'HG', 'FNH', 'HA', 'cyst')
-    # cf = np.array([[74, 7, 2, 0, 6, 1, 5, 5, 0],
-    #                [6, 80, 0, 2, 0, 3, 8, 4, 0],
-    #                [1, 1, 69, 6, 7, 2, 8, 2, 4],
-    #                [1, 3, 4, 73, 8, 6, 1, 0, 4],
-    #                [5, 1, 8, 6, 66, 3, 6, 1, 4],
-    #                [2, 2, 3, 5, 3, 82, 0, 0, 3],
-    #                [6, 7, 7, 0, 8, 1, 65, 6, 0],
-    #                [6, 3, 4, 1, 0, 1, 5, 80, 0],
-    #                [0, 1, 3, 2, 2, 5, 0, 0, 87]])
-    # for i in range(cf.shape[0]):
-    #     tp = cf[i, i]
-    #     fn = 100 - tp
-    #     fp = cf[:, i].sum() - tp
-    #     prec = tp / (tp + fp)
-    #     rec = tp / (tp + fn)
-    #     f = 2 * prec * rec / (prec + rec)
-    #
-    #     print '%s: f=%.3f, prec=%.3f, rec=%.3f' % (types[i], f, prec, rec)
+    types = ('HCC', 'FLC', 'ICC', 'HAS', 'meta', 'HG', 'FNH', 'HA', 'cyst')
+    cf = np.array([[74, 7, 2, 0, 6, 1, 5, 5, 0],
+                   [6, 77, 0, 2, 0, 3, 8, 4, 0],
+                   [1, 1, 69, 6, 7, 2, 8, 2, 4],
+                   [1, 3, 4, 73, 8, 6, 1, 0, 4],
+                   [5, 2, 9, 6, 64, 3, 6, 1, 4],
+                   [2, 2, 3, 5, 3, 82, 0, 0, 3],
+                   [6, 7, 4, 0, 8, 1, 68, 6, 0],
+                   [6, 3, 4, 1, 0, 1, 5, 80, 0],
+                   [0, 1, 3, 2, 2, 5, 0, 0, 87]])
+    for i in range(cf.shape[0]):
+        tp = cf[i, i]
+        fn = 100 - tp
+        fp = cf[:, i].sum() - tp
+        prec = tp / (tp + fp)
+        rec = tp / (tp + fn)
+        f = 2 * prec * rec / (prec + rec)
+
+        print '%s: f=%.3f, prec=%.3f, rec=%.3f' % (types[i], f, prec, rec)
     # ------
 
     # HCC
