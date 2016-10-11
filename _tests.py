@@ -553,6 +553,40 @@ def shopabas_example():
     shopa = spb.ShoPaBas(data=im, data_type=spb.DATA_IMG)
     spb.run()
 
+
+def tumors_visualisation():
+    # ICC - failed
+    # im_a_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_3_art.jpg'
+    # im_v_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_3_port.jpg'
+    # mask_a_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_3_art_mask.jpg'
+    # mask_v_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/ICC/icc_3_port_mask.jpg'
+
+    # HCC - failed
+    # im_a_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_1_art.jpg'
+    # im_v_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_1_port.jpg'
+    # mask_a_fn = '/home/tomas/Dropbox/Data/medical/dataset/types/HCC/hcc_1_art_mask.jpg'
+    # mask_v_fn = mask_a_fn
+
+    # HCC - failed
+    im_a_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_class/hcc_ex_art.jpg'
+    im_v_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_class/hcc_ex_port.jpg'
+    mask_a_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_class/hcc_ex_art_mask.jpg'
+    mask_v_fn = '/home/tomas/Dropbox/Work/Dizertace/figures/lesion_class/hcc_ex_port_mask.jpg'
+
+    im_a = cv2.imread(im_a_fn, 0)
+    im_v = cv2.imread(im_v_fn, 0)
+
+    mask_a = cv2.imread(mask_a_fn, 0) > 50
+    mask_v = cv2.imread(mask_v_fn, 0) > 50
+
+    plt.figure()
+    plt.subplot(121), plt.imshow(skiseg.mark_boundaries(im_a, mask_a, color=(1, 0, 0), mode='thick'), 'gray', interpolation='nearest')
+    plt.axis('off')
+    plt.subplot(122), plt.imshow(skiseg.mark_boundaries(im_v, mask_v, color=(1, 0, 0), mode='thick'), 'gray', interpolation='nearest')
+    plt.axis('off')
+    plt.show()
+
+
 #---------------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -569,7 +603,11 @@ if __name__ == "__main__":
     #----
 
     # shopabas example
-    shopabas_example()
+    # shopabas_example()
+    #----
+
+    # tumors visualisation ----
+    tumors_visualisation()
     #----
 
     # add_mask()
